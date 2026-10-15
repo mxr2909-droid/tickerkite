@@ -108,3 +108,39 @@ test("bad weight files fall back to defaults", () => {
 test("score labels", () => {
   assert.deepStrictEqual([80, 60, 50, 35, 10].map(S.label), ["Bullish", "Leaning bullish", "Neutral", "Leaning bearish", "Bearish"]);
 });
+
+test("relative scores are each asset minus the average of all six", () => {
+  const r = world({ growth: 1, inflation: 1, credit: 1 });
+  const scores = Object.values(r.assets).map((a) => a.score);
+  const mean = scores.reduce((x, y) => x + y, 0) / scores.length;
+  for (const a of Object.values(r.assets)) assert.strictEqual(a.rel, Math.round(a.score - mean));
+});
+
+test("hot inflation switches to the inflationary weights: bonds lose their hedge credit", () => {
+  // inflation hot and rising, markets stressed (VIX up)
+  const defs = [
+    { id: "i", section: "inflation", src: "fred:I", factor: "inflation", sign: 1, freq: "m" },
+    { id: "v", section: "credit", src: "fred:V", factor: "stress", sign: 1, freq: "m" }
+  ];
+  const up = monthly((i) => 50 + (i > 125 ? (i - 125) * 5 : Math.sin(i)));
+  const down = monthly((i) => 50 + (i > 125 ? -(i - 125) * 5 : Math.sin(i)));
+  const prep = (inf) => S.prepare(defs, { "fred:I": inf, "fred:V": up });
+  const hot = S.evaluate(defs, prep(up), S.mergeWeights(W, {}), now);
+  const off = S.evaluate(defs, prep(up), S.mergeWeights(W, { inflationary: {} }), now);
+  assert.ok(hot.mode.alpha > 0.99, "fully inflationary");
+  assert.ok(hot.assets.bonds.contrib.v === undefined, "stress no longer helps bonds");
+  assert.ok(off.assets.bonds.contrib.v > 0, "with overrides off, stress helps bonds");
+  assert.ok(hot.assets.bonds.score < off.assets.bonds.score);
+  const cold = S.evaluate(defs, prep(down), S.mergeWeights(W, {}), now);
+  assert.ok(cold.mode.alpha < 0.01, "cooling inflation: normal weights");
+  assert.ok(cold.assets.bonds.contrib.v > 0);
+});
+
+test("weights file: missing inflationary section uses defaults; an empty one switches overrides off", () => {
+  assert.deepStrictEqual(S.mergeWeights(W, {}).inflationary.bonds, W.inflationary.bonds);
+  assert.deepStrictEqual(S.mergeWeights(W, { inflationary: {} }).inflationary.bonds, {});
+  assert.deepStrictEqual(S.mergeWeights(W, { inflationary: { stocks: { growth: 1 } } }).inflationary, {
+    stocks: { growth: 1 }, bonds: {}, commodities: {}, realestate: {}, crypto: {}, alts: {}
+  });
+  assert.deepStrictEqual(S.mergeWeights(W, { assets: { stocks: { growth: 1 } } }).assets.bonds, W.assets.bonds, "assets still fill from defaults");
+});

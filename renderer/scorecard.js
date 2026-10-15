@@ -73,6 +73,23 @@
     </svg><div class="sc-sub" style="display:flex;justify-content:space-between"><span>12 months ago</span><span>50 = neutral</span><span>now</span></div>`;
   }
 
+  function relBar(d) {
+    const rows = d.assets.map(([k, l]) => [k, l, d.scores[k].rel]).sort((a, b) => b[2] - a[2]);
+    return `<div class="relbar" title="Each score minus the average of all six. Allocation is a relative decision: even when everything scores low, this shows the least and most exposed.">
+      <span class="rt">VS THE AVERAGE OF ALL SIX</span>
+      ${rows.map(([k, l, r], i) => `<button type="button" data-a="${k}" class="${k === K.asset ? "on" : ""}"><span class="rk">${i + 1}</span>${esc(l)} <b class="${r > 1 ? "up" : r < -1 ? "dn" : "dim"}">${r > 0 ? "+" : r < 0 ? "−" : "±"}${Math.abs(r)}</b></button>`).join("")}
+    </div>`;
+  }
+
+  function modeLine(m) {
+    if (!m) return "";
+    const pct = Math.round(m.alpha * 100);
+    const text = pct >= 67 ? "Inflation is the main worry: bonds aren't counted as a hedge for stocks, and hot data hurts both."
+      : pct <= 33 ? "Normal mode: bonds are counted as a hedge when stocks are under stress."
+      : "Between modes: bonds count partly as a hedge for stocks.";
+    return `<div class="mode" title="How far the weights have shifted toward the inflationary set (View › Edit Scorecard Weights…)"><span>INFLATION MODE <b>${pct}%</b></span><span class="mt">${text}</span></div>`;
+  }
+
   function regimeBox(r) {
     if (!r) return "";
     const cell = (k, t) => `<div class="q${r.key === k ? " on" : ""}">${t}</div>`;
@@ -81,6 +98,7 @@
       ${cell("goldilocks", "Goldilocks<br>growth ↑ infl ↓")}${cell("reflation", "Reflation<br>growth ↑ infl ↑")}
       ${cell("slowdown", "Slowdown<br>growth ↓ infl ↓")}${cell("stagflation", "Stagflation<br>growth ↓ infl ↑")}
       <div class="rx">${esc(r.text)}</div>
+      ${modeLine(K.data.mode)}
     </div>`;
   }
 
@@ -97,7 +115,7 @@
     const chg = (v, l) => `<span>${l} <b class="${v > 0 ? "up" : v < 0 ? "dn" : "dim"}">${v > 0 ? "▲" : v < 0 ? "▼" : "▬"} ${Math.abs(v)}</b></span>`;
     const drv = (list) => list.length ? list.map(([id, p]) => `<button type="button" data-id="${id}"><span class="nm">${esc(def(id)?.name || id)}</span><span class="${p > 0 ? "up" : "dn"}">${pts(p)}</span></button>`).join("") : `<div class="dim">Nothing significant</div>`;
 
-    let h = `<div class="sc-top">
+    let h = `${relBar(d)}<div class="sc-top">
         <div class="dial ${grade(A.score)}" title="${esc(name)} outlook score"><b>${A.score}</b><span>/ 100</span></div>
         <div class="sc-sum">
           <div class="sc-lbl ${grade(A.score)}">${esc(name)} · ${esc(A.label)}</div>
@@ -261,7 +279,10 @@
   }
 
   $("#atabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-a]"); if (b) setAsset(b.dataset.a); });
-  $("#score").addEventListener("click", (e) => { const b = e.target.closest("[data-id]"); if (b) select(b.dataset.id); });
+  $("#score").addEventListener("click", (e) => {
+    const a = e.target.closest(".relbar [data-a]"); if (a) { setAsset(a.dataset.a); return; }
+    const b = e.target.closest("[data-id]"); if (b) select(b.dataset.id);
+  });
   $("#sref").addEventListener("click", () => api?.refreshScores());
   $("#sdetail").addEventListener("click", (e) => {
     if (window.WireInstrument?.isOpen()) return; // the price chart handles its own clicks

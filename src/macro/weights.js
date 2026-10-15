@@ -5,12 +5,18 @@
 // helps (+) or hurts (-) that asset over the next 6–12 months. 0 or missing = ignored.
 // A weight can also be { "level": x, "trend": y } to score the level and the 6-month
 // trend separately (bonds: high yields pay more income, rising yields cut prices).
+//
+// "assets" are the normal weights. "inflationary" overrides some of them for when inflation
+// is high and rising: then bad news means higher rates, so bonds stop hedging stocks and
+// both fall together (the 1970s, 2022). The app blends between the two sets by inflation
+// pressure: fully normal below center − width/2, fully inflationary above center + width/2.
 
 module.exports = {
   horizonMonths: 6,  // how far back "trend" looks
   historyYears: 10,  // window for "high or low vs history"
   levelShare: 0.35,  // default mix: 35% level, 65% trend (indicators can override)
   stretch: 1.5,      // spreads the average out to 0–100; 1 = raw average
+  inflationMode: { center: 0.1, width: 0.4 }, // inflation pressure runs -1 (cold) to +1 (hot)
   assets: {
     stocks: {
       growth: 2, inflation: -1, labor: 1, yields: -1, fed: 1, credit: 2, conditions: 1,
@@ -35,5 +41,9 @@ module.exports = {
     alts: {
       inflation: 1, yields: -2, fed: 1, dollar: -2, stress: 1, trend_alts: 1
     }
+  },
+  inflationary: {
+    stocks: { inflation: -2, yields: -1.5 },
+    bonds: { growth: -0.5, inflation: -2.5, yields: { level: 0.5, trend: -2 }, stress: 0 }
   }
 };

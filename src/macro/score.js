@@ -169,13 +169,24 @@ function evaluate(defs, prepared, weights, asOf = Date.now()) {
     return d.sign * (wl * (2 * a.L - 1) + wt * (2 * a.T - 1));
   };
 
+  // Inflation pressure (level and trend) decides how far to move toward the "inflationary" weights.
+  // When inflation is the market's main worry, bonds stop hedging stocks: both fall on hot data.
+  const infDefs = live.filter((d) => d.factor === "inflation");
+  const pressure = infDefs.length ? infDefs.reduce((x, d) => x + reading(d, d.level ?? weights.levelShare, 1 - (d.level ?? weights.levelShare)), 0) / infDefs.length : 0;
+  const im = weights.inflationMode;
+  const alpha = clamp((pressure - im.center) / im.width + 0.5, 0, 1);
+
   const assets = {};
   for (const [key] of ASSETS) {
     const W = weights.assets[key] || {};
+    const O = weights.inflationary[key] || {};
     const rows = [];
     for (const d of live) {
-      const sw = splitWeight(W[d.factor], d.level ?? weights.levelShare);
-      if (!sw) continue;
+      const mix = d.level ?? weights.levelShare;
+      const base = splitWeight(W[d.factor], mix) || { wl: 0, wt: 0 };
+      const hot = d.factor in O ? splitWeight(O[d.factor], mix) || { wl: 0, wt: 0 } : base;
+      const sw = { wl: (1 - alpha) * base.wl + alpha * hot.wl, wt: (1 - alpha) * base.wt + alpha * hot.wt };
+      if (!sw.wl && !sw.wt) continue;
       const n = perFactor[d.factor];
       rows.push({ id: d.id, section: d.section, c: reading(d, sw.wl, sw.wt) / n, eff: (Math.abs(sw.wl) + Math.abs(sw.wt)) / n });
     }
@@ -199,6 +210,10 @@ function evaluate(defs, prepared, weights, asOf = Date.now()) {
     };
   }
 
+  // relative: each asset against the average of all six (allocation is a relative decision)
+  const mean = ASSETS.reduce((x, [k]) => x + assets[k].score, 0) / ASSETS.length;
+  for (const [k] of ASSETS) assets[k].rel = Math.round(assets[k].score - mean);
+
   // regime: which way growth and inflation are heading (trend only)
   const dir = (factor) => {
     const ds = live.filter((d) => d.factor === factor);
@@ -206,7 +221,7 @@ function evaluate(defs, prepared, weights, asOf = Date.now()) {
   };
   const g = dir("growth"), inf = dir("inflation");
   const rk = g >= 0 ? (inf >= 0 ? "reflation" : "goldilocks") : (inf >= 0 ? "stagflation" : "slowdown");
-  return { asOf, ind, assets, regime: { key: rk, ...REGIMES[rk], growth: g, inflation: inf } };
+  return { asOf, ind, assets, regime: { key: rk, ...REGIMES[rk], growth: g, inflation: inf }, mode: { pressure, alpha } };
 }
 
 /** Transform every indicator once; evaluate() can then be run at many dates cheaply. */
@@ -224,9 +239,9 @@ function scorecard(defs, raw, weights, now = Date.now()) {
   for (let k = 12; k >= 1; k--) {
     const at = now - k * 30.44 * DAY;
     const e = evaluate(defs, prepared, weights, at);
-    history.push({ t: at, scores: Object.fromEntries(ASSETS.map(([a]) => [a, e.assets[a].score])) });
+    history.push({ t: at, scores: Object.fromEntries(ASSETS.map(([a]) => [a, e.assets[a].score])), alpha: e.mode.alpha });
   }
-  history.push({ t: now, scores: Object.fromEntries(ASSETS.map(([a]) => [a, cur.assets[a].score])) });
+  history.push({ t: now, scores: Object.fromEntries(ASSETS.map(([a]) => [a, cur.assets[a].score])), alpha: cur.mode.alpha });
   for (const [a] of ASSETS) {
     cur.assets[a].m1 = cur.assets[a].score - history[11].scores[a];
     cur.assets[a].m3 = cur.assets[a].score - history[9].scores[a];
@@ -238,14 +253,26 @@ function scorecard(defs, raw, weights, now = Date.now()) {
 function mergeWeights(defaults, user) {
   const u = user && typeof user === "object" ? user : {};
   const num = (x, d) => (Number.isFinite(Number(x)) ? Number(x) : d);
-  const assets = {};
-  for (const [a] of ASSETS) assets[a] = u.assets && typeof u.assets[a] === "object" ? u.assets[a] : defaults.assets[a];
+  // assets: a missing asset keeps its defaults. inflationary: if the file has the section at all,
+  // an asset it leaves out has no overrides (that's how you switch them off).
+  const pick = (src, def, fill) => {
+    const out = {};
+    const given = src && typeof src === "object";
+    for (const [a] of ASSETS) out[a] = given && typeof src[a] === "object" ? src[a] : given && !fill ? {} : def[a] || {};
+    return out;
+  };
+  const im = u.inflationMode && typeof u.inflationMode === "object" ? u.inflationMode : {};
   return {
+    assets: pick(u.assets, defaults.assets, true),
+    inflationary: pick(u.inflationary, defaults.inflationary || {}, false),
+    inflationMode: {
+      center: clamp(num(im.center, defaults.inflationMode.center), -1, 1),
+      width: clamp(num(im.width, defaults.inflationMode.width), 0.05, 2)
+    },
     horizonMonths: clamp(num(u.horizonMonths, defaults.horizonMonths), 1, 24),
     historyYears: clamp(num(u.historyYears, defaults.historyYears), 2, 10),
     levelShare: clamp(num(u.levelShare, defaults.levelShare), 0, 1),
-    stretch: clamp(num(u.stretch, defaults.stretch), 0.5, 4),
-    assets
+    stretch: clamp(num(u.stretch, defaults.stretch), 0.5, 4)
   };
 }
 

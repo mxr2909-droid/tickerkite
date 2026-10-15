@@ -57,7 +57,9 @@ Click **Scorecards** at the top (or ⌘⌥2; ⌘⌥1 goes back to News). Each ta
 - **53 indicators in 8 sections:** Growth, Inflation, Labor, Rates & Fed, Credit & Conditions, Consumer & Housing, Markets and Global. Data comes from the St. Louis Fed (FRED, no key needed) and Yahoo Finance, refreshed every 6 hours or with **UPDATE DATA**.
 - **Each row** shows the latest reading, where it was 6 months ago, its trend, where it sits in its own history, and how many points it adds to or takes from the selected score.
 - **Pushing up / pulling down** lists the biggest drivers of the score.
+- **Vs the average of all six** ranks the assets against each other. Even when everything scores low, it shows which are least and most exposed.
 - **Regime** plots growth against inflation (Goldilocks, Reflation, Slowdown, Stagflation) from the direction of the last 6 months.
+- **Inflation mode** shows how far the weights have shifted for an inflation-driven market (below).
 - **Click any indicator** for its history with recessions shaded, and its effect on all six outlooks. Market indicators link to the full price chart.
 
 ### How the score is built
@@ -66,8 +68,21 @@ Click **Scorecards** at the top (or ⌘⌥2; ⌘⌥1 goes back to News). Each ta
 2. Every indicator feeds one **factor**: growth, inflation, labor, yields, Fed policy, credit, financial conditions, dollar, market stress, consumer, global, or the asset's own price trend.
 3. Each asset weights each factor from −2 to +2. Rising inflation is −1 for stocks, −2 for bonds and +2 for commodities, for example. A factor's weight is split across its indicators, so inflation having 7 indicators doesn't make it count 7 times.
 4. The weighted average is stretched (×1.5) and mapped to 0–100.
+5. **Inflation mode.** Stocks and bonds usually move apart: bad news means rate cuts, so bonds rally. When inflation is the main worry (the 1970s, 2022), bad news means higher rates and both fall together. WIRE measures inflation pressure from the inflation indicators and blends toward a second set of weights, `inflationary`, as it rises. In that set, bonds lose their credit as a hedge and inflation and rising yields hurt stocks and bonds more. `inflationMode.center` and `width` set where the switch happens. To turn it off, set `"inflationary": {}`.
 
 Tune everything in **View › Edit Scorecard Weights…** (`scorecard-weights.json`). WIRE recalculates as soon as you save. **Reset Scorecard Weights to Defaults** undoes your changes. The math is in `src/macro/score.js` and the indicator list in `src/macro/indicators.js`.
+
+### Backtest
+
+`node scripts/backtest.js` downloads about 30 years of data, scores every month since 2007, and compares each score with that asset's return over the following 12 months (SPY, IEF, DBC, VNQ, BTC, GLD with dividends). Add `--cache file.json` to reuse the download. It also prints the scores at turning points (2008, 2020, 2022) and runs an experimental contrarian weighting.
+
+What it showed (October 2026):
+
+- Higher scores were followed by better returns for stocks, bonds, commodities and real estate on average, but the link is weak: correlations of 0.05–0.2. Crypto and gold showed none.
+- Inflation mode improved bonds (0.15 → 0.19) and the relative ranking (top minus bottom asset +0.6% → +3.7% a year), and got bonds right in 2021–22.
+- **The scorecard is most bearish near market bottoms** (November 2008, April 2020, June 2022), when conditions look worst but prices have already fallen. Treat very low scores as "conditions are bad", not "sell".
+
+It uses today's revised data and overlapping 12-month windows, so treat it as a sanity check, not proof.
 
 **Limits:** free data only. There are no consensus forecasts, so the scorecard can't show "CPI came in hotter than expected." FRED keeps only 3 years of the credit-spread history, so those rows compare against 3 years. China has no good free monthly data; exports (several months behind), Chinese stocks and copper stand in. Past scores (the 12-month line and the 1- and 3-month changes) use today's revised data, so they can differ slightly from what the scorecard would have shown at the time. The scores summarize conditions; they are not a forecast or investment advice.
 
@@ -143,6 +158,7 @@ src/analytics.js     range stats, velocity/acceleration, big-move detection
 src/instruments.js   which headlines matter for each market; news-to-move matching
 src/watchlist.js     your tickers: symbol cleanup and which stories mention them
 src/macro/           scorecards: indicators, data downloads, scoring, default weights
+scripts/backtest.js  scorecard backtest since 2007
 src/news/feeds.js    default sources
 src/news/fetcher.js  parallel feed download with timeouts
 src/news/parse.js    RSS/Atom parser (no dependencies)

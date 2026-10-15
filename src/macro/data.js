@@ -23,8 +23,8 @@ async function fred(id, since) {
   return rows;
 }
 
-async function yahoo(sym) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${YEARS}y&interval=1d`;
+async function yahoo(sym, years = YEARS) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${years}y&interval=1d`;
   const r = JSON.parse(await fetchText(url, 20000)).chart.result[0];
   const close = r.indicators.quote[0].close;
   const out = [];
@@ -48,14 +48,14 @@ async function pool(jobs, n) {
  * so one bad download doesn't blank a row.
  * @returns {{ series: Object<string, Array>, errors: Object<string, string>, fetchedAt: number }}
  */
-async function fetchAllSeries(prev = {}) {
-  const since = new Date(Date.now() - YEARS * 365.25 * 864e5).toISOString().slice(0, 10);
+async function fetchAllSeries(prev = {}, { years = YEARS } = {}) {
+  const since = new Date(Date.now() - years * 365.25 * 864e5).toISOString().slice(0, 10);
   const keys = [...new Set([RECESSIONS, ...INDICATORS.flatMap(sourcesFor)])];
   const series = {}, errors = {};
   await pool(keys.map((k) => async () => {
     const [kind, id] = [k.slice(0, k.indexOf(":")), k.slice(k.indexOf(":") + 1)];
     try {
-      series[k] = kind === "fred" ? await fred(id, since) : await yahoo(id);
+      series[k] = kind === "fred" ? await fred(id, since) : await yahoo(id, years);
     } catch (e) {
       errors[k] = String(e.message || e);
       if (prev[k]) series[k] = prev[k];
@@ -64,4 +64,4 @@ async function fetchAllSeries(prev = {}) {
   return { series, errors, fetchedAt: Date.now() };
 }
 
-module.exports = { fetchAllSeries, parseFredCsv };
+module.exports = { fetchAllSeries, parseFredCsv, yahoo };
