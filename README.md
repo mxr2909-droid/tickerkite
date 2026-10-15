@@ -50,6 +50,27 @@ Type a ticker into **+ add ticker** in the sidebar and press Enter. Any Yahoo Fi
 - A new story about one of your tickers sends a notification whatever its impact score. Turn this off under **View › Alerts for Watchlist Headlines**.
 - **View › Edit Watchlist…** opens `watchlist.json`. Edit `terms` to change which words count as a mention, for example `["Nvidia", "Jensen Huang"]` or, for Target, `["Target Corp"]` so "inflation target" doesn't match. WIRE picks up the change as soon as you save.
 
+## Scorecards
+
+Click **Scorecards** at the top (or ⌘⌥2; ⌘⌥1 goes back to News). Each tab scores one asset class from 0 to 100 for the next 6–12 months: **Stocks, Bonds, Commodities, Real Estate, Crypto, Alts** (gold and precious metals). 50 is neutral; higher means conditions are more supportive of that asset. Keys `1`–`6` switch tabs, `↑` `↓` move through indicators.
+
+- **53 indicators in 8 sections:** Growth, Inflation, Labor, Rates & Fed, Credit & Conditions, Consumer & Housing, Markets and Global. Data comes from the St. Louis Fed (FRED, no key needed) and Yahoo Finance, refreshed every 6 hours or with **UPDATE DATA**.
+- **Each row** shows the latest reading, where it was 6 months ago, its trend, where it sits in its own history, and how many points it adds to or takes from the selected score.
+- **Pushing up / pulling down** lists the biggest drivers of the score.
+- **Regime** plots growth against inflation (Goldilocks, Reflation, Slowdown, Stagflation) from the direction of the last 6 months.
+- **Click any indicator** for its history with recessions shaded, and its effect on all six outlooks. Market indicators link to the full price chart.
+
+### How the score is built
+
+1. Every indicator gets a **level** reading (where today sits in the last 10 years) and a **trend** reading (how its 6-month change compares with past 6-month changes). Both run from −1 to +1 and are mixed 35% level / 65% trend.
+2. Every indicator feeds one **factor**: growth, inflation, labor, yields, Fed policy, credit, financial conditions, dollar, market stress, consumer, global, or the asset's own price trend.
+3. Each asset weights each factor from −2 to +2. Rising inflation is −1 for stocks, −2 for bonds and +2 for commodities, for example. A factor's weight is split across its indicators, so inflation having 7 indicators doesn't make it count 7 times.
+4. The weighted average is stretched (×1.5) and mapped to 0–100.
+
+Tune everything in **View › Edit Scorecard Weights…** (`scorecard-weights.json`). WIRE recalculates as soon as you save. **Reset Scorecard Weights to Defaults** undoes your changes. The math is in `src/macro/score.js` and the indicator list in `src/macro/indicators.js`.
+
+**Limits:** free data only. There are no consensus forecasts, so the scorecard can't show "CPI came in hotter than expected." FRED keeps only 3 years of the credit-spread history, so those rows compare against 3 years. China has no good free monthly data; exports (several months behind), Chinese stocks and copper stand in. Past scores (the 12-month line and the 1- and 3-month changes) use today's revised data, so they can differ slightly from what the scorecard would have shown at the time. The scores summarize conditions; they are not a forecast or investment advice.
+
 ## Charts, momentum and "what moved it"
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
@@ -121,6 +142,7 @@ src/quotes.js        delayed market quotes and price history
 src/analytics.js     range stats, velocity/acceleration, big-move detection
 src/instruments.js   which headlines matter for each market; news-to-move matching
 src/watchlist.js     your tickers: symbol cleanup and which stories mention them
+src/macro/           scorecards: indicators, data downloads, scoring, default weights
 src/news/feeds.js    default sources
 src/news/fetcher.js  parallel feed download with timeouts
 src/news/parse.js    RSS/Atom parser (no dependencies)
@@ -132,5 +154,5 @@ test/                parser and ranking tests (npm test)
 ## Next steps
 
 - Paid real-time data (Finnhub, Polygon, Benzinga) as an optional source, set up with your API key.
-- An economic calendar pane (CPI, FOMC, earnings dates).
+- An economic calendar pane (CPI, FOMC, earnings dates), using a free FRED API key for release dates.
 - AI one-line summaries for each top story.

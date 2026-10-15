@@ -156,17 +156,35 @@
     const b = e.target.closest("[data-url]"); if (b) api?.open(b.dataset.url);
   });
 
+  // ---------- pages: News / Scorecards ----------
+  S.page = "news";
+  function setPage(p) {
+    if (p !== "news" && p !== "score") return;
+    if (window.WireInstrument.isOpen()) window.WireInstrument.close();
+    S.page = p;
+    $("#app").dataset.page = p;
+    document.querySelectorAll("#pages button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.p === p)));
+    try { localStorage.setItem("wire.page", p); } catch {}
+    if (p === "score") window.WireScore.show();
+    else { window.WireScore.hide(); select(S.idx, false, false); }
+  }
+  $("#pages").addEventListener("click", (e) => { const b = e.target.closest("button[data-p]"); if (b) setPage(b.dataset.p); });
+
   // ---------- instrument view ----------
+  const detailEl = () => (S.page === "score" ? $("#sdetail") : $("#detail"));
   function openInstrument(sym) {
-    window.WireInstrument.open(sym, $("#detail"));
-    $("#detail").scrollTop = 0;
+    window.WireInstrument.open(sym, detailEl());
+    detailEl().scrollTop = 0;
   }
   function closeInstrument() {
     window.WireInstrument.close();
-    select(S.idx, false, false);
+    if (S.page === "score") window.WireScore.restore();
+    else select(S.idx, false, false);
   }
   window.WireInstrument.onClose = closeInstrument;
+  window.WireScore.init({ openInstrument });
   window.WireInstrument.onStory = (id) => {
+    if (S.page === "score") setPage("news");
     const i = S.list.findIndex((s) => s.id === id);
     if (i < 0) return false; // not in the current filter: open the article instead
     select(i);
@@ -242,6 +260,7 @@
     const instOpen = window.WireInstrument.isOpen();
     if (instOpen && e.key === "Escape") { closeInstrument(); return; }
     if (instOpen && (e.key === "[" || e.key === "]")) { window.WireInstrument.cycleRange(e.key === "]" ? 1 : -1); return; }
+    if (S.page === "score") { window.WireScore.key(e); return; }
     if (e.key === "/") { e.preventDefault(); $("#q").focus(); }
     else if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); select(Math.min(S.list.length - 1, S.idx + 1)); }
     else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); select(Math.max(0, S.idx - 1)); }
@@ -299,12 +318,15 @@
   api.onNews(applyNews);
   api.onQuotes(renderQuotes);
   api.onSelect((id) => {
+    setPage("news");
     S.view = "all"; S.mode = "news"; S.q = ""; $("#q").value = "";
     document.querySelectorAll(".sitem[data-view]").forEach((x) => x.setAttribute("aria-current", String(x.dataset.view === "all")));
     document.querySelectorAll("#mode button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.m === "news")));
     document.querySelector('#tabs button[data-k="TOP"]').click();
     const i = S.list.findIndex((s) => s.id === id); if (i >= 0) select(i); });
   api.onInstrument?.((sym) => openInstrument(sym));
+  api.onPage?.(setPage);
+  try { if (localStorage.getItem("wire.page") === "score") setPage("score"); } catch {}
   api.getNews().then(applyNews);
   api.getQuotes().then(renderQuotes);
   setInterval(() => { renderPulled(); }, 20000);

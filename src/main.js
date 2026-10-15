@@ -9,9 +9,14 @@ const { fetchQuotes, fetchHistory } = quotes;
 const instruments = require("./instruments");
 const { relevantLive, attributeIntraday, attributeHistory } = instruments;
 const WL = require("./watchlist");
+const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");
+const { fetchAllSeries } = require("./macro/data");
+const SC = require("./macro/score");
+const DEFAULT_WEIGHTS = require("./macro/weights");
 
 const NEWS_EVERY_MS = 2 * 60 * 1000;
 const QUOTES_EVERY_MS = 60 * 1000;
+const MACRO_MAX_AGE_MS = 6 * 3600 * 1000; // economic data changes at most daily
 const MAX_ITEMS = 4000;
 
 let win = null;
@@ -106,6 +111,96 @@ function watchFile() {
   } catch (e) { console.error("can't watch watchlist.json", e); }
 }
 const rankAll = (items) => WL.tagStories(rank(items), state.watch);
+
+// ---------- scorecards ----------
+const macro = { series: {}, errors: {}, fetchedAt: 0, refreshing: false, result: null, error: null };
+
+function loadWeights() {
+  const f = file("scorecard-weights.json");
+  if (!fs.existsSync(f)) {
+    fs.mkdirSync(userDir(), { recursive: true });
+    fs.writeFileSync(f, JSON.stringify(DEFAULT_WEIGHTS, null, 2));
+  }
+  // a file that doesn't parse falls back to the defaults
+  return SC.mergeWeights(DEFAULT_WEIGHTS, readJSON("scorecard-weights.json", {}));
+}
+
+function computeScores() {
+  if (!Object.keys(macro.series).length) return;
+  try {
+    macro.result = SC.scorecard(INDICATORS, macro.series, loadWeights());
+    macro.error = null;
+  } catch (e) {
+    console.error("scorecard failed", e);
+    macro.error = String(e.message || e);
+  }
+}
+
+async function refreshMacro(force = false) {
+  if (macro.refreshing) return;
+  if (!force && Date.now() - macro.fetchedAt < MACRO_MAX_AGE_MS) return;
+  macro.refreshing = true;
+  send("score:update", scoreSnapshot());
+  try {
+    const r = await fetchAllSeries(macro.series);
+    macro.series = r.series; macro.errors = r.errors; macro.fetchedAt = r.fetchedAt;
+    writeJSON("macro-cache.json", { series: macro.series, errors: macro.errors, fetchedAt: macro.fetchedAt });
+    computeScores();
+  } catch (e) {
+    console.error("macro refresh failed", e);
+    macro.error = String(e.message || e);
+  } finally {
+    macro.refreshing = false;
+    send("score:update", scoreSnapshot());
+  }
+}
+
+/** Everything the scorecard view needs, minus the full series (fetched one at a time for charts). */
+function scoreSnapshot() {
+  const r = macro.result;
+  return {
+    fetchedAt: macro.fetchedAt, refreshing: macro.refreshing, error: macro.error,
+    failed: Object.keys(macro.errors).length,
+    sections: SECTIONS, assets: SC.ASSETS,
+    defs: INDICATORS.map(({ id, section, name, unit, dec, desc, factor, sign, src, freq }) => ({ id, section, name, unit, dec, desc, factor, sign, src, freq })),
+    ind: r?.ind || {}, scores: r?.assets || {}, regime: r?.regime || null, history: r?.history || []
+  };
+}
+
+/** One indicator's history for its chart: thinned to about 700 points, plus recession periods. */
+function scoreSeries(id) {
+  const s = macro.result?.prepared?.[id];
+  if (!s) return { ok: false, error: "No data for this indicator yet." };
+  const step = Math.max(1, Math.ceil(s.length / 700));
+  const pts = s.filter((_, i) => i % step === 0 || i === s.length - 1);
+  const rec = [];
+  let open = null;
+  for (const [t, v] of macro.series[RECESSIONS] || []) {
+    if (v === 1 && open == null) open = t;
+    if (v !== 1 && open != null) { rec.push([open, t]); open = null; }
+  }
+  if (open != null) rec.push([open, Date.now()]);
+  return { ok: true, points: pts, recessions: rec };
+}
+
+let writingWeights = 0;
+function watchWeights() {
+  loadWeights();
+  let t = null;
+  try {
+    fs.watch(file("scorecard-weights.json"), () => {
+      if (Date.now() - writingWeights < 1000) return;
+      clearTimeout(t);
+      t = setTimeout(() => { computeScores(); send("score:update", scoreSnapshot()); }, 300);
+    });
+  } catch (e) { console.error("can't watch scorecard-weights.json", e); }
+}
+function resetWeights() {
+  writingWeights = Date.now();
+  fs.writeFileSync(file("scorecard-weights.json"), JSON.stringify(DEFAULT_WEIGHTS, null, 2));
+  computeScores();
+  send("score:update", scoreSnapshot());
+}
 
 // ---------- data ----------
 // every open window (main + widget) gets the same updates
@@ -342,6 +437,9 @@ function buildMenu() {
     {
       label: "View",
       submenu: [
+        { label: "News", accelerator: "CmdOrCtrl+Alt+1", click: () => { showStory(null); send("page:set", "news"); } },
+        { label: "Scorecards", accelerator: "CmdOrCtrl+Alt+2", click: () => { showStory(null); send("page:set", "score"); } },
+        { type: "separator" },
         { label: "Show Main Window", accelerator: "CmdOrCtrl+1", click: () => showStory(null) },
         { label: "Fit Window to Screen", accelerator: "CmdOrCtrl+Alt+F", click: () => { showStory(null); fitToScreen(); } },
         { label: "Floating Widget", type: "checkbox", accelerator: "CmdOrCtrl+Shift+W", checked: !!widget, click: () => toggleWidget() },
@@ -355,6 +453,9 @@ function buildMenu() {
           click: (item) => { state.watchAlerts = item.checked; savePrefs(); } },
         { label: "Edit Watchlist…", click: () => { if (!fs.existsSync(file("watchlist.json"))) writeJSON("watchlist.json", state.watch); shell.openPath(file("watchlist.json")); } },
         { label: "Edit Feeds…", click: () => { loadFeeds(); shell.openPath(file("feeds.json")); } },
+        { label: "Refresh Economic Data", click: () => refreshMacro(true) },
+        { label: "Edit Scorecard Weights…", click: () => { loadWeights(); shell.openPath(file("scorecard-weights.json")); } },
+        { label: "Reset Scorecard Weights to Defaults", click: resetWeights },
         { label: "Reset Feeds to Defaults", click: () => { fs.writeFileSync(file("feeds.json"), JSON.stringify(DEFAULT_FEEDS, null, 2)); refreshNews(); } },
         { type: "separator" },
         { role: "togglefullscreen" },
@@ -379,6 +480,9 @@ ipcMain.handle("widget:ontop", (_e, v) => { setOnTop(v); return prefs.widget.onT
 ipcMain.handle("widget:state", () => ({ open: !!widget, onTop: prefs.widget.onTop }));
 ipcMain.handle("watch:add", (_e, sym) => addWatch(String(sym || "")));
 ipcMain.handle("watch:remove", (_e, sym) => { removeWatch(String(sym || "")); return true; });
+ipcMain.handle("score:get", () => scoreSnapshot());
+ipcMain.handle("score:series", (_e, id) => scoreSeries(String(id)));
+ipcMain.handle("score:refresh", () => { refreshMacro(true); return true; });
 ipcMain.handle("show-story", (_e, id) => { showStory(id ? String(id) : null); return true; });
 
 // ---------- instrument view ----------
@@ -431,6 +535,9 @@ app.whenReady().then(() => {
     state.seen = new Set(cache.seen || []);
   }
   watchFile();
+  const mc = readJSON("macro-cache.json", null);
+  if (mc?.series) { macro.series = mc.series; macro.errors = mc.errors || {}; macro.fetchedAt = mc.fetchedAt || 0; computeScores(); }
+  watchWeights();
   buildMenu();
   createWindow();
   if (prefs.widget.open) createWidget();
@@ -438,6 +545,8 @@ app.whenReady().then(() => {
   refreshQuotes();
   setInterval(refreshNews, NEWS_EVERY_MS);
   setInterval(refreshQuotes, QUOTES_EVERY_MS);
+  setTimeout(() => refreshMacro(), 4000); // after the first news pull
+  setInterval(() => refreshMacro(), 30 * 60 * 1000);
   app.on("activate", () => { if (!win) createWindow(); });
   screen.on("display-metrics-changed", keepOnScreen);
   screen.on("display-removed", keepOnScreen);

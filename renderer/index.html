@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app">
+<div class="app" id="app" data-page="news">
   <nav class="side" aria-label="App sections">
     <div class="drag"></div>
     <div class="sgroup">Monitor</div>
@@ -28,23 +28,34 @@
   </nav>
 
   <section class="main" aria-label="Headlines">
-    <div class="titlebar">News
-      <div class="tabs" id="tabs"><span class="pg"><span id="pgView">All</span><b>News</b></span></div>
+    <div class="titlebar">
+      <div class="pages" id="pages" role="tablist" aria-label="Pages">
+        <button type="button" role="tab" data-p="news" aria-selected="true" title="News (⌘⌥1)">News</button>
+        <button type="button" role="tab" data-p="score" aria-selected="false" title="Scorecards (⌘⌥2)">Scorecards</button>
+      </div>
+      <div class="tabs news-only" id="tabs"><span class="pg"><span id="pgView">All</span><b>News</b></span></div>
+      <div class="tabs score-only" id="atabs"></div>
     </div>
-    <form class="search" id="sform" autocomplete="off">
+    <div class="search score-only" id="sbar">
+      <span class="lane">WIRE ECON</span>
+      <span class="sinfo" id="sinfo">Scores 0–100: higher = more constructive over the next 6–12 months</span>
+      <button type="button" class="sref" id="sref" title="Download the latest economic data">⟳ UPDATE DATA</button>
+    </div>
+    <form class="search news-only" id="sform" autocomplete="off">
       <span class="lane">WIRE MKTS</span>
       <input id="q" placeholder="search headlines, tickers, sources  ( / )" aria-label="Search headlines">
       <label class="opt">▤ <select id="src" aria-label="Source"><option value="">Sources</option></select></label>
       <label class="opt">▦ <select id="win" aria-label="Time window"><option value="6">6H</option><option value="24" selected>24H</option><option value="72">72H</option></select></label>
     </form>
-    <div class="secbar">
+    <div class="list num score-only" id="score" aria-label="Scorecard"></div>
+    <div class="secbar news-only">
       <div class="l"><b>Top Ranked News</b><span>|</span><em id="more">More »</em></div>
       <div class="toggle" id="mode">
         <button type="button" data-m="news" aria-pressed="true">Top News</button>
         <button type="button" data-m="ctx" aria-pressed="false">Background &amp; Opinion</button>
       </div>
     </div>
-    <div class="list num" id="list" role="listbox" aria-label="Headlines"></div>
+    <div class="list num news-only" id="list" role="listbox" aria-label="Headlines"></div>
     <div class="status num">
       <span class="fn">Wire Functions</span>
       <span><b id="sHigh">0</b> <span class="dim">high-impact</span></span>
@@ -56,9 +67,11 @@
     </div>
   </section>
 
-  <aside class="detail" id="detail" aria-label="Story"></aside>
+  <aside class="detail news-only" id="detail" aria-label="Story"></aside>
+  <aside class="detail score-only" id="sdetail" aria-label="Indicator"></aside>
 </div>
 <script src="instrument.js"></script>
+<script src="scorecard.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

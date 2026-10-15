@@ -13,6 +13,11 @@ contextBridge.exposeInMainWorld("wire", {
   getInstrumentNews: (sym, range) => ipcRenderer.invoke("instrument:news", sym, range),
   addWatch: (sym) => ipcRenderer.invoke("watch:add", sym),
   removeWatch: (sym) => ipcRenderer.invoke("watch:remove", sym),
+  getScores: () => ipcRenderer.invoke("score:get"),
+  getScoreSeries: (id) => ipcRenderer.invoke("score:series", id),
+  refreshScores: () => ipcRenderer.invoke("score:refresh"),
+  onScores: (cb) => ipcRenderer.on("score:update", (_e, d) => cb(d)),
+  onPage: (cb) => ipcRenderer.on("page:set", (_e, p) => cb(p)),
   showInstrument: (sym) => ipcRenderer.invoke("show-instrument", sym),
   onInstrument: (cb) => ipcRenderer.on("inst:open", (_e, sym) => cb(sym)),
   widget: {
