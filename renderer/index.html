@@ -14,6 +14,13 @@
     <button class="sitem" type="button" data-view="high"><span class="ic">◉</span>High Impact<span class="c" id="cHigh">0</span></button>
     <button class="sitem" type="button" data-view="all" aria-current="true"><span class="ic">▤</span>All News<span class="c" id="cAll">0</span></button>
     <button class="sitem" type="button" data-view="new"><span class="ic">✦</span>Last Hour<span class="c" id="cNew">0</span></button>
+    <button class="sitem" type="button" data-view="watch"><span class="ic">★</span>Watchlist<span class="c" id="cWatch">0</span></button>
+    <div class="sgroup">Watchlist <span class="delay">click for chart</span></div>
+    <div class="quotes num" id="watchq"></div>
+    <form class="wadd" id="wform" autocomplete="off">
+      <input id="wadd" placeholder="+ add ticker" aria-label="Add a ticker to your watchlist" spellcheck="false" maxlength="15">
+    </form>
+    <div class="werr" id="werr" role="status" aria-live="polite"></div>
     <div class="sgroup">Markets <span class="delay">click for chart</span></div>
     <div class="quotes num" id="quotes"></div>
     <div class="sgroup">Feeds</div>

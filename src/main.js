@@ -4,8 +4,11 @@ const fs = require("fs");
 const DEFAULT_FEEDS = require("./news/feeds");
 const { fetchAll } = require("./news/fetcher");
 const { rank } = require("./news/rank");
-const { fetchQuotes, fetchHistory } = require("./quotes");
-const { relevantLive, attributeIntraday, attributeHistory } = require("./instruments");
+const quotes = require("./quotes");
+const { fetchQuotes, fetchHistory } = quotes;
+const instruments = require("./instruments");
+const { relevantLive, attributeIntraday, attributeHistory } = instruments;
+const WL = require("./watchlist");
 
 const NEWS_EVERY_MS = 2 * 60 * 1000;
 const QUOTES_EVERY_MS = 60 * 1000;
@@ -14,7 +17,7 @@ const MAX_ITEMS = 4000;
 let win = null;
 let widget = null;
 let quitting = false;
-let prefs = { alerts: true, widget: { open: false, onTop: false, bounds: null } };
+let prefs = { alerts: true, watchAlerts: true, widget: { open: false, onTop: false, bounds: null } };
 const userDir = () => app.getPath("userData");
 const file = (n) => path.join(userDir(), n);
 
@@ -26,6 +29,8 @@ const state = {
   refreshing: false,
   alerts: true,
   seen: new Set(),
+  watch: [], // your tickers: [{ sym, name, terms }]
+  watchAlerts: true,
   items: [] // raw items kept across refreshes so stories survive a feed hiccup
 };
 
@@ -49,8 +54,58 @@ function loadFeeds() {
 
 function savePrefs() {
   prefs.alerts = state.alerts;
+  prefs.watchAlerts = state.watchAlerts;
   writeJSON("prefs.json", prefs);
 }
+
+// ---------- watchlist ----------
+function loadWatch() {
+  setWatch(WL.sanitize(readJSON("watchlist.json", [])), { save: false });
+}
+/** Replace the watchlist everywhere: quotes, chart matching, story tags. */
+function setWatch(list, { save = true } = {}) {
+  state.watch = WL.sanitize(list);
+  if (save) { writingWatch = Date.now(); writeJSON("watchlist.json", state.watch); }
+  quotes.setWatch(state.watch);
+  instruments.setWatch(state.watch);
+  state.stories = WL.tagStories(state.stories, state.watch);
+}
+async function addWatch(raw) {
+  const sym = WL.normalizeSymbol(raw);
+  if (!sym) return { ok: false, error: "Type a ticker, like NVDA or BRK-B." };
+  if (state.watch.some((e) => e.sym === sym)) return { ok: false, error: `${sym} is already on your watchlist.` };
+  try {
+    const info = await quotes.lookupSymbol(sym);
+    const entry = { sym: WL.normalizeSymbol(info.sym), name: info.name, terms: WL.defaultTerms(WL.normalizeSymbol(info.sym), info.name) };
+    if (state.watch.some((e) => e.sym === entry.sym)) return { ok: false, error: `${entry.sym} is already on your watchlist.` };
+    setWatch([...state.watch, entry]);
+    send("news:update", snapshot());
+    refreshQuotes();
+    return { ok: true, entry };
+  } catch (e) {
+    return { ok: false, error: String(e.message || e) };
+  }
+}
+function removeWatch(sym) {
+  setWatch(state.watch.filter((e) => e.sym !== sym));
+  send("news:update", snapshot());
+  refreshQuotes();
+}
+// pick up edits made to watchlist.json by hand (View › Edit Watchlist…)
+let writingWatch = 0;
+function watchFile() {
+  const f = file("watchlist.json");
+  if (!fs.existsSync(f)) writeJSON("watchlist.json", state.watch);
+  let t = null;
+  try {
+    fs.watch(f, () => {
+      if (Date.now() - writingWatch < 1000) return; // our own save
+      clearTimeout(t);
+      t = setTimeout(() => { loadWatch(); send("news:update", snapshot()); refreshQuotes(); }, 300);
+    });
+  } catch (e) { console.error("can't watch watchlist.json", e); }
+}
+const rankAll = (items) => WL.tagStories(rank(items), state.watch);
 
 // ---------- data ----------
 // every open window (main + widget) gets the same updates
@@ -58,7 +113,7 @@ function send(channel, payload) {
   for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(channel, payload);
 }
 function snapshot() {
-  return { stories: state.stories, status: state.status, pulledAt: state.pulledAt, refreshing: state.refreshing, alerts: state.alerts };
+  return { stories: state.stories, status: state.status, pulledAt: state.pulledAt, refreshing: state.refreshing, alerts: state.alerts, watch: state.watch };
 }
 
 async function refreshNews() {
@@ -71,7 +126,7 @@ async function refreshNews() {
     const byLink = new Map(state.items.filter((i) => i.ts > cutoff).map((i) => [i.link, i]));
     for (const i of items) byLink.set(i.link, i);
     state.items = [...byLink.values()].sort((a, b) => b.ts - a.ts).slice(0, MAX_ITEMS);
-    state.stories = rank(state.items);
+    state.stories = rankAll(state.items);
     state.status = status;
     state.pulledAt = Date.now();
     notifyNew();
@@ -88,10 +143,14 @@ function notifyNew() {
   const firstRun = state.seen.size === 0;
   const fresh = state.stories.filter((s) => !state.seen.has(s.id));
   for (const s of state.stories) state.seen.add(s.id);
-  if (firstRun || !state.alerts || !Notification.isSupported()) return;
-  const hot = fresh.filter((s) => s.sev === "h" && s.kind === "news" && Date.now() - s.updated < 3 * 3600e3).slice(0, 3);
-  for (const s of hot) {
-    const n = new Notification({ title: `${s.code} · ${s.signal}`, subtitle: s.region, body: s.title, silent: false });
+  if (firstRun || !Notification.isSupported()) return;
+  const recent = fresh.filter((s) => s.kind === "news" && Date.now() - s.updated < 3 * 3600e3);
+  // your tickers first: any story that mentions one, whatever its impact score
+  const mine = state.watchAlerts ? recent.filter((s) => s.watch?.length).slice(0, 3) : [];
+  const hot = state.alerts ? recent.filter((s) => s.sev === "h" && !mine.includes(s)).slice(0, 3) : [];
+  for (const s of [...mine, ...hot]) {
+    const title = s.watch?.length && mine.includes(s) ? `★ ${s.watch.join(" ")} · ${s.code}` : `${s.code} · ${s.signal}`;
+    const n = new Notification({ title, subtitle: s.region, body: s.title, silent: false });
     n.on("click", () => showStory(s.id));
     n.show();
   }
@@ -292,6 +351,9 @@ function buildMenu() {
         { type: "separator" },
         { label: "Alerts for High-Impact Headlines", type: "checkbox", checked: state.alerts,
           click: (item) => { state.alerts = item.checked; savePrefs(); send("news:update", snapshot()); } },
+        { label: "Alerts for Watchlist Headlines", type: "checkbox", checked: state.watchAlerts,
+          click: (item) => { state.watchAlerts = item.checked; savePrefs(); } },
+        { label: "Edit Watchlist…", click: () => { if (!fs.existsSync(file("watchlist.json"))) writeJSON("watchlist.json", state.watch); shell.openPath(file("watchlist.json")); } },
         { label: "Edit Feeds…", click: () => { loadFeeds(); shell.openPath(file("feeds.json")); } },
         { label: "Reset Feeds to Defaults", click: () => { fs.writeFileSync(file("feeds.json"), JSON.stringify(DEFAULT_FEEDS, null, 2)); refreshNews(); } },
         { type: "separator" },
@@ -315,6 +377,8 @@ ipcMain.handle("widget:toggle", () => { toggleWidget(); return !!widget; });
 ipcMain.handle("widget:close", () => { closeWidget(); return true; });
 ipcMain.handle("widget:ontop", (_e, v) => { setOnTop(v); return prefs.widget.onTop; });
 ipcMain.handle("widget:state", () => ({ open: !!widget, onTop: prefs.widget.onTop }));
+ipcMain.handle("watch:add", (_e, sym) => addWatch(String(sym || "")));
+ipcMain.handle("watch:remove", (_e, sym) => { removeWatch(String(sym || "")); return true; });
 ipcMain.handle("show-story", (_e, id) => { showStory(id ? String(id) : null); return true; });
 
 // ---------- instrument view ----------
@@ -356,14 +420,17 @@ app.whenReady().then(() => {
   const saved = readJSON("prefs.json", {});
   prefs = { ...prefs, ...saved, widget: { ...prefs.widget, ...(saved.widget || {}) } };
   state.alerts = prefs.alerts !== false;
+  state.watchAlerts = prefs.watchAlerts !== false;
+  loadWatch();
   const cache = readJSON("cache.json", null);
   if (cache?.items?.length) {
     state.items = cache.items;
-    state.stories = rank(state.items);
+    state.stories = rankAll(state.items);
     state.status = cache.status || [];
     state.pulledAt = cache.pulledAt || 0;
     state.seen = new Set(cache.seen || []);
   }
+  watchFile();
   buildMenu();
   createWindow();
   if (prefs.widget.open) createWidget();

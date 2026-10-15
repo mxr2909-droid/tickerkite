@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld("wire", {
   onSelect: (cb) => ipcRenderer.on("news:select", (_e, id) => cb(id)),
   getInstrument: (sym, range, force) => ipcRenderer.invoke("instrument:get", sym, range, force),
   getInstrumentNews: (sym, range) => ipcRenderer.invoke("instrument:news", sym, range),
+  addWatch: (sym) => ipcRenderer.invoke("watch:add", sym),
+  removeWatch: (sym) => ipcRenderer.invoke("watch:remove", sym),
   showInstrument: (sym) => ipcRenderer.invoke("show-instrument", sym),
   onInstrument: (cb) => ipcRenderer.on("inst:open", (_e, sym) => cb(sym)),
   widget: {

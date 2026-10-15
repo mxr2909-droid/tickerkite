@@ -6,7 +6,7 @@
 
   const TABS = [["TOP", "Top News"], ["US", "US Macro"], ["GLB", "Global"], ["FED", "Fed / Rates"], ["ERN", "Earnings"], ["NRG", "Energy"], ["ALL", "All"]];
   const DESK_NAMES = { US: "US MACRO", GLB: "GLOBAL", FED: "FED / RATES", ERN: "EARNINGS", NRG: "ENERGY / GEO" };
-  const S = { stories: [], status: [], pulledAt: 0, refreshing: false, tab: "TOP", mode: "news", view: "all", q: "", src: "", hours: 24, topN: 3, sel: null, idx: 0, list: [] };
+  const S = { stories: [], status: [], pulledAt: 0, refreshing: false, tab: "TOP", mode: "news", view: "all", q: "", src: "", hours: 24, topN: 3, sel: null, idx: 0, list: [], watch: [], quotes: [] };
 
   // ---------- read tracking: NEW clears once you open a story ----------
   const READ_KEY = "wire.read.v1";
@@ -40,9 +40,9 @@
       s.kind === S.mode &&
       now - s.updated <= win &&
       (S.tab === "TOP" || S.tab === "ALL" || s.desks.includes(S.tab)) &&
-      (S.view === "all" || (S.view === "high" ? s.sev === "h" : now - s.updated < 3600e3)) &&
+      (S.view === "all" || (S.view === "high" ? s.sev === "h" : S.view === "watch" ? s.watch?.length > 0 : now - s.updated < 3600e3)) &&
       (!S.src || s.sources.some((x) => x.code === S.src)) &&
-      (!q || [s.title, s.summary, s.code, s.publisher, s.signal, s.region, ...s.assets, ...s.sources.map((x) => x.name)].join(" ").toLowerCase().includes(q))
+      (!q || [s.title, s.summary, s.code, s.publisher, s.signal, s.region, ...s.assets, ...(s.watch || []), ...s.sources.map((x) => x.name)].join(" ").toLowerCase().includes(q))
     );
   }
 
@@ -57,11 +57,15 @@
       const isNew = Date.now() - s.ts < 30 * 60e3 && !read.has(s.id);
       const extra = s.sources.length > 1 ? `<span class="x">+${s.sources.length - 1}</span>` : "";
       return `<button type="button" role="option" class="row${top ? " top" : ""}" data-i="${i - 1}" data-id="${s.id}" aria-selected="false">
-        <span class="n">${i})</span><span class="h">${s.sev === "h" ? '<span class="badge hi">HI</span>' : ""}${isNew ? '<span class="badge nw">NEW</span>' : ""}${esc(s.title)}${extra}</span>
+        <span class="n">${i})</span><span class="h">${s.watch?.length ? `<span class="badge wl">★ ${esc(s.watch.join(" "))}</span>` : ""}${s.sev === "h" ? '<span class="badge hi">HI</span>' : ""}${isNew ? '<span class="badge nw">NEW</span>' : ""}${esc(s.title)}${extra}</span>
         <span class="s">${esc(s.code)}</span><span class="t">${fmtTime(s.updated)}</span></button>`;
     };
     if (!S.stories.length) {
       $("#list").innerHTML = `<div class="empty">${S.refreshing ? "Pulling feeds…" : "No stories yet. Check your connection, then press ⌘R."}</div>`;
+    } else if (!p.length && S.view === "watch" && !S.watch.length) {
+      $("#list").innerHTML = `<div class="empty">Your watchlist is empty. Type a ticker like NVDA into <b>+ add ticker</b> in the sidebar, and stories that mention it show up here.</div>`;
+    } else if (!p.length && S.view === "watch") {
+      $("#list").innerHTML = `<div class="empty">No stories in the last ${S.hours} hours mention ${esc(S.watch.map((w) => w.sym).join(", "))}. Widen the time window or clear the search.</div>`;
     } else if (!p.length) {
       $("#list").innerHTML = `<div class="empty">Nothing matches these filters. Widen the time window, clear the search (Esc) or pick another tab.</div>`;
     } else {
@@ -75,7 +79,8 @@
     $("#cHigh").textContent = news.filter((s) => s.sev === "h").length;
     $("#cAll").textContent = news.length;
     $("#cNew").textContent = news.filter((s) => Date.now() - s.updated < 3600e3).length;
-    $("#pgView").textContent = { all: "All", high: "High", new: "1H" }[S.view];
+    $("#cWatch").textContent = news.filter((s) => s.watch?.length).length;
+    $("#pgView").textContent = { all: "All", high: "High", new: "1H", watch: "★ Watch" }[S.view];
     $("#more").textContent = S.topN > 3 ? "Less «" : "More »";
 
     let idx = S.list.findIndex((s) => s.id === S.sel);
@@ -133,6 +138,7 @@
         <dt>SIGNAL</dt><dd>${esc(s.signal)}</dd>
         <dt>REGION</dt><dd>${esc(s.region)}</dd>
         <dt>DESK</dt><dd>${s.desks.map((d) => DESK_NAMES[d] || d).join(" / ")}</dd>
+        ${s.watch?.length ? `<dt>WATCH</dt><dd>★ ${s.watch.map((sym) => esc(sym)).join("  ·  ")}</dd>` : ""}
         <dt>ASSETS</dt><dd>${s.assets.length ? s.assets.map(esc).join("  ·  ") : "—"}</dd>
         <dt>COVERAGE</dt><dd>${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""}</dd>
         <dt>CONF</dt><dd>${s.conf.toFixed(2)}</dd>
@@ -167,6 +173,38 @@
     return true;
   };
   $("#quotes").addEventListener("click", (e) => { const q = e.target.closest(".q[data-sym]"); if (q) openInstrument(q.dataset.sym); });
+  $("#watchq").addEventListener("click", (e) => {
+    const rm = e.target.closest("[data-rm]");
+    if (rm) { e.stopPropagation(); removeWatch(rm.dataset.rm); return; }
+    const q = e.target.closest(".q[data-sym]"); if (q) openInstrument(q.dataset.sym);
+  });
+  $("#watchq").addEventListener("keydown", (e) => {
+    if (e.target.closest("[data-rm]")) return; // the × button handles its own Enter/Space
+    const q = e.target.closest(".q[data-sym]");
+    if (q && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openInstrument(q.dataset.sym); }
+    else if (q && (e.key === "Backspace" || e.key === "Delete")) { e.preventDefault(); removeWatch(q.dataset.sym); }
+  });
+  function removeWatch(sym) {
+    if (window.WireInstrument.current() === sym && !S.quotes.some((q) => !q.watch && q.sym === sym)) closeInstrument();
+    S.watch = S.watch.filter((w) => w.sym !== sym); renderWatch();
+    api?.removeWatch(sym);
+  }
+  $("#wform").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = $("#wadd"), msg = $("#werr");
+    const sym = input.value.trim();
+    if (!sym || !api) return;
+    input.disabled = true; msg.className = "werr"; msg.textContent = "Checking " + sym.toUpperCase() + "…";
+    const r = await api.addWatch(sym);
+    input.disabled = false;
+    if (r?.ok) {
+      input.value = ""; msg.className = "werr ok"; msg.textContent = `Added ${r.entry.sym}${r.entry.name && r.entry.name !== r.entry.sym ? " · " + r.entry.name : ""}`;
+      setTimeout(() => { if (msg.classList.contains("ok")) msg.textContent = ""; }, 3500);
+    } else {
+      msg.className = "werr"; msg.textContent = r?.error || "Couldn't add that ticker.";
+    }
+    input.focus();
+  });
   $("#quotes").addEventListener("keydown", (e) => { const q = e.target.closest(".q[data-sym]"); if (q && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openInstrument(q.dataset.sym); } });
   $("#tabs").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-k]"); if (!b) return;
@@ -199,6 +237,7 @@
   function openSel() { const s = S.list[S.idx]; if (s) api?.open(s.link); }
   document.addEventListener("keydown", (e) => {
     if (e.target.id === "q") { if (e.key === "Escape") { e.target.value = ""; S.q = ""; render(); e.target.blur(); } return; }
+    if (e.target.id === "wadd") { if (e.key === "Escape") { e.target.value = ""; $("#werr").textContent = ""; e.target.blur(); } return; }
     if (e.target.tagName === "SELECT") return;
     const instOpen = window.WireInstrument.isOpen();
     if (instOpen && e.key === "Escape") { closeInstrument(); return; }
@@ -218,24 +257,39 @@
     const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * 100},${13 - ((v - min) / r) * 12}`).join(" ");
     return `<svg viewBox="0 0 100 14" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${up ? "#3ccf7e" : "#ff5a4e"}" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>`;
   }
+  function quoteRow(q, cur, watch = null) {
+    const name = watch ? watch.name : q.label;
+    const attrs = `class="q${watch ? " wq" : ""}${q.sym === cur ? " on" : ""}" data-sym="${esc(q.sym)}" tabindex="0" role="button" title="${esc(name)}: click for chart, momentum and drivers"`;
+    const rm = watch ? `<button type="button" class="wx" data-rm="${esc(q.sym)}" title="Remove ${esc(q.sym)} from watchlist" aria-label="Remove ${esc(q.sym)} from watchlist">×</button>` : "";
+    const nm = watch && watch.name && watch.name !== q.sym ? `<span class="nm">${esc(watch.name)}</span>` : "";
+    if (q.last == null) return `<div ${attrs}><span class="lb">${esc(q.label)}</span><span class="px dim">—</span><span class="pc dim"></span>${nm}${rm}</div>`;
+    const up = q.chg >= 0;
+    const px = q.type === "yld" ? q.last.toFixed(3) + "%" : q.type === "fx" ? q.last.toFixed(q.last > 20 ? 2 : 4) : q.last >= 1000 ? q.last.toLocaleString("en-US", { maximumFractionDigits: 0 }) : q.last.toFixed(2);
+    const pc = q.type === "yld" ? `${up ? "+" : ""}${(q.chg * 100).toFixed(1)}bp` : `${up ? "+" : ""}${q.pct.toFixed(2)}%`;
+    return `<div ${attrs}><span class="lb">${esc(q.label)}</span><span class="px">${px}</span><span class="pc ${up ? "up" : "dn"}">${pc}</span>${nm}${spark(q.spark, up)}${rm}</div>`;
+  }
   function renderQuotes(qs) {
-    if (!qs?.length) { $("#quotes").innerHTML = `<div class="q dim">Loading quotes…</div>`; return; }
+    if (qs) S.quotes = qs;
     const cur = window.WireInstrument.current();
-    $("#quotes").innerHTML = qs.map((q) => {
-      const attrs = `class="q${q.sym === cur ? " on" : ""}" data-sym="${esc(q.sym)}" tabindex="0" role="button" title="${esc(q.label)}: click for chart, momentum and drivers"`;
-      if (q.last == null) return `<div ${attrs}><span class="lb">${esc(q.label)}</span><span class="px dim">—</span><span class="pc dim"></span></div>`;
-      const up = q.chg >= 0;
-      const px = q.type === "yld" ? q.last.toFixed(3) + "%" : q.type === "fx" ? q.last.toFixed(q.last > 20 ? 2 : 4) : q.last >= 1000 ? q.last.toLocaleString("en-US", { maximumFractionDigits: 0 }) : q.last.toFixed(2);
-      const pc = q.type === "yld" ? `${up ? "+" : ""}${(q.chg * 100).toFixed(1)}bp` : `${up ? "+" : ""}${q.pct.toFixed(2)}%`;
-      return `<div ${attrs}><span class="lb">${esc(q.label)}</span><span class="px">${px}</span><span class="pc ${up ? "up" : "dn"}">${pc}</span>${spark(q.spark, up)}</div>`;
-    }).join("");
+    const market = S.quotes.filter((q) => !q.watch);
+    $("#quotes").innerHTML = market.length ? market.map((q) => quoteRow(q, cur)).join("") : `<div class="q dim">Loading quotes…</div>`;
+    renderWatch();
+  }
+  // watchlist rows follow the saved list, so a ticker you just added shows before its first quote arrives
+  function renderWatch() {
+    const cur = window.WireInstrument.current();
+    const by = new Map(S.quotes.filter((q) => q.watch).map((q) => [q.sym, q]));
+    $("#watchq").innerHTML = S.watch.length
+      ? S.watch.map((w) => quoteRow(by.get(w.sym) || { sym: w.sym, label: w.sym, last: null }, cur, w)).join("")
+      : `<div class="wempty">Add tickers to follow their price and every story that mentions them.</div>`;
   }
 
   // ---------- data wiring ----------
   function applyNews(d) {
     if (!d) return;
     S.stories = d.stories || []; S.status = d.status || []; S.pulledAt = d.pulledAt || 0; S.refreshing = !!d.refreshing;
-    renderSources(); renderFeeds(); renderPulled(); render();
+    if (d.watch) S.watch = d.watch;
+    renderSources(); renderFeeds(); renderPulled(); renderWatch(); render();
   }
 
   if (!api) {

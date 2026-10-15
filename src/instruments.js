@@ -5,6 +5,7 @@
 const { fetchText } = require("./news/fetcher");
 const { parseFeed } = require("./news/parse");
 const { rank } = require("./news/rank");
+const { matcher } = require("./watchlist");
 
 const INSTR = {
   "^GSPC": { q: '"S&P 500" OR "Wall Street" OR "US stocks"', re: /s&p 500|s&p|wall street|u\.?s\.? stocks|stock market|equities|stocks? (fall|rise|rall|slide|drop|gain|sink|jump|tumble|surge)/i, macro: ["US", "FED"] },
@@ -25,7 +26,16 @@ const INSTR = {
   "^HSI": { q: '"Hang Seng" OR "Hong Kong stocks" OR "China stocks"', re: /hang seng|hong kong (stocks|shares)|chin(a|ese) (stocks|shares)|beijing stimulus/i, macro: ["GLB"] }
 };
 const fallback = (label) => ({ q: `"${label}"`, re: new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), macro: [] });
-const instr = (sym, label = sym) => INSTR[sym] || fallback(label);
+// watchlist tickers, set by main.js: matched the same way the watchlist tags stories
+const WATCH = new Map();
+function setWatch(list) {
+  WATCH.clear();
+  for (const e of list || []) {
+    const words = [...new Set([e.sym, ...(e.terms || [])])].map((t) => `"${t}"`);
+    WATCH.set(e.sym, { q: words.join(" OR "), re: { test: matcher(e) }, macro: [] });
+  }
+}
+const instr = (sym, label = sym) => INSTR[sym] || WATCH.get(sym) || fallback(label);
 
 const storyText = (s) => `${s.title} ${s.summary} ${s.assets.join(" ")}`;
 
@@ -96,4 +106,4 @@ async function attributeHistory(sym, label, moves, kind) {
   }));
 }
 
-module.exports = { INSTR, instr, relevantLive, attributeIntraday, attributeHistory };
+module.exports = { INSTR, instr, setWatch, relevantLive, attributeIntraday, attributeHistory };

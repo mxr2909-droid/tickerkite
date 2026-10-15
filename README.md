@@ -40,6 +40,16 @@ The installer lands in `dist/`. The build is unsigned, so the first time you ope
 - The sidebar filters to High Impact or Last Hour and shows which feeds are live.
 - High-impact headlines trigger a macOS notification. Turn this off under **View › Alerts for High-Impact Headlines**.
 
+## Watchlist
+
+Type a ticker into **+ add ticker** in the sidebar and press Enter. Any Yahoo Finance symbol works: `NVDA`, `BRK-B`, `7203.T`, `ASML.AS`. WIRE checks the symbol exists and looks up the company name.
+
+- Each ticker shows its price, day change and sparkline. Click it for the full chart, momentum and "what moved it", the same as the markets below it. Hover and click **×**, or select it and press Delete, to remove it.
+- Stories that mention your tickers get a green **★ NVDA** tag. **Watchlist** in the sidebar shows only those stories.
+- A story counts as a mention when it uses the ticker in capitals (`NVDA`, `$NVDA`) or the company's short name ("Nvidia"). One- and two-letter tickers only count as `$F` or `(F)`, so "F-35" isn't a Ford story.
+- A new story about one of your tickers sends a notification whatever its impact score. Turn this off under **View › Alerts for Watchlist Headlines**.
+- **View › Edit Watchlist…** opens `watchlist.json`. Edit `terms` to change which words count as a mention, for example `["Nvidia", "Jensen Huang"]` or, for Target, `["Target Corp"]` so "inflation target" doesn't match. WIRE picks up the change as soon as you save.
+
 ## Charts, momentum and "what moved it"
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
@@ -110,6 +120,7 @@ src/preload.js       safe bridge between the app and the UI
 src/quotes.js        delayed market quotes and price history
 src/analytics.js     range stats, velocity/acceleration, big-move detection
 src/instruments.js   which headlines matter for each market; news-to-move matching
+src/watchlist.js     your tickers: symbol cleanup and which stories mention them
 src/news/feeds.js    default sources
 src/news/fetcher.js  parallel feed download with timeouts
 src/news/parse.js    RSS/Atom parser (no dependencies)
@@ -121,6 +132,5 @@ test/                parser and ranking tests (npm test)
 ## Next steps
 
 - Paid real-time data (Finnhub, Polygon, Benzinga) as an optional source, set up with your API key.
-- A watchlist that pins stories mentioning your tickers and alerts on them.
 - An economic calendar pane (CPI, FOMC, earnings dates).
 - AI one-line summaries for each top story.

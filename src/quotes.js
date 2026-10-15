@@ -9,7 +9,13 @@ const SYMBOLS = [
   ["BTC-USD", "Bitcoin", "px"], ["^STOXX50E", "Euro Stoxx", "idx"], ["^N225", "Nikkei", "idx"], ["^HSI", "Hang Seng", "idx"]
 ];
 
-async function one([sym, label, type]) {
+// watchlist tickers, set by main.js: sym -> { label, name }
+let WATCH = new Map();
+function setWatch(list) {
+  WATCH = new Map((list || []).map((e) => [e.sym, { label: e.sym, name: e.name }]));
+}
+
+async function one([sym, label, type, extra = {}]) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=15m`;
   try {
     const j = JSON.parse(await fetchText(url, 8000));
@@ -18,14 +24,27 @@ async function one([sym, label, type]) {
     const last = m.regularMarketPrice;
     const prev = m.chartPreviousClose ?? m.previousClose;
     const closes = (r.indicators?.quote?.[0]?.close || []).filter((v) => v != null);
-    return { sym, label, type, last, chg: last - prev, pct: prev ? ((last - prev) / prev) * 100 : 0, spark: closes.slice(-26), time: m.regularMarketTime * 1000 };
+    return { sym, label, type, last, chg: last - prev, pct: prev ? ((last - prev) / prev) * 100 : 0, spark: closes.slice(-26), time: m.regularMarketTime * 1000, ...extra };
   } catch {
-    return { sym, label, type, last: null };
+    return { sym, label, type, last: null, ...extra };
   }
 }
 
+/** Market quotes plus watchlist quotes. Watchlist rows carry `watch: true` and the company name. */
 async function fetchQuotes() {
-  return Promise.all(SYMBOLS.map(one));
+  const watch = [...WATCH].map(([sym, w]) => [sym, w.label, "px", { watch: true, name: w.name }]);
+  return Promise.all([...SYMBOLS, ...watch].map(one));
+}
+
+/** Check that a symbol exists on Yahoo and get its display name. Throws if it doesn't. */
+async function lookupSymbol(sym) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1d`;
+  let j;
+  try { j = JSON.parse(await fetchText(url, 8000)); }
+  catch (e) { throw new Error(/HTTP 404/.test(e.message) ? `No market data for "${sym}"` : `Couldn't reach Yahoo Finance (${e.message})`); }
+  const m = j?.chart?.result?.[0]?.meta;
+  if (!m || m.regularMarketPrice == null) throw new Error(`No market data for "${sym}"`);
+  return { sym: m.symbol || sym, name: m.shortName || m.longName || sym, type: m.instrumentType || "" };
 }
 
 // ---- history for the instrument view ----
@@ -34,7 +53,9 @@ const histCache = new Map(); // key -> { at, data }
 
 function symInfo(sym) {
   const s = SYMBOLS.find((x) => x[0] === sym);
-  return s ? { sym, label: s[1], type: s[2] } : { sym, label: sym, type: "px" };
+  if (s) return { sym, label: s[1], type: s[2] };
+  const w = WATCH.get(sym);
+  return { sym, label: w ? w.name : sym, type: "px" };
 }
 
 /** Fetch and analyze one symbol over one range. Cached for that range's refresh interval. */
@@ -51,4 +72,4 @@ async function fetchHistory(sym, rangeKey, { force = false } = {}) {
   return data;
 }
 
-module.exports = { fetchQuotes, fetchHistory, symInfo, SYMBOLS };
+module.exports = { fetchQuotes, fetchHistory, symInfo, lookupSymbol, setWatch, SYMBOLS };

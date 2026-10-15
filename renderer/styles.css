@@ -177,3 +177,20 @@ button,select{font:inherit;color:inherit;background:none;border:0;cursor:pointer
 .ihint{color:var(--dim);font-size:11.5px;margin-top:-4px}
 button.mk{border:0;cursor:pointer}
 button.mk:hover{background:#fff}
+
+/* ---------- watchlist ---------- */
+.badge.wl{background:#0d6e62}
+.wq{position:relative}
+.wq .wx{position:absolute;right:-2px;top:1px;width:16px;height:16px;line-height:16px;text-align:center;border-radius:3px;color:#d9c7c8;font-size:12px;opacity:0;background:rgba(40,8,12,.95)}
+.wq:hover .wx,.wq:focus-within .wx,.wq .wx:focus-visible{opacity:1}
+.wq .wx:hover{color:#fff;background:var(--red-2)}
+.wq .nm{grid-column:1/-1;color:#c6a4a7;font-size:10.5px;font-family:var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:-2px}
+.wempty{font-size:11.5px;color:#d2bcbd;padding:2px 8px;line-height:1.45;font-family:var(--sans)}
+.wadd{padding:4px 8px 0}
+.wadd input{width:100%;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#fff;font:inherit;font-family:var(--mono);font-size:11.5px;padding:4px 6px;outline:none;text-transform:uppercase}
+.wadd input::placeholder{text-transform:none;color:#b89a9d}
+.wadd input:focus{border-color:var(--orange)}
+.wadd input:disabled{opacity:.6}
+.werr{font-size:11px;color:#ffb4ab;padding:2px 8px;min-height:0;font-family:var(--sans);line-height:1.4}
+.werr:empty{display:none}
+.werr.ok{color:#9fe3be}
