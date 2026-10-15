@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'">
+<title>WIRE</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <nav class="side" aria-label="App sections">
+    <div class="drag"></div>
+    <div class="sgroup">Monitor</div>
+    <button class="sitem" type="button" data-view="high"><span class="ic">◉</span>High Impact<span class="c" id="cHigh">0</span></button>
+    <button class="sitem" type="button" data-view="all" aria-current="true"><span class="ic">▤</span>All News<span class="c" id="cAll">0</span></button>
+    <button class="sitem" type="button" data-view="new"><span class="ic">✦</span>Last Hour<span class="c" id="cNew">0</span></button>
+    <div class="sgroup">Markets <span class="delay">click for chart</span></div>
+    <div class="quotes num" id="quotes"></div>
+    <div class="sgroup">Feeds</div>
+    <div class="feeds" id="feeds" title="Edit sources in View › Edit Feeds…"></div>
+  </nav>
+
+  <section class="main" aria-label="Headlines">
+    <div class="titlebar">News
+      <div class="tabs" id="tabs"><span class="pg"><span id="pgView">All</span><b>News</b></span></div>
+    </div>
+    <form class="search" id="sform" autocomplete="off">
+      <span class="lane">WIRE MKTS</span>
+      <input id="q" placeholder="search headlines, tickers, sources  ( / )" aria-label="Search headlines">
+      <label class="opt">▤ <select id="src" aria-label="Source"><option value="">Sources</option></select></label>
+      <label class="opt">▦ <select id="win" aria-label="Time window"><option value="6">6H</option><option value="24" selected>24H</option><option value="72">72H</option></select></label>
+    </form>
+    <div class="secbar">
+      <div class="l"><b>Top Ranked News</b><span>|</span><em id="more">More »</em></div>
+      <div class="toggle" id="mode">
+        <button type="button" data-m="news" aria-pressed="true">Top News</button>
+        <button type="button" data-m="ctx" aria-pressed="false">Background &amp; Opinion</button>
+      </div>
+    </div>
+    <div class="list num" id="list" role="listbox" aria-label="Headlines"></div>
+    <div class="status num">
+      <span class="fn">Wire Functions</span>
+      <span><b id="sHigh">0</b> <span class="dim">high-impact</span></span>
+      <span><b id="sShown">0</b> <span class="dim">shown</span></span>
+      <span><b id="sSrc">0</b> <span class="dim">outlets</span></span>
+      <button type="button" class="refresh" id="refresh" title="Refresh (⌘R)">⟳ REFRESH</button>
+      <button type="button" class="refresh" id="widgetBtn" title="Floating widget (⌘⇧W)">▣ WIDGET</button>
+      <span class="r" id="pulled">LOADING…</span>
+    </div>
+  </section>
+
+  <aside class="detail" id="detail" aria-label="Story"></aside>
+</div>
+<script src="instrument.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

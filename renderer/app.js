@@ -1,0 +1,258 @@
+/* WIRE renderer: draws the terminal from ranked stories sent by the main process. */
+(() => {
+  const api = window.wire;
+  const $ = (s) => document.querySelector(s);
+  const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  const TABS = [["TOP", "Top News"], ["US", "US Macro"], ["GLB", "Global"], ["FED", "Fed / Rates"], ["ERN", "Earnings"], ["NRG", "Energy"], ["ALL", "All"]];
+  const DESK_NAMES = { US: "US MACRO", GLB: "GLOBAL", FED: "FED / RATES", ERN: "EARNINGS", NRG: "ENERGY / GEO" };
+  const S = { stories: [], status: [], pulledAt: 0, refreshing: false, tab: "TOP", mode: "news", view: "all", q: "", src: "", hours: 24, topN: 3, sel: null, idx: 0, list: [] };
+
+  // ---------- read tracking: NEW clears once you open a story ----------
+  const READ_KEY = "wire.read.v1";
+  const read = new Set((() => { try { return JSON.parse(localStorage.getItem(READ_KEY)) || []; } catch { return []; } })());
+  function markRead(s) {
+    if (!s || read.has(s.id)) return;
+    read.add(s.id);
+    try { localStorage.setItem(READ_KEY, JSON.stringify([...read].slice(-5000))); } catch {}
+    // the story can be listed twice (ranked + time ordered), so clear every copy
+    document.querySelectorAll(`.row[data-id="${s.id}"] .badge.nw`).forEach((b) => b.remove());
+  }
+
+  // ---------- chrome ----------
+  $("#tabs").insertAdjacentHTML("afterbegin", TABS.map(([k, l]) => `<button type="button" data-k="${k}" aria-pressed="${k === S.tab}">${l}</button>`).join(""));
+
+  const fmtTime = (ts) => {
+    const d = new Date(ts), now = new Date();
+    return d.toDateString() === now.toDateString()
+      ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+      : `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const fmtLong = (ts) => {
+    const d = new Date(ts);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " at " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  };
+
+  // ---------- filtering ----------
+  function pool() {
+    const now = Date.now(), win = S.hours * 3600e3, q = S.q;
+    return S.stories.filter((s) =>
+      s.kind === S.mode &&
+      now - s.updated <= win &&
+      (S.tab === "TOP" || S.tab === "ALL" || s.desks.includes(S.tab)) &&
+      (S.view === "all" || (S.view === "high" ? s.sev === "h" : now - s.updated < 3600e3)) &&
+      (!S.src || s.sources.some((x) => x.code === S.src)) &&
+      (!q || [s.title, s.summary, s.code, s.publisher, s.signal, s.region, ...s.assets, ...s.sources.map((x) => x.name)].join(" ").toLowerCase().includes(q))
+    );
+  }
+
+  function render() {
+    const p = pool();
+    const ranked = [...p].sort((a, b) => b.score - a.score).slice(0, S.topN);
+    const timed = [...p].sort((a, b) => b.updated - a.updated);
+    S.list = [...ranked, ...timed];
+    let i = 0;
+    const row = (s, top) => {
+      i++;
+      const isNew = Date.now() - s.ts < 30 * 60e3 && !read.has(s.id);
+      const extra = s.sources.length > 1 ? `<span class="x">+${s.sources.length - 1}</span>` : "";
+      return `<button type="button" role="option" class="row${top ? " top" : ""}" data-i="${i - 1}" data-id="${s.id}" aria-selected="false">
+        <span class="n">${i})</span><span class="h">${s.sev === "h" ? '<span class="badge hi">HI</span>' : ""}${isNew ? '<span class="badge nw">NEW</span>' : ""}${esc(s.title)}${extra}</span>
+        <span class="s">${esc(s.code)}</span><span class="t">${fmtTime(s.updated)}</span></button>`;
+    };
+    if (!S.stories.length) {
+      $("#list").innerHTML = `<div class="empty">${S.refreshing ? "Pulling feeds…" : "No stories yet. Check your connection, then press ⌘R."}</div>`;
+    } else if (!p.length) {
+      $("#list").innerHTML = `<div class="empty">Nothing matches these filters. Widen the time window, clear the search (Esc) or pick another tab.</div>`;
+    } else {
+      $("#list").innerHTML = ranked.map((s) => row(s, true)).join("") + `<div class="subhead">Time Ordered News</div>` + timed.map((s) => row(s, false)).join("");
+    }
+
+    $("#sHigh").textContent = p.filter((s) => s.sev === "h").length;
+    $("#sShown").textContent = p.length;
+    $("#sSrc").textContent = new Set(p.flatMap((s) => s.sources.map((x) => x.code))).size;
+    const news = S.stories.filter((s) => s.kind === "news" && Date.now() - s.updated <= 24 * 3600e3);
+    $("#cHigh").textContent = news.filter((s) => s.sev === "h").length;
+    $("#cAll").textContent = news.length;
+    $("#cNew").textContent = news.filter((s) => Date.now() - s.updated < 3600e3).length;
+    $("#pgView").textContent = { all: "All", high: "High", new: "1H" }[S.view];
+    $("#more").textContent = S.topN > 3 ? "Less «" : "More »";
+
+    let idx = S.list.findIndex((s) => s.id === S.sel);
+    select(idx >= 0 ? idx : 0, false, false);
+  }
+
+  function renderSources() {
+    const counts = new Map();
+    for (const s of S.stories) for (const x of s.sources) counts.set(x.code, (counts.get(x.code) || 0) + 1);
+    const opts = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40);
+    const cur = S.src;
+    $("#src").innerHTML = `<option value="">Sources</option>` + opts.map(([c, n]) => `<option value="${esc(c)}"${c === cur ? " selected" : ""}>${esc(c)} (${n})</option>`).join("");
+  }
+
+  function renderFeeds() {
+    const ok = S.status.filter((f) => f.ok).length;
+    const bad = S.status.filter((f) => !f.ok);
+    $("#feeds").innerHTML = S.status.length
+      ? `${ok}/${S.status.length} feeds live` + (bad.length ? `<div class="bad">${bad.map((f) => esc(f.name) + " · " + esc(f.error)).join("<br>")}</div>` : "")
+      : "Waiting for first pull";
+  }
+
+  function renderPulled() {
+    const el = $("#pulled");
+    el.classList.toggle("busy", S.refreshing);
+    if (S.refreshing) { el.textContent = "PULLING…"; return; }
+    if (!S.pulledAt) { el.textContent = "NOT PULLED YET"; return; }
+    const m = Math.round((Date.now() - S.pulledAt) / 60000);
+    el.textContent = m < 1 ? "PULLED JUST NOW" : m < 60 ? `PULLED ${m}M AGO` : `PULLED ${Math.round(m / 60)}H AGO`;
+  }
+
+  // ---------- detail ----------
+  // byUser: true when you clicked or arrowed to it (marks it read); false for automatic selection on load/refresh
+  function select(i, scroll = true, byUser = true) {
+    const s = S.list[i];
+    document.querySelectorAll(".row").forEach((r) => r.setAttribute("aria-selected", String(+r.dataset.i === i)));
+    if (scroll) document.querySelector(`.row[data-i="${i}"]`)?.scrollIntoView({ block: "nearest" });
+    const Inst = window.WireInstrument;
+    if (Inst?.isOpen()) {
+      // background refreshes keep the chart on screen; choosing a story yourself goes back to stories
+      if (!byUser) { if (s) { S.sel = s.id; S.idx = i; } return; }
+      Inst.close();
+    }
+    if (!s) { $("#detail").innerHTML = ""; S.sel = null; return; }
+    S.sel = s.id; S.idx = i;
+    if (byUser) markRead(s);
+    const others = s.sources.slice(1);
+    $("#detail").innerHTML = `
+      <div class="dhead"><span class="code">${esc(s.code)}</span><span class="nm">${esc(s.publisher)}</span><span class="dt">${fmtLong(s.ts)}</span></div>
+      <h1>${esc(s.title)}</h1>
+      ${s.summary ? `<p>${esc(s.summary)}</p>` : `<p class="none">The feed carries no summary for this story. Open it for the full text.</p>`}
+      <dl class="kv">
+        <dt>WHY</dt><dd>${esc(s.why)}</dd><hr>
+        <dt>IMPACT</dt><dd>${{ h: "HIGH", m: "MEDIUM", l: "LOW" }[s.sev]} · ${s.score}<span class="meter"><i style="width:${s.score}%"></i></span></dd>
+        <dt>SIGNAL</dt><dd>${esc(s.signal)}</dd>
+        <dt>REGION</dt><dd>${esc(s.region)}</dd>
+        <dt>DESK</dt><dd>${s.desks.map((d) => DESK_NAMES[d] || d).join(" / ")}</dd>
+        <dt>ASSETS</dt><dd>${s.assets.length ? s.assets.map(esc).join("  ·  ") : "—"}</dd>
+        <dt>COVERAGE</dt><dd>${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""}</dd>
+        <dt>CONF</dt><dd>${s.conf.toFixed(2)}</dd>
+      </dl>
+      <button type="button" class="open" data-url="${esc(s.link)}">OPEN STORY <span>›</span></button>
+      <div class="url">${esc(s.link)}</div>
+      ${others.length ? `<div class="cov"><div class="lbl">ALSO REPORTED BY</div>${others.map((x) => `<button type="button" data-url="${esc(x.link)}"><span class="c">${esc(x.code)}</span><span class="t">${esc(x.title)}</span></button>`).join("")}</div>` : ""}`;
+  }
+
+  // ---------- events ----------
+  $("#list").addEventListener("click", (e) => { const r = e.target.closest(".row"); if (r) select(+r.dataset.i, false); });
+  $("#list").addEventListener("dblclick", (e) => { const r = e.target.closest(".row"); if (r) openSel(); });
+  $("#detail").addEventListener("click", (e) => {
+    if (window.WireInstrument?.isOpen()) return; // the instrument view handles its own clicks
+    const b = e.target.closest("[data-url]"); if (b) api?.open(b.dataset.url);
+  });
+
+  // ---------- instrument view ----------
+  function openInstrument(sym) {
+    window.WireInstrument.open(sym, $("#detail"));
+    $("#detail").scrollTop = 0;
+  }
+  function closeInstrument() {
+    window.WireInstrument.close();
+    select(S.idx, false, false);
+  }
+  window.WireInstrument.onClose = closeInstrument;
+  window.WireInstrument.onStory = (id) => {
+    const i = S.list.findIndex((s) => s.id === id);
+    if (i < 0) return false; // not in the current filter: open the article instead
+    select(i);
+    return true;
+  };
+  $("#quotes").addEventListener("click", (e) => { const q = e.target.closest(".q[data-sym]"); if (q) openInstrument(q.dataset.sym); });
+  $("#quotes").addEventListener("keydown", (e) => { const q = e.target.closest(".q[data-sym]"); if (q && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openInstrument(q.dataset.sym); } });
+  $("#tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-k]"); if (!b) return;
+    S.tab = b.dataset.k; document.querySelectorAll("#tabs button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    S.sel = null; render(); $("#list").scrollTop = 0;
+  });
+  $("#mode").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    S.mode = b.dataset.m; document.querySelectorAll("#mode button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    S.sel = null; render();
+  });
+  document.querySelectorAll(".sitem[data-view]").forEach((b) => b.addEventListener("click", () => {
+    S.view = b.dataset.view; document.querySelectorAll(".sitem[data-view]").forEach((x) => x.setAttribute("aria-current", String(x === b)));
+    S.sel = null; render();
+  }));
+  $("#more").addEventListener("click", () => { S.topN = S.topN > 3 ? 3 : 10; render(); });
+  $("#src").addEventListener("change", (e) => { S.src = e.target.value; S.sel = null; render(); });
+  $("#win").addEventListener("change", (e) => { S.hours = +e.target.value; render(); });
+  $("#sform").addEventListener("submit", (e) => { e.preventDefault(); $("#q").blur(); });
+  $("#q").addEventListener("input", (e) => { S.q = e.target.value.trim().toLowerCase(); S.sel = null; render(); });
+  $("#refresh").addEventListener("click", () => api?.refresh());
+  $("#widgetBtn").addEventListener("click", () => api?.widget?.toggle());
+  // a story opened from the widget clears its NEW tag here too
+  window.addEventListener("storage", (e) => {
+    if (e.key !== READ_KEY) return;
+    try { for (const id of JSON.parse(e.newValue) || []) read.add(id); } catch {}
+    render();
+  });
+
+  function openSel() { const s = S.list[S.idx]; if (s) api?.open(s.link); }
+  document.addEventListener("keydown", (e) => {
+    if (e.target.id === "q") { if (e.key === "Escape") { e.target.value = ""; S.q = ""; render(); e.target.blur(); } return; }
+    if (e.target.tagName === "SELECT") return;
+    const instOpen = window.WireInstrument.isOpen();
+    if (instOpen && e.key === "Escape") { closeInstrument(); return; }
+    if (instOpen && (e.key === "[" || e.key === "]")) { window.WireInstrument.cycleRange(e.key === "]" ? 1 : -1); return; }
+    if (e.key === "/") { e.preventDefault(); $("#q").focus(); }
+    else if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); select(Math.min(S.list.length - 1, S.idx + 1)); }
+    else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); select(Math.max(0, S.idx - 1)); }
+    else if (e.key === "Enter" || e.key === "o") openSel();
+    else if (e.key === "Escape") { S.q = ""; $("#q").value = ""; S.src = ""; $("#src").value = ""; render(); }
+    else if (/^[1-7]$/.test(e.key) && !e.metaKey) document.querySelector(`#tabs button[data-k="${TABS[+e.key - 1][0]}"]`).click();
+  });
+
+  // ---------- quotes ----------
+  function spark(vals, up) {
+    if (!vals || vals.length < 2) return "";
+    const min = Math.min(...vals), max = Math.max(...vals), r = max - min || 1;
+    const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * 100},${13 - ((v - min) / r) * 12}`).join(" ");
+    return `<svg viewBox="0 0 100 14" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${up ? "#3ccf7e" : "#ff5a4e"}" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+  function renderQuotes(qs) {
+    if (!qs?.length) { $("#quotes").innerHTML = `<div class="q dim">Loading quotes…</div>`; return; }
+    const cur = window.WireInstrument.current();
+    $("#quotes").innerHTML = qs.map((q) => {
+      const attrs = `class="q${q.sym === cur ? " on" : ""}" data-sym="${esc(q.sym)}" tabindex="0" role="button" title="${esc(q.label)}: click for chart, momentum and drivers"`;
+      if (q.last == null) return `<div ${attrs}><span class="lb">${esc(q.label)}</span><span class="px dim">—</span><span class="pc dim"></span></div>`;
+      const up = q.chg >= 0;
+      const px = q.type === "yld" ? q.last.toFixed(3) + "%" : q.type === "fx" ? q.last.toFixed(q.last > 20 ? 2 : 4) : q.last >= 1000 ? q.last.toLocaleString("en-US", { maximumFractionDigits: 0 }) : q.last.toFixed(2);
+      const pc = q.type === "yld" ? `${up ? "+" : ""}${(q.chg * 100).toFixed(1)}bp` : `${up ? "+" : ""}${q.pct.toFixed(2)}%`;
+      return `<div ${attrs}><span class="lb">${esc(q.label)}</span><span class="px">${px}</span><span class="pc ${up ? "up" : "dn"}">${pc}</span>${spark(q.spark, up)}</div>`;
+    }).join("");
+  }
+
+  // ---------- data wiring ----------
+  function applyNews(d) {
+    if (!d) return;
+    S.stories = d.stories || []; S.status = d.status || []; S.pulledAt = d.pulledAt || 0; S.refreshing = !!d.refreshing;
+    renderSources(); renderFeeds(); renderPulled(); render();
+  }
+
+  if (!api) {
+    $("#list").innerHTML = `<div class="empty">Run this page inside the WIRE app (npm start) to load live feeds.</div>`;
+    return;
+  }
+  api.onNews(applyNews);
+  api.onQuotes(renderQuotes);
+  api.onSelect((id) => {
+    S.view = "all"; S.mode = "news"; S.q = ""; $("#q").value = "";
+    document.querySelectorAll(".sitem[data-view]").forEach((x) => x.setAttribute("aria-current", String(x.dataset.view === "all")));
+    document.querySelectorAll("#mode button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.m === "news")));
+    document.querySelector('#tabs button[data-k="TOP"]').click();
+    const i = S.list.findIndex((s) => s.id === id); if (i >= 0) select(i); });
+  api.onInstrument?.((sym) => openInstrument(sym));
+  api.getNews().then(applyNews);
+  api.getQuotes().then(renderQuotes);
+  setInterval(() => { renderPulled(); }, 20000);
+  setInterval(() => { if (!document.hidden) render(); }, 60000); // keep NEW badges and time window current
+})();
