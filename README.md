@@ -48,6 +48,16 @@ Type a ticker into **+ add ticker** in the sidebar and press Enter. Any Yahoo Fi
 - Stories that mention your tickers get a green **★ NVDA** tag. **Watchlist** in the sidebar shows only those stories.
 - A story counts as a mention when it uses the ticker in capitals (`NVDA`, `$NVDA`) or the company's short name ("Nvidia"). One- and two-letter tickers only count as `$F` or `(F)`, so "F-35" isn't a Ford story.
 - A new story about one of your tickers sends a notification whatever its impact score. Turn this off under **View › Alerts for Watchlist Headlines**.
+- For US stocks, the ticker's view also shows a **Company** section under the key numbers:
+  - **Next earnings date**, from Nasdaq. The label says whether the date is confirmed or a Zacks estimate. When Nasdaq has no future date, WIRE estimates it from the company's past filing dates and labels it **ESTIMATED**.
+  - **Valuation**: market cap, P/E (delayed price ÷ trailing-twelve-month diluted EPS) and price/sales, plus where today's P/E sits in its 5-year range.
+  - **Fundamentals**: TTM revenue, net income, EPS, gross and operating margin, cash, total debt and shares outstanding.
+  - **The last 8 quarters**.
+- Fundamentals come from SEC EDGAR 10-Q/10-K filings (free, no key). WIRE caches them for 24 hours in `company-cache.json`.
+  - The fourth quarter only appears inside the annual report, so it's worked out as the annual figure minus the first nine months, marked `*`.
+  - Per-share figures are adjusted for stock splits.
+- The SEC asks apps to send a contact email with each request. The first time you open a stock, the section asks for one. WIRE sends it only to sec.gov and saves it in `prefs.json` (`secContact`).
+- ETFs, crypto, futures and non-US stocks show "No SEC filings for this symbol" instead of the Company section.
 - **View › Edit Watchlist…** opens `watchlist.json`. Edit `terms` to change which words count as a mention, for example `["Nvidia", "Jensen Huang"]` or, for Target, `["Target Corp"]` so "inflation target" doesn't match. WIRE picks up the change as soon as you save.
 
 ## Scorecards
@@ -157,6 +167,7 @@ src/quotes.js        delayed market quotes and price history
 src/analytics.js     range stats, velocity/acceleration, big-move detection
 src/instruments.js   which headlines matter for each market; news-to-move matching
 src/watchlist.js     your tickers: symbol cleanup and which stories mention them
+src/company.js       company panel: SEC EDGAR fundamentals, valuation, next earnings date
 src/macro/           scorecards: indicators, data downloads, scoring, default weights
 scripts/backtest.js  scorecard backtest since 2007
 src/news/feeds.js    default sources

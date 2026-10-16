@@ -113,10 +113,12 @@
       ${momentumBlock(d)}
       <div class="isec">KEY NUMBERS · ${esc(RANGE_NAME[I.range]).toUpperCase()}</div>
       ${statsBlock(d)}
+      <div id="icomp"></div>
       <div id="inews"></div>
       <p class="ifoot">Prices are delayed (Yahoo Finance). Headlines are matched to moves by date and topic; they show what the market was reacting to, not proof of cause.</p>
     </div>`;
     drawChart();
+    window.WireCompany?.mount(document.getElementById("icomp"), I.sym);
     renderNews();
   }
 

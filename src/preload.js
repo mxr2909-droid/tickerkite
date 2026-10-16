@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld("wire", {
   onSelect: (cb) => ipcRenderer.on("news:select", (_e, id) => cb(id)),
   getInstrument: (sym, range, force) => ipcRenderer.invoke("instrument:get", sym, range, force),
   getInstrumentNews: (sym, range) => ipcRenderer.invoke("instrument:news", sym, range),
+  getCompany: (sym, force) => ipcRenderer.invoke("company:get", sym, force),
+  setSecContact: (c) => ipcRenderer.invoke("company:contact", c),
   addWatch: (sym) => ipcRenderer.invoke("watch:add", sym),
   removeWatch: (sym) => ipcRenderer.invoke("watch:remove", sym),
   getScores: () => ipcRenderer.invoke("score:get"),

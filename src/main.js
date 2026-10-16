@@ -9,6 +9,7 @@ const { fetchQuotes, fetchHistory } = quotes;
 const instruments = require("./instruments");
 const { relevantLive, attributeIntraday, attributeHistory } = instruments;
 const WL = require("./watchlist");
+const company = require("./company");
 const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");
 const { fetchAllSeries } = require("./macro/data");
 const SC = require("./macro/score");
@@ -509,6 +510,26 @@ ipcMain.handle("instrument:news", async (_e, sym, rangeKey) => {
   } catch (e) {
     return { ok: false, error: String(e.message || e) };
   }
+});
+
+// ---------- company panel (watchlist stocks) ----------
+const companyStore = { read: readJSON, write: writeJSON };
+ipcMain.handle("company:get", async (_e, sym, force) => {
+  sym = String(sym || "");
+  const watch = state.watch.some((e) => e.sym === sym);
+  if (!watch) return { ok: true, watch: false };
+  try {
+    return { ok: true, watch, data: await company.fetchCompany(sym, { store: companyStore, contact: prefs.secContact, force: !!force }) };
+  } catch (e) {
+    return { ok: false, watch, error: String(e.message || e) };
+  }
+});
+ipcMain.handle("company:contact", (_e, contact) => {
+  const c = String(contact || "").trim().slice(0, 120);
+  if (!/\S+@\S+\.\S+/.test(c)) return { ok: false, error: "Enter an email address." };
+  prefs.secContact = c;
+  savePrefs();
+  return { ok: true };
 });
 
 ipcMain.handle("show-instrument", (_e, sym) => {
