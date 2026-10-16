@@ -67,6 +67,7 @@ Click **Scorecards** at the top (or ⌘⌥2; ⌘⌥1 goes back to News). Each ta
 - **53 indicators in 8 sections:** Growth, Inflation, Labor, Rates & Fed, Credit & Conditions, Consumer & Housing, Markets and Global. Data comes from the St. Louis Fed (FRED, no key needed) and Yahoo Finance, refreshed every 6 hours or with **UPDATE DATA**.
 - **Each row** shows the latest reading, where it was 6 months ago, its trend, where it sits in its own history, and how many points it adds to or takes from the selected score.
 - **Pushing up / pulling down** lists the biggest drivers of the score.
+- **What changed** explains a score move: the total change over the last week (**1W**) or month (**1M**) and the indicators that moved it most, with each one's value then → now and the points it added or took away. Click one to open it. Rows in the main table tagged **NEW** got a fresh data point in the last 7 days.
 - **Vs the average of all six** ranks the assets against each other. Even when everything scores low, it shows which are least and most exposed.
 - **Regime** plots growth against inflation (Goldilocks, Reflation, Slowdown, Stagflation) from the direction of the last 6 months.
 - **Inflation mode** shows how far the weights have shifted for an inflation-driven market (below).

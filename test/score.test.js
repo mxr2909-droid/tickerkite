@@ -144,3 +144,39 @@ test("weights file: missing inflationary section uses defaults; an empty one swi
   });
   assert.deepStrictEqual(S.mergeWeights(W, { assets: { stocks: { growth: 1 } } }).assets.bonds, W.assets.bonds, "assets still fill from defaults");
 });
+
+test("what changed: per-indicator point changes add up and are sorted by size", () => {
+  const defs = [
+    { id: "g", section: "growth", src: "fred:G", factor: "growth", sign: 1, freq: "m" },
+    { id: "hy", section: "credit", src: "fred:HY", factor: "credit", sign: -1, freq: "m" }
+  ];
+  const flat = monthly((i) => 50 + Math.sin(i));
+  const jump = monthly((i) => 50 + Math.sin(i) + (i === 131 ? 30 : 0)); // spreads blow out in the latest month
+  const w = S.mergeWeights(W, {});
+  const past = S.evaluate(defs, S.prepare(defs, { "fred:G": flat, "fred:HY": flat }), w, now);
+  const cur = S.evaluate(defs, S.prepare(defs, { "fred:G": flat, "fred:HY": jump }), w, now);
+  const c = S.changes(cur, past).stocks;
+  assert.strictEqual(c.score, cur.assets.stocks.score - past.assets.stocks.score);
+  assert.ok(c.score < 0, "wider spreads lower the stocks score");
+  assert.strictEqual(c.rows[0].id, "hy");
+  assert.ok(c.rows[0].pts < 0);
+  assert.strictEqual(c.rows[0].to - c.rows[0].from, 30);
+  const sum = c.rows.reduce((x, r) => x + r.pts, 0);
+  const diff = Object.values(cur.assets.stocks.contrib).reduce((x, y) => x + y, 0) - Object.values(past.assets.stocks.contrib).reduce((x, y) => x + y, 0);
+  assert.ok(Math.abs(sum - diff) < 0.1);
+});
+
+test("scorecard: 1W/1M changes per asset and NEW flags for data that arrived this week", () => {
+  const defs = [
+    { id: "m", section: "growth", src: "fred:M", factor: "growth", sign: 1, freq: "m" },
+    { id: "d", section: "growth", src: "fred:D", factor: "growth", sign: 1, freq: "d" }
+  ];
+  const raw = { "fred:M": monthly((i) => 50 + Math.sin(i)), "fred:D": daily((i) => 100 + Math.sin(i / 9), 3000) };
+  const r = S.scorecard(defs, raw, S.mergeWeights(W, {}), now);
+  for (const [a] of S.ASSETS) {
+    assert.ok(r.assets[a].changes.w1 && r.assets[a].changes.m1, a);
+    assert.strictEqual(typeof r.assets[a].changes.m1.score, "number");
+  }
+  assert.strictEqual(r.ind.d.fresh, true, "daily series printed this week");
+  assert.strictEqual(r.ind.m.fresh, false, "monthly series last printed Oct 1, before the week began");
+});

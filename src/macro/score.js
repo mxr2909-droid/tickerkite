@@ -231,6 +231,24 @@ function prepare(defs, raw) {
   return out;
 }
 
+/**
+ * What moved each asset's score between a past evaluate() and the current one: total change, and every
+ * indicator's change in points (largest first) with its value then and now.
+ */
+function changes(cur, past, top = 8) {
+  const out = {};
+  for (const [a] of ASSETS) {
+    const c = cur.assets[a], p = past.assets[a];
+    const ids = new Set([...Object.keys(c.contrib), ...Object.keys(p.contrib)]);
+    const rows = [...ids].map((id) => ({
+      id, pts: (c.contrib[id] || 0) - (p.contrib[id] || 0),
+      from: past.ind[id]?.v ?? null, to: cur.ind[id]?.v ?? null
+    })).filter((r) => Math.abs(r.pts) >= 0.05).sort((x, y) => Math.abs(y.pts) - Math.abs(x.pts));
+    out[a] = { score: c.score - p.score, rows: rows.slice(0, top) };
+  }
+  return out;
+}
+
 /** Scores now, a month ago, three months ago, and month-end history for the last year. */
 function scorecard(defs, raw, weights, now = Date.now()) {
   const prepared = prepare(defs, raw);
@@ -246,6 +264,12 @@ function scorecard(defs, raw, weights, now = Date.now()) {
     cur.assets[a].m1 = cur.assets[a].score - history[11].scores[a];
     cur.assets[a].m3 = cur.assets[a].score - history[9].scores[a];
   }
+  // "what changed": a week and a month back; an indicator is fresh if a new observation arrived this week
+  const week = evaluate(defs, prepared, weights, now - 7 * DAY);
+  const month = evaluate(defs, prepared, weights, now - 30 * DAY);
+  const w1 = changes(cur, week), mo1 = changes(cur, month);
+  for (const [a] of ASSETS) cur.assets[a].changes = { w1: w1[a], m1: mo1[a] };
+  for (const [id, x] of Object.entries(cur.ind)) if (x) x.fresh = x.t !== week.ind[id]?.t;
   return { ...cur, history, prepared };
 }
 
@@ -276,4 +300,4 @@ function mergeWeights(defaults, user) {
   };
 }
 
-module.exports = { ASSETS, transform, analyze, evaluate, prepare, scorecard, mergeWeights, pctile, label, idxAt, valueAt };
+module.exports = { ASSETS, transform, analyze, evaluate, prepare, scorecard, changes, mergeWeights, pctile, label, idxAt, valueAt };

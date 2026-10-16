@@ -16,7 +16,8 @@
   };
 
   const K = { data: null, asset: "stocks", sel: null, active: false, series: new Map(), seq: 0 };
-  try { K.asset = localStorage.getItem("wire.score.asset") || "stocks"; } catch {}
+  K.win = "w1";
+  try { K.asset = localStorage.getItem("wire.score.asset") || "stocks"; K.win = localStorage.getItem("wire.score.win") || "w1"; } catch {}
   let hooks = {};
 
   // ---------- formatting ----------
@@ -102,6 +103,17 @@
     </div>`;
   }
 
+  function changed(A) {
+    const c = A.changes?.[K.win];
+    if (!c) return "";
+    const tog = [["w1", "1W"], ["m1", "1M"]].map(([k, l]) => `<button type="button" data-win="${k}" aria-pressed="${k === K.win}">${l}</button>`).join("");
+    const rows = c.rows.slice(0, 6).map((r) => {
+      const x = def(r.id) || { name: r.id };
+      return `<button type="button" data-id="${r.id}"><span class="nm">${esc(x.name)}</span><span class="vt">${fmt(r.from, x)} → ${fmt(r.to, x)}</span><span class="${r.pts > 0 ? "up" : "dn"}">${pts(r.pts)}</span></button>`;
+    }).join("") || `<div class="dim">No indicator moved the score by more than 0.1 points</div>`;
+    return `<div class="wchg"><h3>WHAT CHANGED <span class="tog">${tog}</span><span class="tot">score <b class="${c.score > 0 ? "up" : c.score < 0 ? "dn" : "dim"}">${c.score > 0 ? "▲" : c.score < 0 ? "▼" : "▬"} ${Math.abs(c.score)}</b> vs ${K.win === "w1" ? "a week" : "a month"} ago</span></h3>${rows}</div>`;
+  }
+
   function render() {
     renderTabs(); renderInfo();
     const d = K.data, el = $("#score");
@@ -126,6 +138,7 @@
         ${regimeBox(d.regime)}
       </div>
       <div class="drv"><div><h3>PUSHING THE SCORE UP</h3>${drv(A.up)}</div><div><h3>PULLING THE SCORE DOWN</h3>${drv(A.down)}</div></div>
+      ${changed(A)}
       <div class="cols"><span>INDICATOR</span><span>LATEST</span><span>6 MO AGO</span><span>TREND</span><span>VS HISTORY</span><span>EFFECT</span><span>AS OF</span></div>`;
 
     for (const [sk, sl] of d.sections) {
@@ -139,7 +152,7 @@
         const tr = !r || r.chg == null ? `<span class="tr flat">—</span>` : r.T > 0.6 ? `<span class="tr up">▲</span>` : r.T < 0.4 ? `<span class="tr dn">▼</span>` : `<span class="tr flat">▬</span>`;
         const eff = c == null ? `<span class="eff none">—</span>` : `<span class="eff ${c > 0.05 ? "pos" : c < -0.05 ? "neg" : "none"}">${pts(c)}</span>`;
         h += `<button type="button" class="srow${r?.stale ? " stale" : ""}" data-id="${x.id}" aria-selected="${x.id === K.sel}" title="${esc(x.name)}">
-          <span class="n">${esc(x.name)}</span>
+          <span class="n">${esc(x.name)}${r?.fresh ? `<i class="new" title="New data in the last 7 days">NEW</i>` : ""}</span>
           <span class="v">${r ? fmt(r.v, x) : "—"}</span>
           <span class="p">${r ? fmt(r.prior, x) : "—"}</span>
           ${tr}
@@ -281,6 +294,8 @@
   $("#atabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-a]"); if (b) setAsset(b.dataset.a); });
   $("#score").addEventListener("click", (e) => {
     const a = e.target.closest(".relbar [data-a]"); if (a) { setAsset(a.dataset.a); return; }
+    const w = e.target.closest("[data-win]");
+    if (w) { K.win = w.dataset.win; try { localStorage.setItem("wire.score.win", K.win); } catch {} render(); return; }
     const b = e.target.closest("[data-id]"); if (b) select(b.dataset.id);
   });
   $("#sref").addEventListener("click", () => api?.refreshScores());
