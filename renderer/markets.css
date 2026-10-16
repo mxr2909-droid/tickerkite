@@ -1,2 +1,26 @@
 /* WIRE Market heatmap page */
 .app:not([data-page="markets"]) .markets-only{display:none!important}
+#markets{padding:0 0 24px}
+.mbar{display:flex;align-items:center;gap:12px;padding:10px 14px;position:sticky;top:0;background:var(--list);z-index:1;border-bottom:1px solid var(--line)}
+.mbar .dim{flex:1;font-size:12px}
+.mperiods{display:flex;gap:2px}
+.mperiods button,.mref,.mopen{font:inherit;font-size:12px;background:#1a1a1c;color:var(--fg);border:1px solid #2a2a2d;padding:3px 9px;cursor:pointer}
+.mperiods button[aria-pressed="true"]{background:var(--orange);color:var(--orange-ink);border-color:var(--orange)}
+.msec{padding:6px 14px}
+.msec h3{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:10px 0 6px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:4px}
+.mtile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:62px;padding:8px 9px;border:1px solid transparent;color:#fff;font:inherit;text-align:left;cursor:pointer}
+.mtile:hover{border-color:rgba(255,255,255,.35)}
+.mtile.sel{border-color:var(--orange);box-shadow:inset 0 0 0 1px var(--orange)}
+.mtile .mn{font-size:12px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.mtile .mp{font-size:16px;font-weight:600}
+.mtile .ms{font-size:10px;opacity:.6}
+.mpairs{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.mpn{font-size:12px;margin-bottom:4px}
+.mpt{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.msum h2{margin:0 0 4px;font:600 18px var(--sans)}
+.mret{margin:16px 0;border-collapse:collapse;min-width:180px}
+.mret td{padding:4px 14px 4px 0;font-size:14px}
+.mret tr.cur td{color:var(--orange)}
+.mret tr.cur td.up,.mret tr.cur td.dn{font-weight:700}
+.mopen{margin-top:8px;padding:6px 12px}
