@@ -10,6 +10,9 @@ const instruments = require("./instruments");
 const { relevantLive, attributeIntraday, attributeHistory } = instruments;
 const WL = require("./watchlist");
 const company = require("./company");
+const EventEmitter = require("events");
+const PAGE_MODULES = { calendar: require("./calendar"), markets: require("./markets"), alerts: require("./alerts") };
+const bus = new EventEmitter(); // "news" | "quotes" | "scores" after each refresh, for page modules
 const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");
 const { fetchAllSeries } = require("./macro/data");
 const SC = require("./macro/score");
@@ -130,6 +133,7 @@ function computeScores() {
   if (!Object.keys(macro.series).length) return;
   try {
     macro.result = SC.scorecard(INDICATORS, macro.series, loadWeights());
+    bus.emit("scores", macro.result);
     macro.error = null;
   } catch (e) {
     console.error("scorecard failed", e);
@@ -226,6 +230,7 @@ async function refreshNews() {
     state.status = status;
     state.pulledAt = Date.now();
     notifyNew();
+    bus.emit("news", state.stories);
     writeJSON("cache.json", { items: state.items, status, pulledAt: state.pulledAt, seen: [...state.seen].slice(-3000) });
   } catch (e) {
     console.error("refresh failed", e);
@@ -255,6 +260,7 @@ function notifyNew() {
 async function refreshQuotes() {
   try {
     state.quotes = await fetchQuotes();
+    bus.emit("quotes", state.quotes);
     send("quotes:update", state.quotes);
   } catch (e) { console.error("quotes failed", e); }
 }
@@ -440,6 +446,9 @@ function buildMenu() {
       submenu: [
         { label: "News", accelerator: "CmdOrCtrl+Alt+1", click: () => { showStory(null); send("page:set", "news"); } },
         { label: "Scorecards", accelerator: "CmdOrCtrl+Alt+2", click: () => { showStory(null); send("page:set", "score"); } },
+        { label: "Calendar", accelerator: "CmdOrCtrl+Alt+3", click: () => { showStory(null); send("page:set", "calendar"); } },
+        { label: "Markets", accelerator: "CmdOrCtrl+Alt+4", click: () => { showStory(null); send("page:set", "markets"); } },
+        { label: "Alerts", accelerator: "CmdOrCtrl+Alt+5", click: () => { showStory(null); send("page:set", "alerts"); } },
         { type: "separator" },
         { label: "Show Main Window", accelerator: "CmdOrCtrl+1", click: () => showStory(null) },
         { label: "Fit Window to Screen", accelerator: "CmdOrCtrl+Alt+F", click: () => { showStory(null); fitToScreen(); } },
@@ -556,6 +565,12 @@ app.whenReady().then(() => {
     state.seen = new Set(cache.seen || []);
   }
   watchFile();
+  const ctx = {
+    ipcMain, send, file, readJSON, writeJSON, bus, Notification, showStory,
+    showPage: (p) => { showStory(null); send("page:set", p); },
+    get: () => ({ stories: state.stories, quotes: state.quotes, watch: state.watch, scores: macro.result })
+  };
+  for (const m of Object.values(PAGE_MODULES)) m.register(ctx);
   const mc = readJSON("macro-cache.json", null);
   if (mc?.series) { macro.series = mc.series; macro.errors = mc.errors || {}; macro.fetchedAt = mc.fetchedAt || 0; computeScores(); }
   watchWeights();

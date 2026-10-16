@@ -205,7 +205,8 @@ button.mk:hover{background:#fff}
 .werr.ok{color:#9fe3be}
 
 /* ---------- pages: News / Scorecards ---------- */
-.app[data-page="news"] .score-only,.app[data-page="score"] .news-only{display:none!important}
+/* each page hides its own elements on other pages; new pages add the same rule in their own CSS file */
+.app:not([data-page="news"]) .news-only,.app:not([data-page="score"]) .score-only{display:none!important}
 .pages{display:flex;gap:18px;-webkit-app-region:no-drag;width:max-content}
 .pages button{font-family:var(--sans);font-weight:600;font-size:15px;color:rgba(255,255,255,.55);padding:0 0 2px;border-bottom:2px solid transparent}
 .pages button:hover{color:#fff}

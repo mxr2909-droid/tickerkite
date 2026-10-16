@@ -156,35 +156,42 @@
     const b = e.target.closest("[data-url]"); if (b) api?.open(b.dataset.url);
   });
 
-  // ---------- pages: News / Scorecards ----------
+  // ---------- pages ----------
+  // News lives here. Every other page registers itself in window.WirePages from its own script:
+  //   { show(), hide(), key(e), restore(), detail: () => element for the right-hand pane }
+  // and adds a #pages button (data-p), "<page>-only" elements, and a CSS rule hiding them elsewhere.
+  const PAGES = (window.WirePages ||= {});
+  PAGES.score = { show: () => window.WireScore.show(), hide: () => window.WireScore.hide(), key: (e) => window.WireScore.key(e), restore: () => window.WireScore.restore(), detail: () => $("#sdetail") };
   S.page = "news";
   function setPage(p) {
-    if (p !== "news" && p !== "score") return;
+    if (p !== "news" && !PAGES[p]) return;
     if (window.WireInstrument.isOpen()) window.WireInstrument.close();
+    PAGES[S.page]?.hide?.();
     S.page = p;
     $("#app").dataset.page = p;
     document.querySelectorAll("#pages button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.p === p)));
     try { localStorage.setItem("wire.page", p); } catch {}
-    if (p === "score") window.WireScore.show();
-    else { window.WireScore.hide(); select(S.idx, false, false); }
+    if (PAGES[p]) PAGES[p].show?.();
+    else select(S.idx, false, false);
   }
+  window.WireApp = { setPage, openInstrument: (sym) => openInstrument(sym), page: () => S.page };
   $("#pages").addEventListener("click", (e) => { const b = e.target.closest("button[data-p]"); if (b) setPage(b.dataset.p); });
 
   // ---------- instrument view ----------
-  const detailEl = () => (S.page === "score" ? $("#sdetail") : $("#detail"));
+  const detailEl = () => PAGES[S.page]?.detail?.() || $("#detail");
   function openInstrument(sym) {
     window.WireInstrument.open(sym, detailEl());
     detailEl().scrollTop = 0;
   }
   function closeInstrument() {
     window.WireInstrument.close();
-    if (S.page === "score") window.WireScore.restore();
+    if (PAGES[S.page]) PAGES[S.page].restore?.();
     else select(S.idx, false, false);
   }
   window.WireInstrument.onClose = closeInstrument;
   window.WireScore.init({ openInstrument });
   window.WireInstrument.onStory = (id) => {
-    if (S.page === "score") setPage("news");
+    if (S.page !== "news") setPage("news");
     const i = S.list.findIndex((s) => s.id === id);
     if (i < 0) return false; // not in the current filter: open the article instead
     select(i);
@@ -260,7 +267,7 @@
     const instOpen = window.WireInstrument.isOpen();
     if (instOpen && e.key === "Escape") { closeInstrument(); return; }
     if (instOpen && (e.key === "[" || e.key === "]")) { window.WireInstrument.cycleRange(e.key === "]" ? 1 : -1); return; }
-    if (S.page === "score") { window.WireScore.key(e); return; }
+    if (PAGES[S.page]) { PAGES[S.page].key?.(e); return; }
     if (e.key === "/") { e.preventDefault(); $("#q").focus(); }
     else if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); select(Math.min(S.list.length - 1, S.idx + 1)); }
     else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); select(Math.max(0, S.idx - 1)); }
@@ -326,7 +333,7 @@
     const i = S.list.findIndex((s) => s.id === id); if (i >= 0) select(i); });
   api.onInstrument?.((sym) => openInstrument(sym));
   api.onPage?.(setPage);
-  try { if (localStorage.getItem("wire.page") === "score") setPage("score"); } catch {}
+  try { const p = localStorage.getItem("wire.page"); if (p && PAGES[p]) setPage(p); } catch {}
   api.getNews().then(applyNews);
   api.getQuotes().then(renderQuotes);
   setInterval(() => { renderPulled(); }, 20000);

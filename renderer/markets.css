@@ -1,0 +1,2 @@
+/* WIRE Market heatmap page */
+.app:not([data-page="markets"]) .markets-only{display:none!important}

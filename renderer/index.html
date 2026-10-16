@@ -5,6 +5,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'">
 <title>WIRE</title>
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="calendar.css">
+<link rel="stylesheet" href="markets.css">
+<link rel="stylesheet" href="alerts.css">
 </head>
 <body>
 <div class="app" id="app" data-page="news">
@@ -32,6 +35,9 @@
       <div class="pages" id="pages" role="tablist" aria-label="Pages">
         <button type="button" role="tab" data-p="news" aria-selected="true" title="News (⌘⌥1)">News</button>
         <button type="button" role="tab" data-p="score" aria-selected="false" title="Scorecards (⌘⌥2)">Scorecards</button>
+        <button type="button" role="tab" data-p="calendar" aria-selected="false" title="Calendar (⌘⌥3)">Calendar</button>
+        <button type="button" role="tab" data-p="markets" aria-selected="false" title="Markets (⌘⌥4)">Markets</button>
+        <button type="button" role="tab" data-p="alerts" aria-selected="false" title="Alerts (⌘⌥5)">Alerts</button>
       </div>
       <div class="tabs news-only" id="tabs"><span class="pg"><span id="pgView">All</span><b>News</b></span></div>
       <div class="tabs score-only" id="atabs"></div>
@@ -48,6 +54,9 @@
       <label class="opt">▦ <select id="win" aria-label="Time window"><option value="6">6H</option><option value="24" selected>24H</option><option value="72">72H</option></select></label>
     </form>
     <div class="list num score-only" id="score" aria-label="Scorecard"></div>
+    <div class="list num calendar-only" id="calendar" aria-label="Economic calendar"></div>
+    <div class="list num markets-only" id="markets" aria-label="Market heatmap"></div>
+    <div class="list num alerts-only" id="alerts" aria-label="Alerts"></div>
     <div class="secbar news-only">
       <div class="l"><b>Top Ranked News</b><span>|</span><em id="more">More »</em></div>
       <div class="toggle" id="mode">
@@ -69,10 +78,16 @@
 
   <aside class="detail news-only" id="detail" aria-label="Story"></aside>
   <aside class="detail score-only" id="sdetail" aria-label="Indicator"></aside>
+  <aside class="detail calendar-only" id="cdetail" aria-label="Economic calendar detail"></aside>
+  <aside class="detail markets-only" id="mdetail" aria-label="Market heatmap detail"></aside>
+  <aside class="detail alerts-only" id="adetail" aria-label="Alerts detail"></aside>
 </div>
 <script src="company.js"></script>
 <script src="instrument.js"></script>
 <script src="scorecard.js"></script>
+<script src="calendar.js"></script>
+<script src="markets.js"></script>
+<script src="alerts.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
