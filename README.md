@@ -96,6 +96,18 @@ It uses today's revised data and overlapping 12-month windows, so treat it as a 
 
 **Limits:** free data only. There are no consensus forecasts, so the scorecard can't show "CPI came in hotter than expected." FRED keeps only 3 years of the credit-spread history, so those rows compare against 3 years. China has no good free monthly data; exports (several months behind), Chinese stocks and copper stand in. Past scores (the 12-month line and the 1- and 3-month changes) use today's revised data, so they can differ slightly from what the scorecard would have shown at the time. The scores summarize conditions; they are not a forecast or investment advice.
 
+## Calendar
+
+The Calendar page (⌘⌥3) lists what's coming up: US economic releases, Fed meetings and earnings for your watchlist stocks, from a week back to a year ahead, grouped by day with a countdown on each ("in 42 min", "today 8:30 ET", "in 3 days"). All times are US Eastern.
+
+- **Filter**: All / Macro / Fed / Earnings with the buttons at the top or keys 1–4. ↑/↓ or j/k move, t jumps back to the next event, r re-downloads the schedules.
+- **Macro**: CPI, PPI, jobs report, JOLTS, weekly jobless claims, GDP, PCE (personal income & outlays) and retail sales. Before a release the row shows the last reading; once it's out it shows the new reading against the previous one (green/red for up/down), taken from the scorecard data. "awaiting data" means the release time has passed but FRED hasn't posted the number yet.
+- **Fed**: FOMC rate decisions (2:00 PM ET on the last meeting day), marked when they come with projections.
+- **Earnings**: each watchlist stock's next report date from the company panel (Nasdaq, else "estimated" from its filing cadence). Enter opens the stock's chart.
+- **Right pane**: when, source, the latest and previous readings, and WIRE headlines that mention the release (a simple keyword match).
+
+Sources, all free and keyless: the Federal Reserve's FOMC calendar page, BEA's release schedule (GDP, PCE), Census's retail sales schedule and BLS's per-release schedule pages (CPI, PPI, jobs, JOLTS). Jobless claims follow the Labor Department's rule (Thursdays, Wednesday in Thanksgiving and Christmas weeks). Schedules are cached in `calendar-cache.json` and refreshed once a day. BLS often blocks apps, so when a source can't be reached WIRE uses a built-in list checked against the official pages (date shown in the bar at the top), and those rows are tagged "fallback".
+
 ## Charts, momentum and "what moved it"
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
