@@ -96,6 +96,18 @@ It uses today's revised data and overlapping 12-month windows, so treat it as a 
 
 **Limits:** free data only. There are no consensus forecasts, so the scorecard can't show "CPI came in hotter than expected." FRED keeps only 3 years of the credit-spread history, so those rows compare against 3 years. China has no good free monthly data; exports (several months behind), Chinese stocks and copper stand in. Past scores (the 12-month line and the 1- and 3-month changes) use today's revised data, so they can differ slightly from what the scorecard would have shown at the time. The scores summarize conditions; they are not a forecast or investment advice.
 
+## Markets
+
+The Markets page (⌘⌥4) is a heatmap of what's leading and lagging, in three sections:
+
+- **US sectors**: the 11 S&P sector ETFs (XLK, XLC, XLY, XLF, XLI, XLV, XLP, XLE, XLB, XLU, XLRE), sorted best to worst.
+- **Global markets**: S&P 500, Nasdaq, Russell 2000; Euro Stoxx 50, FTSE 100, DAX; Nikkei 225, Hang Seng, Shanghai, Sensex; and EEM for emerging markets.
+- **Style**: growth vs value (IWF/IWD), large vs small caps (IWB/IWM) and equal- vs cap-weight S&P (RSP/SPY), each with the spread between them.
+
+Tiles are green or red by return, darker the bigger the move relative to the period. Switch periods with the buttons or keys 1–5 (1D, 1W, 1M, 3M, YTD). Click a tile for every period's return and its distance from the 52-week high; click it again, press Enter, or use "Open chart" for the full price chart.
+
+WIRE downloads one year of daily prices per symbol from Yahoo Finance once and computes every period locally. It refreshes every 5 minutes while the US market is open and every 30 minutes otherwise (only after you first open the page), and keeps the last result in `markets-cache.json` in the app's data folder so the page opens instantly. Returns are price returns in each market's own currency, ignoring dividends.
+
 ## Charts, momentum and "what moved it"
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
@@ -167,6 +179,7 @@ src/quotes.js        delayed market quotes and price history
 src/analytics.js     range stats, velocity/acceleration, big-move detection
 src/instruments.js   which headlines matter for each market; news-to-move matching
 src/watchlist.js     your tickers: symbol cleanup and which stories mention them
+src/markets.js       market heatmap: sectors, global indexes, style pairs
 src/company.js       company panel: SEC EDGAR fundamentals, valuation, next earnings date
 src/macro/           scorecards: indicators, data downloads, scoring, default weights
 scripts/backtest.js  scorecard backtest since 2007
