@@ -96,6 +96,19 @@ It uses today's revised data and overlapping 12-month windows, so treat it as a 
 
 **Limits:** free data only. There are no consensus forecasts, so the scorecard can't show "CPI came in hotter than expected." FRED keeps only 3 years of the credit-spread history, so those rows compare against 3 years. China has no good free monthly data; exports (several months behind), Chinese stocks and copper stand in. Past scores (the 12-month line and the 1- and 3-month changes) use today's revised data, so they can differ slightly from what the scorecard would have shown at the time. The scores summarize conditions; they are not a forecast or investment advice.
 
+## Alerts
+
+The **Alerts** page (⌘⌥5) lets you set rules that WIRE checks after every quote, news and scorecard refresh:
+
+- **Price**: any symbol on the markets strip or your watchlist: day move of at least ±X%, or price above/below a level.
+- **Scorecard**: an asset's 0–100 score above/below a threshold (e.g. Stocks below 30).
+- **Indicator**: any of the scorecard indicators above/below a level (e.g. high-yield spread above 4).
+- **Headline**: a new story whose title contains a keyword or ticker (whole word, `$NVDA` works too), optionally HIGH impact only.
+
+A rule fires when its condition *becomes* true, not every refresh while it stays true, and not again until it resets and its cooldown (60 min by default) has passed. Headline rules fire once per new story (stories already out when you add the rule don't count). Each firing shows a Mac notification (clicking a headline alert opens the story) and goes into the log; select a rule to see its own firings. Click ● to pause a rule, × to delete it; ↑/↓ and Space work too.
+
+Rules and their state live in `alerts.json` and the last 500 firings in `alerts-log.json`, both in the app's data folder, so restarting doesn't re-fire anything.
+
 ## Charts, momentum and "what moved it"
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
