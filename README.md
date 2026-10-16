@@ -109,6 +109,19 @@ Tiles are green or red by return, darker the bigger the move relative to the per
 
 WIRE downloads one year of daily prices per symbol from Yahoo Finance once and computes every period locally. It refreshes every 5 minutes while the US market is open and every 30 minutes otherwise (only after you first open the page), and keeps the last result in `markets-cache.json` in the app's data folder so the page opens instantly. Returns are price returns in each market's own currency, ignoring dividends.
 
+## Alerts
+
+The **Alerts** page (⌘⌥5) lets you set rules that WIRE checks after every quote, news and scorecard refresh:
+
+- **Price**: any symbol on the markets strip or your watchlist: day move of at least ±X%, or price above/below a level.
+- **Scorecard**: an asset's 0–100 score above/below a threshold (e.g. Stocks below 30).
+- **Indicator**: any of the scorecard indicators above/below a level (e.g. high-yield spread above 4).
+- **Headline**: a new story whose title contains a keyword or ticker (whole word, `$NVDA` works too), optionally HIGH impact only.
+
+A rule fires when its condition *becomes* true, not every refresh while it stays true, and not again until it resets and its cooldown (60 min by default) has passed. Headline rules fire once per new story (stories already out when you add the rule don't count). Each firing shows a Mac notification (clicking a headline alert opens the story) and goes into the log; select a rule to see its own firings. Click ● to pause a rule, × to delete it; ↑/↓ and Space work too.
+
+Rules and their state live in `alerts.json` and the last 500 firings in `alerts-log.json`, both in the app's data folder, so restarting doesn't re-fire anything.
+
 ## Charts, momentum and "what moved it"
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
