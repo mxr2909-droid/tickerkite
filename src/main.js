@@ -13,7 +13,8 @@ const company = require("./company");
 const EventEmitter = require("events");
 const PAGE_MODULES = {
   calendar: require("./calendar"), markets: require("./markets"), alerts: require("./alerts"),
-  fed: require("./fed"), graphs: require("./graphs"), recession: require("./recession")
+  fed: require("./fed"), graphs: require("./graphs"), recession: require("./recession"),
+  board: require("./board")
 };
 const bus = new EventEmitter(); // "news" | "quotes" | "scores" after each refresh, for page modules
 const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");
@@ -170,7 +171,7 @@ function scoreSnapshot() {
     fetchedAt: macro.fetchedAt, refreshing: macro.refreshing, error: macro.error,
     failed: Object.keys(macro.errors).length,
     sections: SECTIONS, assets: SC.ASSETS,
-    defs: INDICATORS.map(({ id, section, name, unit, dec, desc, factor, sign, src, freq }) => ({ id, section, name, unit, dec, desc, factor, sign, src, freq })),
+    defs: INDICATORS.map(({ id, section, name, unit, dec, desc, factor, sign, src, freq, good }) => ({ id, section, name, unit, dec, desc, factor, sign, src, freq, good })),
     ind: r?.ind || {}, scores: r?.assets || {}, regime: r?.regime || null, mode: r?.mode || null, history: r?.history || []
   };
 }
