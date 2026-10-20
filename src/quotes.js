@@ -24,7 +24,7 @@ async function one([sym, label, type, extra = {}]) {
     const last = m.regularMarketPrice;
     const prev = m.chartPreviousClose ?? m.previousClose;
     const closes = (r.indicators?.quote?.[0]?.close || []).filter((v) => v != null);
-    return { sym, label, type, last, chg: last - prev, pct: prev ? ((last - prev) / prev) * 100 : 0, spark: closes.slice(-26), time: m.regularMarketTime * 1000, ...extra };
+    return { sym, label, type, last, prev, chg: last - prev, pct: prev ? ((last - prev) / prev) * 100 : 0, spark: closes.slice(-26), time: m.regularMarketTime * 1000, currency: m.currency, ...extra };
   } catch {
     return { sym, label, type, last: null, ...extra };
   }
@@ -72,4 +72,4 @@ async function fetchHistory(sym, rangeKey, { force = false } = {}) {
   return data;
 }
 
-module.exports = { fetchQuotes, fetchHistory, symInfo, lookupSymbol, setWatch, SYMBOLS };
+module.exports = { fetchQuotes, fetchHistory, symInfo, lookupSymbol, setWatch, SYMBOLS, quoteOne: one };

@@ -219,6 +219,9 @@
       <div><span>ACTUAL</span><b class="${cls(s)}">${esc(e.actual || "—")}</b></div>
       <div><span>SURPRISE</span><b class="${cls(s)}">${s ? esc(fmtN(s, true)) : "—"}</b></div>
       <div><span>PRIOR</span><b>${esc(e.prior || "—")}</b>${e.revised ? `<em>revised ${esc(e.revised)}</em>` : ""}</div></div>` : "";
+    const rx = C.rx.get(`${e.code}:${e.t}`);
+    const react = !rx ? "" : rx.status === "pending" ? `<div class="isec">MARKET REACTION, FIRST 5 MIN</div><p class="none">Measuring… markets data runs about 10 minutes behind, so this fills in around ${esc(clock(e.t + 16 * 60e3))} ET.</p>`
+      : rx.reaction?.length ? `<div class="isec">MARKET REACTION, FIRST 5 MIN</div><div class="calrx">${rx.reaction.map((m) => `<div><span>${esc(m.label)}</span><b class="${m.v > 0 ? "up" : m.v < 0 ? "dn" : ""}">${m.unit === "bp" ? (m.v > 0 ? "+" : m.v < 0 ? "−" : "") + Math.abs(m.v).toFixed(0) + "bp" : (m.v > 0 ? "+" : m.v < 0 ? "−" : "") + Math.abs(m.v).toFixed(2) + "%"}</b></div>`).join("")}</div>` : "";
     let vals = "";
     for (const id of e.key === "nq" ? [] : rel.ind || []) {
       const r = C.data.values?.[id];
@@ -233,6 +236,7 @@
       <h1>${esc(e.title)}</h1>
       <dl class="kv">${kv}</dl>
       ${fig}
+      ${react}
       ${e.hkey ? `<div class="isec">ACTUAL VS SURVEY</div><div class="calh"><p class="none">Loading history…</p></div>` : ""}
       ${e.desc ? `<p class="caldesc">${esc(e.desc)}</p>` : ""}
       ${vals ? `<div class="isec">${e.t <= Date.now() ? "LATEST READING VS PREVIOUS" : "LAST READING VS PREVIOUS"} (SCORECARD)</div><dl class="kv calvals">${vals}</dl>` : ""}
@@ -279,7 +283,12 @@
     C.data = d;
     if (C.active) { const y = $("#calendar").scrollTop, keep = !!C.sel; render(); if (keep) $("#calendar").scrollTop = y; }
   }
+  // release alerts (src/releases.js) keep the first-5-minute market reaction for each printed release
+  C.rx = new Map();
+  const applyRx = (list) => { C.rx = new Map((list || []).map((r) => [r.id, r])); if (C.active) renderDetail(); };
   if (api?.page) {
+    api.page.on("releases:update", applyRx);
+    api.page.invoke("releases:list").then(applyRx);
     api.page.on("calendar:update", apply);
     api.page.invoke("calendar:get").then(apply);
   }

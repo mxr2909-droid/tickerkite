@@ -1,5 +1,6 @@
 // Economic calendar: main-process side. main.js calls register(ctx) once at startup.
-// ctx: { ipcMain, send, file, readJSON, writeJSON, bus, get, Notification, showStory, showPage }
+// ctx: { ipcMain, send, file, readJSON, writeJSON, bus, get, expose, Notification, showStory, showPage }
+//  - publishes ctx.expose.calendarToday()/calendarWeek(), and puts newly printed rows on the bus as "release"
 //  - IPC channels must start with "calendar:" (the preload only forwards those for this page)
 //  - bus emits "news" (stories), "quotes" (quotes), "scores" (scorecard result) after each refresh
 //  - get() returns { stories, quotes, watch, scores } right now
@@ -313,10 +314,16 @@ function register(ctx) {
   const hstore = ctx.readJSON("calendar-history.json", { cursor: null, keys: {} });
   let week = weekOf(Date.now()), nq = { at: 0, error: null }, nqLoading = null, histDirty = false;
 
+  // watchlist stocks and portfolio holdings (stocks only), once each
+  function tracked() {
+    const seen = new Set(), out = [];
+    for (const w of [...(ctx.get().watch || []), ...(ctx.expose?.holdings?.() || []).filter((h) => h.cls === "stocks")]) if (!seen.has(w.sym)) { seen.add(w.sym); out.push(w); }
+    return out;
+  }
   function earnings() {
     const cc = ctx.readJSON("company-cache.json", {});
     const out = [];
-    for (const w of ctx.get().watch || []) {
+    for (const w of tracked()) {
       const d = cc[w.sym]?.data;
       if (!d?.earnings) continue;
       let e = d.earnings;
@@ -330,7 +337,7 @@ function register(ctx) {
     const cc = ctx.readJSON("company-cache.json", {});
     const contact = ctx.readJSON("prefs.json", {}).secContact;
     let added = false;
-    for (const w of ctx.get().watch || []) {
+    for (const w of tracked()) {
       if (cc[w.sym] || tried.has(w.sym)) continue;
       tried.add(w.sym);
       try { const r = await company.fetchCompany(w.sym, { store, contact }); if (r?.earnings) added = true; } catch {}
@@ -374,7 +381,7 @@ function register(ctx) {
     nqLoading = (async () => {
       let ok = 0, err = null;
       for (const iso of todo) {
-        try { const rows = NQ.assignKeys(await NQ.fetchDay(iso), hstore.keys); days[iso] = { at: Date.now(), rows }; NQ.record(hstore.keys, rows); histDirty = true; ok++; }
+        try { ingest(iso, NQ.assignKeys(await NQ.fetchDay(iso), hstore.keys)); ok++; }
         catch (e) { err = String(e.message || e); }
         await new Promise((r) => setTimeout(r, 250));
       }
@@ -392,6 +399,37 @@ function register(ctx) {
     push();
     return nqLoading;
   }
+
+  // A day's fresh rows replace the cached ones. Rows whose actual has only just appeared (printed in the last
+  // 45 minutes, and seen before without one) go on the bus as "release" for releases.js to alert on.
+  function ingest(iso, rows) {
+    const before = new Map((days[iso]?.rows || []).map((r) => [r.key, r.actual]));
+    days[iso] = { at: Date.now(), rows };
+    NQ.record(hstore.keys, rows); histDirty = true;
+    const now = Date.now();
+    const fresh = rows.filter((r) => r.actual && before.has(r.key) && !before.get(r.key) && r.t <= now && now - r.t < 45 * 60e3);
+    if (fresh.length) ctx.bus?.emit?.("release", fresh.map((r) => ({ ...r, ...NQ.priorOf(hstore.keys, r) })));
+    return fresh;
+  }
+  // While an important release is due and hasn't printed, re-read today every minute so alerts go out quickly.
+  const dueNow = (rows, now) => rows.some((r) => r.timed && r.rel >= 3 && !r.actual && r.t <= now + 30e3 && now - r.t < 40 * 60e3);
+  let polling = false, todayAt = 0;
+  async function pollToday() {
+    const now = Date.now(), iso = isoDay(etDay(now));
+    const rows = days[iso]?.rows;
+    // today must be known before a print can be noticed; outside the shown week nothing else loads it
+    const stale = !rows && now - todayAt > 10 * 60e3;
+    if (polling || nqLoading || !(stale || (rows && dueNow(rows, now)))) return;
+    polling = true; todayAt = now;
+    try { if (ingest(iso, NQ.assignKeys(await NQ.fetchDay(iso), hstore.keys)).length || stale) push(); }
+    catch (e) { console.error("calendar live", e.message || e); }
+    finally { polling = false; }
+  }
+  ctx.expose.calendarToday = () => {
+    const d = etDay(Date.now());
+    return weekEvents(allEvents(), days, hstore.keys, weekOf(Date.now())).filter((e) => etDay(e.t) === d);
+  };
+  ctx.expose.calendarWeek = () => weekEvents(allEvents(), days, hstore.keys, weekOf(Date.now()));
 
   // one-time slow walk back through two years of past days so the surprise history has depth from day one
   let fails = 0;
@@ -418,6 +456,7 @@ function register(ctx) {
   setTimeout(backfillStep, 60e3);
   setInterval(() => { refresh(false); if (week === weekOf(Date.now())) loadWeek(false); }, 15 * 60e3);
   setInterval(saveHist, 5 * 60e3);
+  setInterval(pollToday, 60e3);
 }
 
 module.exports = { register, weekOf, weekEvents, historyFor, parseFomc, parseBls, parseBea, parseCensus, claimsDates, countdown, etToMs, etDay, refStart, buildEvents, readings, headlines, fallbackSched, RELEASES, FALLBACK_CHECKED };

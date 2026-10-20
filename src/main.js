@@ -14,7 +14,7 @@ const EventEmitter = require("events");
 const PAGE_MODULES = {
   calendar: require("./calendar"), markets: require("./markets"), 
   fed: require("./fed"), graphs: require("./graphs"), recession: require("./recession"),
-  board: require("./board")
+  board: require("./board"), releases: require("./releases"), portfolio: require("./portfolio"), brief: require("./brief")
 };
 const bus = new EventEmitter(); // "news" | "quotes" | "scores" after each refresh, for page modules
 const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");
@@ -30,7 +30,7 @@ const MAX_ITEMS = 4000;
 let win = null;
 let widget = null;
 let quitting = false;
-let prefs = { alerts: true, watchAlerts: true, widget: { open: false, onTop: false, bounds: null } };
+let prefs = { alerts: true, watchAlerts: true, releaseAlerts: true, widget: { open: false, onTop: false, bounds: null } };
 const userDir = () => app.getPath("userData");
 const file = (n) => path.join(userDir(), n);
 
@@ -448,12 +448,14 @@ function buildMenu() {
     {
       label: "View",
       submenu: [
+        { label: "Brief", accelerator: "CmdOrCtrl+Alt+0", click: () => { showStory(null); send("page:set", "brief"); } },
         { label: "News", accelerator: "CmdOrCtrl+Alt+1", click: () => { showStory(null); send("page:set", "news"); } },
         { label: "Scorecards", accelerator: "CmdOrCtrl+Alt+2", click: () => { showStory(null); send("page:set", "score"); } },
         { label: "Calendar", accelerator: "CmdOrCtrl+Alt+3", click: () => { showStory(null); send("page:set", "calendar"); } },
         { label: "Markets", accelerator: "CmdOrCtrl+Alt+4", click: () => { showStory(null); send("page:set", "markets"); } },
         { label: "Fed", accelerator: "CmdOrCtrl+Alt+5", click: () => { showStory(null); send("page:set", "fed"); } },
         { label: "Graphs", accelerator: "CmdOrCtrl+Alt+6", click: () => { showStory(null); send("page:set", "graphs"); } },
+        { label: "Portfolio", accelerator: "CmdOrCtrl+Alt+7", click: () => { showStory(null); send("page:set", "portfolio"); } },
         { type: "separator" },
         { label: "Show Main Window", accelerator: "CmdOrCtrl+1", click: () => showStory(null) },
         { label: "Fit Window to Screen", accelerator: "CmdOrCtrl+Alt+F", click: () => { showStory(null); fitToScreen(); } },
@@ -466,6 +468,8 @@ function buildMenu() {
           click: (item) => { state.alerts = item.checked; savePrefs(); send("news:update", snapshot()); } },
         { label: "Alerts for Watchlist Headlines", type: "checkbox", checked: state.watchAlerts,
           click: (item) => { state.watchAlerts = item.checked; savePrefs(); } },
+        { label: "Alerts for Data Releases", type: "checkbox", checked: prefs.releaseAlerts !== false,
+          click: (item) => { prefs.releaseAlerts = item.checked; savePrefs(); } },
         { label: "Edit Watchlist…", click: () => { if (!fs.existsSync(file("watchlist.json"))) writeJSON("watchlist.json", state.watch); shell.openPath(file("watchlist.json")); } },
         { label: "Edit Feeds…", click: () => { loadFeeds(); shell.openPath(file("feeds.json")); } },
         { label: "Refresh Economic Data", click: () => refreshMacro(true) },
@@ -572,6 +576,8 @@ app.whenReady().then(() => {
   watchFile();
   const ctx = {
     ipcMain, send, file, readJSON, writeJSON, bus, Notification, showStory,
+    expose: {}, // getters modules publish for each other (calendarToday, releases, portfolio, …)
+    prefs: () => prefs,
     showPage: (p) => { showStory(null); send("page:set", p); },
     get: () => ({ stories: state.stories, quotes: state.quotes, watch: state.watch, scores: macro.result })
   };
