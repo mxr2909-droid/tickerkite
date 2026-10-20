@@ -280,11 +280,14 @@
   function recBox() {
     const r = K.rec, m = r?.model;
     if (!m) return `<div class="recbox" id="recbox"><div class="rt">RECESSION ODDS · 12 MONTHS</div><div class="rx">${r?.refreshing || !r ? "Downloading Treasury history…" : esc(r.error || "No data yet")}</div></div>`;
-    const L = m.latest, on = L.p >= m.threshold;
+    const L = m.latest, on = L.p >= m.threshold, t = m.track, fa = t.falseAlarms[t.falseAlarms.length - 1];
+    const when = L.source === "daily" ? `${new Date(L.asOf).toLocaleDateString("en-US", { month: "numeric", day: "numeric", timeZone: "UTC" })} live` : `${L.monthLabel} monthly`;
+    const since = t.recessions[0]?.start.slice(-4);
     return `<button type="button" class="recbox${on ? " warn" : ""}${K.sel === REC ? " sel" : ""}" id="recbox" data-id="${REC}" title="Yield-curve probit: chance of a US recession 12 months from now. Click for detail.">
-      <div class="rt">RECESSION ODDS · 12 MONTHS</div>
-      <div class="rv"><b>${pct(L.p)}</b><span class="${on ? "dn" : "up"}">${on ? "above" : "below"} ${Math.round(m.threshold * 100)}% threshold</span></div>
-      <div class="rx">${esc(leadTxt(m.track))}${m.sahm ? ` · Sahm ${m.sahm.v.toFixed(2)}${m.sahm.triggered ? " ⚠" : ""}` : ""}</div>
+      <div class="rt">RECESSION ODDS, NEXT 12 MONTHS</div>
+      <div class="rv"><b>${pct(L.p)}</b><span class="${on ? "dn" : "up"}">${on ? "ABOVE" : "BELOW"} ${Math.round(m.threshold * 100)}% WARNING LINE</span></div>
+      <div class="rx">Yield curve 10Y-3M ${L.spread > 0 ? "+" : ""}${sgn(L.spread)} pp, ${when}</div>
+      <div class="rx">Called ${t.caught} of ${t.total} since ${since}${fa ? ` · false alarm ${fa.start.slice(-4)}${fa.end.slice(-4) !== fa.start.slice(-4) ? "–" + fa.end.slice(-2) : ""}` : ""}</div>
     </button>`;
   }
 
