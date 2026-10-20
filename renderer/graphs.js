@@ -93,7 +93,19 @@
     };
     return [header, ...rows].map((r) => r.map(cell).join(sep)).join("\n") + "\n";
   }
-  const M = { atOrBefore, transform, movingAverage, normalize, percentile, yRange, recessionSpans, toTable, toDelimited };
+  /** Selected-series stats: latest, prior print, a year ago, and the latest's percentile of the full history. */
+  function seriesStats(P) {
+    if (!P.length) return null;
+    const [t, v] = P[P.length - 1], j = atOrBefore(P, t - YEAR + 2 * DAY);
+    const below = P.reduce((n, p) => n + (p[1] <= v ? 1 : 0), 0);
+    return {
+      latest: [t, v], prior: P.length > 1 ? P[P.length - 2] : null,
+      yearAgo: j >= 0 && t - YEAR - P[j][0] <= 40 * DAY ? P[j] : null,
+      pct: Math.round((below / P.length) * 100), n: P.length, since: P[0][0]
+    };
+  }
+  const ordinal = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+  const M = { atOrBefore, seriesStats, ordinal, transform, movingAverage, normalize, percentile, yRange, recessionSpans, toTable, toDelimited };
   if (typeof window === "undefined") { module.exports = M; return; }
 
   // ---------- page ----------
@@ -102,7 +114,7 @@
   const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const COLORS = ["#ff9a1f", "#6cc7e0", "#3ccf7e", "#ff5b3a", "#c792ea", "#f2d36b"];
   const TFS = [["level", "Level"], ["yoy", "% YoY"], ["chg", "Change"]];
-  const RANGES = ["1Y", "5Y", "10Y", "MAX", "CUSTOM"];
+  const RANGES = ["6M", "YTD", "1Y", "2Y", "5Y", "10Y", "20Y", "MAX", "CUSTOM"];
   const blank = () => ({ name: "", series: [], range: "5Y", from: "", to: "", mode: "shared", rec: true, clip: false, notes: [] });
   const G = { active: false, spec: blank(), data: {}, rec: [], picks: null, saved: [], tool: "", msg: "", sel: 0, view: null };
   try { G.spec = { ...blank(), ...JSON.parse(localStorage.getItem("wire.graphs.spec") || "{}") }; } catch {}
@@ -152,8 +164,9 @@
     if (!ends.length) return null;
     const tMax = Math.max(...ends.map((P) => P[P.length - 1][0])), tMin = Math.min(...ends.map((P) => P[0][0]));
     let t0 = tMin, t1 = tMax;
-    const yrs = { "1Y": 1, "5Y": 5, "10Y": 10 }[G.spec.range];
+    const yrs = { "6M": 0.5, "1Y": 1, "2Y": 2, "5Y": 5, "10Y": 10, "20Y": 20 }[G.spec.range];
     if (yrs) t0 = Math.max(tMin, tMax - yrs * YEAR);
+    if (G.spec.range === "YTD") t0 = Math.max(tMin, Date.UTC(new Date(tMax).getUTCFullYear(), 0, 1));
     if (G.spec.range === "CUSTOM") {
       const f = Date.parse(G.spec.from), e = Date.parse(G.spec.to);
       if (Number.isFinite(f)) t0 = f;
@@ -171,7 +184,7 @@
       const base = lines[i][0], j = base ? atOrBefore(full[i], base[0]) : -1;
       return j < 0 ? [] : cut(m).filter((p) => p[0] >= base[0]).map(([t, v]) => [t, (v / full[i][j][1]) * 100]);
     });
-    return { S, lines, mas, t0, t1 };
+    return { S, full, lines, mas, t0, t1 };
   }
 
   // ---------- render ----------
@@ -192,7 +205,7 @@
       <div class="gbar">
         ${b("data-mode", "shared", "SHARED", sp.mode === "shared", "All series on one axis")}${b("data-mode", "dual", "DUAL", sp.mode === "dual", "Left and right axes (pick per series)")}${b("data-mode", "norm", "NORMALIZE", sp.mode === "norm", "Rebase to 100 at the start of the range")}
         <span class="gsep"></span>
-        ${b("data-tog", "rec", "RECESSIONS", sp.rec)}${b("data-tog", "clip", "CLIP 1–99%", sp.clip, "Fit the y-axis to the 1st–99th percentile")}
+        <label class="gcheck" title="Shade NBER recessions (FRED USREC)"><input type="checkbox" data-tog="rec"${sp.rec ? " checked" : ""}> NBER RECESSION</label>${b("data-tog", "clip", "CLIP 1–99%", sp.clip, "Fit the y-axis to the 1st–99th percentile")}
         <span class="gsep"></span>
         ${b("data-tool", "trend", "TREND LINE", G.tool === "trend", "Drag on the chart to draw")}${b("data-tool", "hline", "H-LINE", G.tool === "hline", "Click on the chart to add")}
         ${sp.notes.length ? `<button type="button" data-act="clearnotes" title="Click a line on the chart to remove just that one">CLEAR LINES</button>` : ""}
@@ -229,7 +242,7 @@
     const W = Math.max(360, box.clientWidth - 62), H = Math.max(300, Math.min(640, window.innerHeight - box.getBoundingClientRect().top - 24));
     const dual = G.spec.mode === "dual";
     const padL = dual ? 58 : 8, padR = 62, padT = 30, padB = 22;
-    const { S, lines, mas, t0, t1 } = c;
+    const { S, full, lines, mas, t0, t1 } = c;
     const side = (i) => (dual ? S[i].axis : "R");
     const scales = {};
     for (const ax of dual ? ["L", "R"] : ["R"]) {
@@ -295,13 +308,23 @@
       if (n.type === "h") g += `<text x="${W - padR - 4}" y="${Y(n.v) - 4}" fill="#ece9e2" font-size="10" text-anchor="end" paint-order="stroke" stroke="#000" stroke-width="3">${fmtNum(n.v)}</text>`;
     });
     g += `</g>`;
+    S.forEach((s, i) => { // latest value as a colored tag on its axis
+      const P = lines[i]; if (!P.length) return;
+      const sc = axisOf(side(i)), v = P[P.length - 1][1], y = Math.max(padT, Math.min(H - padB, sc.Y(v)));
+      const x = side(i) === "L" && dual ? 2 : W - padR + 2, w = padR - 4;
+      g += `<rect x="${x}" y="${y - 7}" width="${dual && side(i) === "L" ? padL - 4 : w}" height="14" fill="${s.color}"/><text x="${x + 4}" y="${y + 3.5}" fill="#000" font-size="10" font-weight="600">${fmtNum(v, sc.hi - sc.lo)}</text>`;
+    });
     let lx = padL + 4;
     S.forEach((s, i) => {
-      const txt = `${label(s)}${tfName(s)}${s.ma > 1 ? ` · ${s.ma} MA` : ""}${dual ? (side(i) === "L" ? " (L)" : " (R)") : ""}`;
-      g += `<rect x="${lx}" y="10" width="10" height="3" fill="${s.color}"/><text x="${lx + 14}" y="15" fill="#cfcac2" font-size="11">${esc(txt)}</text>`;
-      lx += 26 + txt.length * 6.2;
+      const P = full[i], last = P[P.length - 1];
+      const daily = /daily/i.test(G.data[s.src]?.freq || "");
+      const when = last ? new Date(last[0]).toLocaleDateString("en-US", { month: "2-digit", ...(daily ? { day: "2-digit" } : { year: "2-digit" }), timeZone: "UTC" }) : "";
+      const txt = `${short(s)}${tfName(s)} ${last ? fmtNum(last[1]) + (pctUnit(s) ? "%" : "") : "—"} ${when}${s.ma > 1 ? ` · ${s.ma} MA` : ""}${dual ? (side(i) === "L" ? " (L)" : " (R)") : ""}`;
+      const w = 22 + txt.length * 6.6;
+      g += `<g><title>${esc(label(s))}</title><rect x="${lx}" y="5" width="${w}" height="17" fill="#0b0b0c" stroke="${s.color}"/><rect x="${lx + 5}" y="10" width="7" height="7" fill="${s.color}"/><text x="${lx + 17}" y="17.5" fill="#ece9e2" font-size="11">${esc(txt)}</text></g>`;
+      lx += w + 6;
     });
-    g += `<line id="gx" x1="0" x2="0" y1="${padT}" y2="${H - padB}" stroke="#55555a" visibility="hidden"/><line id="gdraft" stroke="#ff9a1f" stroke-width="1.2" visibility="hidden"/></svg><div class="tip" id="gtip" hidden></div>`;
+    g += `<line id="gx" x1="0" x2="0" y1="${padT}" y2="${H - padB}" stroke="#55555a" visibility="hidden"/><line id="gdraft" stroke="#ff9a1f" stroke-width="1.2" visibility="hidden"/></svg><div class="tip" id="gtip" hidden></div>${statsHtml(c)}`;
     box.innerHTML = g;
     G.view = { W, H, padL, padR, padT, padB, X, T, scales, S, lines, side, axisOf, dual };
     box.dataset.tool = G.tool;
@@ -357,6 +380,30 @@
     if (!inPlot(p)) return;
     if (G.tool === "trend") { e.preventDefault(); drag = { x: p.x, y: p.y, axis: noteAxis() }; }
     else if (G.tool === "hline") { const ax = noteAxis(); G.spec.notes.push({ type: "h", axis: ax, v: G.view.axisOf(ax).V(p.y) }); persist(); render(); }
+  }
+
+  const pctUnit = (s) => s.tf === "yoy" || (s.tf !== "chg" && /percent/i.test(G.data[s.src]?.units || ""));
+  function statsHtml(c) {
+    const i = Math.max(0, c.S.indexOf(G.spec.series[G.sel])), s = c.S[i];
+    if (!s) return "";
+    const d = G.data[s.src], st = seriesStats(c.full[i]);
+    if (!st) return "";
+    const daily = /daily/i.test(d.freq || ""), u = pctUnit(s) ? "%" : "";
+    const v = (p) => (p ? `<b>${fmtNum(p[1])}${u}</b> <span class="dim">${dateLbl(p[0], daily)}</span>` : "—");
+    const id = short(s), fred = s.src.startsWith("fred:");
+    return `<div class="gstats">
+      <div class="gfreq">Frequency: ${esc((d.freq || "—").toLowerCase())} · <span style="color:${s.color}">${esc(label(s))}</span></div>
+      <dl class="kv">
+        <dt>Percentile</dt><dd><b>${ordinal(st.pct)}</b> of ${st.n.toLocaleString()} readings since ${new Date(st.since).getUTCFullYear()}</dd>
+        <dt>Transform</dt><dd>${esc(TFS.find((x) => x[0] === s.tf)[1])}${s.ma > 1 ? ` · ${s.ma}-observation MA` : ""}${G.spec.mode === "norm" ? " · chart rebased to 100" : ""}</dd>
+        <dt>Latest</dt><dd>${v(st.latest)}</dd>
+        <dt>Prior</dt><dd>${v(st.prior)}</dd>
+        <dt>1 year ago</dt><dd>${v(st.yearAgo)}</dd>
+        <dt>Source</dt><dd>${fred ? "FRED" : "Yahoo"} · ${esc(id)}</dd>
+      </dl>
+      ${fred ? `<button type="button" class="gfred" data-url="https://fred.stlouisfed.org/series/${encodeURIComponent(id)}">OPEN ON FRED ↗</button>` : `<button type="button" class="gfred" data-inst="${esc(id)}">OPEN INSTRUMENT VIEW</button>`}
+      ${G.spec.clip ? `<p class="gclipnote">Y-axis clipped to the 1st–99th percentile so one spike does not flatten the rest.</p>` : ""}
+    </div>`;
   }
 
   // ---------- export ----------
@@ -415,10 +462,11 @@
   $("#graphs").addEventListener("click", async (e) => {
     const t = e.target;
     const tr = t.closest("[data-try]"); if (tr) { add(tr.dataset.try); return; }
+    const inst = t.closest("[data-inst]"); if (inst) { window.WireApp.openInstrument(inst.dataset.inst); return; }
     if (t.id === "gaddb") { add($("#gadd").value); return; }
     const r = t.closest("[data-range]"); if (r) { G.spec.range = r.dataset.range; persist(); render(); return; }
     const m = t.closest("[data-mode]"); if (m) { G.spec.mode = m.dataset.mode; persist(); render(); return; }
-    const tg = t.closest("[data-tog]"); if (tg) { G.spec[tg.dataset.tog] = !G.spec[tg.dataset.tog]; persist(); render(); return; }
+    const tg = t.closest("[data-tog]"); if (tg && tg.tagName !== "INPUT") { G.spec[tg.dataset.tog] = !G.spec[tg.dataset.tog]; persist(); render(); return; }
     const tl = t.closest("[data-tool]"); if (tl) { G.tool = G.tool === tl.dataset.tool ? "" : tl.dataset.tool; render(); return; }
     const a = t.closest("[data-act]"); if (!a) return;
     const i = +a.closest("[data-i]")?.dataset.i;
@@ -449,6 +497,7 @@
   $("#graphs").addEventListener("change", (e) => {
     const t = e.target;
     if (t.id === "gpick") { add(t.value); return; }
+    if (t.dataset.tog) { G.spec[t.dataset.tog] = t.checked; persist(); render(); return; }
     if (t.id === "gfrom" || t.id === "gto") { G.spec[t.id === "gfrom" ? "from" : "to"] = t.value; persist(); render(); return; }
     const i = +t.closest("[data-i]")?.dataset.i, s = G.spec.series[i];
     if (!s) return;

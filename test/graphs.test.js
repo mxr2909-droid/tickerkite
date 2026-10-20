@@ -72,3 +72,15 @@ test("CSV and TSV output align series on dates", () => {
     'date,UNRATE,"S&P, ""500"""\n2024-01-01,1.5,\n2024-02-01,2,10\n');
   assert.equal(G.toDelimited(["date", "a\tb", "c"], rows, "\t"), "date\ta b\tc\n2024-01-01\t1.5\t\n2024-02-01\t2\t10\n");
 });
+
+test("series stats: percentile of history, prior print, a year ago", () => {
+  const st = G.seriesStats(cpi);
+  assert.deepEqual(st.latest, [d("2024-04-01"), 308]);
+  assert.deepEqual(st.prior, [d("2024-02-01"), 310.5]);
+  assert.deepEqual(st.yearAgo, [d("2023-04-01"), 302]);
+  assert.equal(st.n, 6);
+  assert.equal(st.pct, 67); // 4 of 6 readings at or below 308
+  assert.equal(new Date(st.since).getUTCFullYear(), 2023);
+  assert.equal(G.seriesStats([]), null);
+  assert.deepEqual([1, 2, 3, 11, 12, 13, 22, 30, 101].map(G.ordinal), ["1st", "2nd", "3rd", "11th", "12th", "13th", "22nd", "30th", "101st"]);
+});
