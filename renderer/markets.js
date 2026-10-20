@@ -4,8 +4,10 @@
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   // full-color return per period (a ±SCALE move is fully saturated)
-  const SCALE = { "1D": 2, "1W": 4, "1M": 8, "3M": 15, YTD: 25 };
-  const M = { snap: null, period: "1D", sel: null, visible: false };
+  const SCALE = { "1D": 2, "1W": 4, "1M": 8, "3M": 15, YTD: 25, "1Y": 35, "3Y": 70, "5Y": 110, "10Y": 200 };
+  const ANNUAL = { "3Y": 3, "5Y": 5, "10Y": 10 };
+  const RANGES = ["1Y", "3Y", "5Y", "10Y", "MAX"];
+  const M = { snap: null, period: "1D", sel: null, visible: false, range: "1Y", hist: null };
   try { M.period = localStorage.getItem("wire.markets.period") || "1D"; } catch {}
 
   const pct = (v, d = 2) => (v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(d) + "%");
@@ -59,16 +61,53 @@
     return sym;
   }
 
+  const day = (t) => new Date(t).toISOString().slice(0, 10);
+  const num = (v) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+  function chartSvg(h, high) {
+    const W = 400, H = 170;
+    const xs = h.map((b) => b[0]), ys = h.map((b) => b[1]);
+    const x0 = xs[0], x1 = xs[xs.length - 1];
+    let lo = Math.min(...ys), hi = Math.max(...ys, high || 0);
+    const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
+    const X = (t) => ((t - x0) / (x1 - x0 || 1)) * W, Y = (v) => H - ((v - lo) / (hi - lo)) * H;
+    const pts = h.map((b) => `${X(b[0]).toFixed(1)},${Y(b[1]).toFixed(1)}`).join(" ");
+    const up = ys[ys.length - 1] >= ys[0], c = up ? "#169652" : "#c42e28";
+    return `<div class="mch"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Price history">
+      <polygon points="0,${H} ${pts} ${W},${H}" fill="${c}" opacity=".13"/>
+      ${high ? `<line x1="0" x2="${W}" y1="${Y(high).toFixed(1)}" y2="${Y(high).toFixed(1)}" stroke="#ff9a1f" stroke-width="1" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>` : ""}
+      <polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
+      <span class="mchy t">${num(hi - pad)}</span><span class="mchy b">${num(lo + pad)}</span></div>
+      <div class="mchx"><span>${day(x0)}</span><span>${day(x1)}</span></div>`;
+  }
+
+  function loadHistory() {
+    const sym = M.sel, range = M.range;
+    if (!sym) return;
+    api.page.invoke("markets:history", sym, range).then((h) => {
+      if (sym === M.sel && range === M.range) { M.hist = { sym, range, h }; renderDetail(); }
+    });
+  }
+
   function renderDetail() {
     const el = $("#mdetail");
     if (window.WireInstrument?.isOpen()) return;
     const d = M.sel && M.snap?.data?.[M.sel];
-    if (!d) { el.innerHTML = `<div class="empty">Select a tile to see its returns. Keys 1–5 switch the period; click a tile twice for the chart.</div>`; return; }
-    const rows = (M.snap.periods || []).map((p) => `<tr${p === M.period ? ' class="cur"' : ""}><td>${p}</td><td class="${d.ret[p] > 0 ? "up" : d.ret[p] < 0 ? "dn" : ""}">${pct(d.ret[p])}</td></tr>`).join("");
-    el.innerHTML = `<div class="msum"><h2>${esc(nameOf(M.sel))}</h2><div class="dim">${esc(M.sel)} · ${d.last.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${esc(d.currency || "")} · ${new Date(d.asOf).toISOString().slice(0, 10)}</div>
-      <table class="mret">${rows}</table>
-      <p>52-week high ${d.high52.toLocaleString(undefined, { maximumFractionDigits: 2 })} · <span class="${d.fromHigh < -10 ? "dn" : ""}">${pct(d.fromHigh, 1)} from high</span></p>
+    if (!d) { el.innerHTML = `<div class="empty">Select a tile to see its returns. Keys 1–9 switch the period; click a tile twice for the chart.</div>`; return; }
+    const ann = (p) => (ANNUAL[p] ? pct(d.ann?.[p]) : "");
+    const rows = (M.snap.periods || []).map((p) => `<tr${p === M.period ? ' class="cur"' : ""}><td>${p}</td><td class="${d.ret[p] > 0 ? "up" : d.ret[p] < 0 ? "dn" : ""}">${pct(d.ret[p])}</td>
+      <td class="${d.ann?.[p] > 0 ? "up" : d.ann?.[p] < 0 ? "dn" : ""}">${ann(p)}</td></tr>`).join("");
+    const hh = M.hist && M.hist.sym === M.sel && M.hist.range === M.range ? M.hist.h : null;
+    el.innerHTML = `<div class="msum"><h2>${esc(nameOf(M.sel))}</h2><div class="dim">${esc(M.sel)} · ${num(d.last)} ${esc(d.currency || "")} · ${day(d.asOf)}</div>
+      <h4>Returns</h4>
+      <table class="mret"><tr class="hd"><th></th><th>Total</th><th>Per year</th></tr>${rows}</table>
+      ${d.historyFrom ? `<div class="dim">History from ${day(d.historyFrom)}</div>` : ""}
+      <p>52-week high ${num(d.high52)}${d.high52At ? ` <span class="dim">(${day(d.high52At)})</span>` : ""} · <span class="${d.fromHigh < -10 ? "dn" : ""}">${pct(d.fromHigh, 1)} from high</span></p>
+      <h4>Price history</h4>
+      <div class="mrange">${RANGES.map((r) => `<button type="button" data-range="${r}" aria-pressed="${r === M.range}">${r}</button>`).join("")}</div>
+      ${hh && hh.length > 1 ? chartSvg(hh, d.high52) : `<div class="dim mchl">Loading…</div>`}
       <button type="button" class="mopen" data-open="${esc(M.sel)}">Open chart ↗</button></div>`;
+    if (!hh && !M.histPending) { M.histPending = true; loadHistory(); setTimeout(() => (M.histPending = false), 300); }
   }
 
   function setPeriod(p) {
@@ -88,6 +127,8 @@
     render(); renderDetail();
   });
   $("#mdetail").addEventListener("click", (e) => {
+    const r = e.target.closest("[data-range]");
+    if (r) { M.range = r.dataset.range; M.hist = null; M.histPending = false; renderDetail(); return; }
     const b = e.target.closest("[data-open]"); if (b) window.WireApp.openInstrument(b.dataset.open);
   });
   api.page.on("markets:update", (s) => { M.snap = s; render(); renderDetail(); });

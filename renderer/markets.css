@@ -24,3 +24,15 @@
 .mret tr.cur td{color:var(--orange)}
 .mret tr.cur td.up,.mret tr.cur td.dn{font-weight:700}
 .mopen{margin-top:8px;padding:6px 12px}
+.msum h4{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:16px 0 4px}
+.mret{margin:6px 0 8px}
+.mret th{font:600 10px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-align:left;padding:0 14px 2px 0}
+.mrange{display:flex;gap:2px;margin:6px 0}
+.mrange button{font:inherit;font-size:12px;background:#1a1a1c;color:var(--fg);border:1px solid #2a2a2d;padding:2px 8px;cursor:pointer}
+.mrange button[aria-pressed="true"]{background:var(--orange);color:var(--orange-ink);border-color:var(--orange)}
+.mch{position:relative;height:170px;border-bottom:1px solid var(--line)}
+.mch svg{width:100%;height:100%;display:block}
+.mchy{position:absolute;right:2px;font-size:10px;color:var(--dim)}
+.mchy.t{top:0}.mchy.b{bottom:2px}
+.mchx{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:2px}
+.mchl{height:170px}

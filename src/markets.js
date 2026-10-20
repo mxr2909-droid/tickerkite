@@ -1,7 +1,8 @@
 // Market heatmap: main-process side. main.js calls register(ctx) once at startup.
 // ctx: { ipcMain, send, file, readJSON, writeJSON, bus, get, Notification, showStory, showPage }
 //  - IPC channels must start with "markets:" (the preload only forwards those for this page)
-// One year of daily bars per symbol from Yahoo's free chart endpoint; every period is computed locally.
+// One year of daily bars per symbol from Yahoo's free chart endpoint, plus the full weekly history (fetched once a day,
+// cached in markets-history-cache.json) for the 3Y/5Y/10Y periods and the long chart; every period is computed locally.
 const { fetchText } = require("./news/fetcher");
 
 const GROUPS = [
@@ -20,7 +21,9 @@ const GROUPS = [
     { name: "Large vs Small", a: ["IWB", "Large caps"], b: ["IWM", "Small caps"] },
     { name: "Equal vs Cap weight", a: ["RSP", "Equal-wt S&P"], b: ["SPY", "Cap-wt S&P"] }] }
 ];
-const PERIODS = ["1D", "1W", "1M", "3M", "YTD"];
+const PERIODS = ["1D", "1W", "1M", "3M", "YTD", "1Y", "3Y", "5Y", "10Y"];
+const ANNUAL_YEARS = { "3Y": 3, "5Y": 5, "10Y": 10 };
+const LONG_TTL = 24 * 3600 * 1000;
 
 function symbols() {
   const out = [];
@@ -57,8 +60,27 @@ function closeOnOrBefore(bars, target) {
   return null;
 }
 
-/** Returns for every period, 52-week high and the distance from it, from ascending daily bars. */
-function summarize(bars) {
+/** Same for weekly bars (stamped on the week's first day, closing ~4 days later): the last week that had ended by `target`. */
+function weeklyCloseBefore(weekly, target) {
+  for (let i = weekly.length - 1; i >= 0; i--) if (ymd(new Date(weekly[i].t + 4 * 86400000)) <= target) return weekly[i].close;
+  return null;
+}
+
+/** Close at `target`: from daily bars when they reach back that far, else from the weekly history, else null. */
+function refClose(daily, weekly, target) {
+  if (ymd(new Date(daily[0].t)) <= target) return closeOnOrBefore(daily, target);
+  return weekly?.length ? weeklyCloseBefore(weekly, target) : null;
+}
+
+/** Annualized return (%) from a total return (%) over `years`. */
+function annualize(totalPct, years) {
+  if (totalPct == null || !(years > 0) || totalPct <= -100) return null;
+  return ((1 + totalPct / 100) ** (1 / years) - 1) * 100;
+}
+
+/** Returns for every period, annualized for 3Y+, the 52-week high (with date) and the distance from it.
+ *  `daily` is ascending daily bars (about a year); `weekly` optional longer history ([{t, close}] ascending). */
+function summarize(bars, weekly) {
   if (!bars || bars.length < 2) return null;
   const last = bars[bars.length - 1];
   const d = new Date(last.t);
@@ -75,11 +97,33 @@ function summarize(bars) {
     "3M": closeOnOrBefore(bars, back(0, 3)),
     YTD: closeOnOrBefore(bars, d.getUTCFullYear() * 10000 + 101 - 1)
   };
-  const ret = {};
+  for (const [p, m] of [["1Y", 12], ["3Y", 36], ["5Y", 60], ["10Y", 120]]) ref[p] = refClose(bars, weekly, back(0, m));
+  const ret = {}, ann = {};
   for (const p of PERIODS) ret[p] = ref[p] ? (last.close / ref[p] - 1) * 100 : null;
+  for (const p in ANNUAL_YEARS) ann[p] = annualize(ret[p], ANNUAL_YEARS[p]);
   const yearAgo = back(0, 12);
-  const high = Math.max(...bars.filter((b) => ymd(new Date(b.t)) > yearAgo).map((b) => Math.max(b.high, b.close)));
-  return { last: last.close, asOf: last.t, ret, high52: high, fromHigh: (last.close / high - 1) * 100 };
+  let hi = null;
+  for (const b of bars) if (ymd(new Date(b.t)) > yearAgo) { const v = Math.max(b.high, b.close); if (!hi || v > hi.v) hi = { v, t: b.t }; }
+  const firstT = Math.min(bars[0].t, weekly?.[0]?.t ?? Infinity);
+  return { last: last.close, asOf: last.t, ret, ann, high52: hi.v, high52At: hi.t, fromHigh: (last.close / hi.v - 1) * 100, historyFrom: firstT };
+}
+
+/** Bars [[t, close]] for the price chart: daily for 1Y, weekly beyond, last point at the live price. */
+function chartBars(daily, weekly, range, live) {
+  const lastT = daily[daily.length - 1].t;
+  const years = { "1Y": 1, "3Y": 3, "5Y": 5, "10Y": 10 }[range];
+  let src;
+  if (range === "MAX" || (years > 1 && weekly?.length)) src = weekly?.length ? weekly : daily;
+  else src = daily;
+  let from = 0;
+  if (years) {
+    const x = new Date(lastT); x.setUTCFullYear(x.getUTCFullYear() - years);
+    from = x.getTime();
+  }
+  const out = src.filter((b) => b.t >= from && b.t < lastT).map((b) => [b.t, b.close]);
+  // weekly history already covers recent weeks; end on the daily series' last bar at the live price
+  out.push([lastT, live ?? daily[daily.length - 1].close]);
+  return out;
 }
 
 /** Is the US cash session open right now (Mon–Fri 9:30–16:00 New York; holidays ignored)? */
@@ -92,17 +136,23 @@ function usMarketOpen(now = new Date()) {
 }
 
 // ---------- fetching ----------
-async function fetchOne(sym) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1y&interval=1d&includePrePost=false`;
-  const parsed = barsFromChart(JSON.parse(await fetchText(url, 10000)));
-  const s = parsed && summarize(parsed.bars);
-  if (!s) throw new Error("no data");
-  return { ...s, currency: parsed.currency };
+const chartUrl = (sym, q) => `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?${q}&includePrePost=false`;
+async function fetchDaily(sym) {
+  const parsed = barsFromChart(JSON.parse(await fetchText(chartUrl(sym, "range=1y&interval=1d"), 10000)));
+  if (!parsed || parsed.bars.length < 2) throw new Error("no data");
+  return parsed;
+}
+/** Whole weekly history as compact [{t, close}] (no live-price override). */
+async function fetchWeekly(sym) {
+  const parsed = barsFromChart(JSON.parse(await fetchText(chartUrl(sym, "range=max&interval=1wk"), 20000)));
+  return parsed ? parsed.bars.map((b) => ({ t: b.t, close: +b.close.toFixed(4) })) : null;
 }
 
 function register(ctx) {
   const { ipcMain, send, readJSON, writeJSON } = ctx;
   let state = readJSON("markets-cache.json", null) || { data: {}, errors: {}, fetchedAt: 0 };
+  // history: { weekly: {sym: {at, bars}}, daily: {sym: bars} }, persisted so the long chart opens instantly
+  let hist = readJSON("markets-history-cache.json", null) || { weekly: {}, daily: {} };
   let inflight = null, timer = null;
 
   const snapshot = () => ({ groups: GROUPS, periods: PERIODS, ...state, open: usMarketOpen() });
@@ -116,12 +166,21 @@ function register(ctx) {
       const worker = async () => {
         while (i < syms.length) {
           const s = syms[i++];
-          try { data[s] = await fetchOne(s); } catch (e) { errors[s] = String(e.message || e); }
+          try {
+            const parsed = await fetchDaily(s);
+            const w = hist.weekly[s];
+            if (!w || Date.now() - w.at > LONG_TTL) {
+              try { const bars = await fetchWeekly(s); if (bars?.length) hist.weekly[s] = { at: Date.now(), bars }; } catch {}
+            }
+            hist.daily[s] = parsed.bars.map((b) => ({ t: b.t, close: b.close }));
+            data[s] = { ...summarize(parsed.bars, hist.weekly[s]?.bars), currency: parsed.currency };
+          } catch (e) { errors[s] = String(e.message || e); }
         }
       };
       await Promise.all(Array.from({ length: 6 }, worker));
       state = { data, errors, fetchedAt: Date.now() };
       writeJSON("markets-cache.json", state);
+      writeJSON("markets-history-cache.json", hist);
       send("markets:update", snapshot());
     })().finally(() => { inflight = null; schedule(); });
     return inflight;
@@ -136,7 +195,12 @@ function register(ctx) {
     if (Date.now() - state.fetchedAt > interval()) refresh(); else if (!timer) schedule();
     return snapshot();
   });
+  ipcMain.handle("markets:history", (_e, sym, range) => {
+    const daily = hist.daily[sym];
+    if (!daily?.length || !symbols().includes(sym)) return null;
+    return chartBars(daily, hist.weekly[sym]?.bars, range, state.data[sym]?.last);
+  });
   ipcMain.handle("markets:refresh", async () => { await refresh(); return snapshot(); });
 }
 
-module.exports = { register, GROUPS, PERIODS, symbols, barsFromChart, summarize, closeOnOrBefore, usMarketOpen };
+module.exports = { register, GROUPS, PERIODS, symbols, barsFromChart, summarize, chartBars, annualize, closeOnOrBefore, usMarketOpen };
