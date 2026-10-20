@@ -126,3 +126,117 @@ test("headline match is whole-word and case-insensitive", () => {
   assert.deepStrictEqual(C.headlines(stories, ["cpi"]).map((s) => s.title), ["CPI hotter than expected"]);
   assert.deepStrictEqual(C.headlines(stories, C.RELEASES.fomc.words).map((s) => s.title), ["Powell signals patience"]);
 });
+
+// ---------- Nasdaq consensus ----------
+const NQ = require("../src/calendar-nasdaq");
+const NQ_DAY = require("./fixtures/nasdaq-cal-2026-10-14.json"); // trimmed reply to ?date=2026-10-15, which holds Oct 14's events
+const EDT = -4 * 3600e3;
+
+test("Nasdaq numbers and surprises", () => {
+  assert.deepStrictEqual(NQ.parseNum("1,080.0B"), { v: 1080, unit: "B", dec: 1, s: "1,080.0B" });
+  assert.deepStrictEqual(NQ.parseNum("-39.3K"), { v: -39.3, unit: "K", dec: 1, s: "-39.3K" });
+  assert.strictEqual(NQ.parseNum("&nbsp;"), null);
+  assert.strictEqual(NQ.parseNum(" "), null);
+  assert.deepStrictEqual(NQ.surprise("3.7%", "3.6%"), { v: 0.1, unit: "%", dec: 1 });
+  assert.deepStrictEqual(NQ.surprise("-39.3K", "19.6K"), { v: -58.9, unit: "K", dec: 1 });
+  assert.strictEqual(NQ.surprise("3.7%", "3.6K"), null); // units differ
+  assert.strictEqual(NQ.fmtNum(NQ.surprise("1,080.0B", "1,025.0B"), true), "+55.0B");
+  assert.strictEqual(NQ.etOffset(Date.parse("2026-10-15T12:00:00Z")), EDT);
+  assert.strictEqual(NQ.etOffset(Date.parse("2026-10-15T12:00:59.9Z")), EDT);
+  assert.strictEqual(NQ.etOffset(Date.parse("2026-12-15T12:00:00Z")), -5 * 3600e3);
+});
+
+test("Nasdaq day: ET times, countries, regions, repeated names, importance", () => {
+  const rows = NQ.parseDay(NQ_DAY, "2026-10-14", EDT);
+  assert.strictEqual(rows.length, 14);
+  const cpi = rows.filter((r) => r.code === "US" && /^CPI/.test(r.name));
+  assert.deepStrictEqual(cpi.map((r) => [r.key, r.name, r.actual, r.survey, r.previous]), [["US:cpi", "CPI", "3.7%", "3.6%", "3.4%"], ["US:cpi#2", "CPI (2)", "0.6%", "0.6%", "0.4%"]]);
+  assert.strictEqual(new Date(cpi[0].t).toISOString(), "2026-10-14T12:30:00.000Z"); // 8:30 ET
+  assert.strictEqual(cpi[0].rel, 3);
+  const de = rows.find((r) => r.code === "DE");
+  assert.deepStrictEqual([de.region, de.g10, de.flag], ["eu", true, "🇩🇪"]);
+  const cn = rows.find((r) => r.code === "CN");
+  assert.deepStrictEqual([cn.region, cn.g10, cn.rel], ["as", false, 2]);
+  const bailey = rows.find((r) => r.code === "GB");
+  assert.deepStrictEqual([bailey.actual, bailey.survey, bailey.rel], ["", "", 3]);
+  assert.strictEqual(rows.find((r) => r.name === "Beige Book").rel, 1);
+  assert.strictEqual(NQ.parseDay({ data: null }, "2026-10-15", EDT), null);
+  assert.deepStrictEqual(NQ.parseDay({ data: null, status: { rCode: 200, bCodeMessage: [{ code: 1002, errorMessage: "Economic Events Calendar: No record found." }] } }, "2026-10-11", EDT), []);
+});
+
+test("merge: official CPI takes Nasdaq's consensus, the rest become their own rows", () => {
+  const rows = NQ.parseDay(NQ_DAY, "2026-10-14", EDT);
+  const official = [{ id: "cpi:2026-10-14", cat: "macro", key: "cpi", title: "CPI", ref: "September 2026", t: C.etToMs("2026-10-14", "08:30"), timed: true, src: "BLS" }];
+  const ev = C.weekEvents(official, { "2026-10-14": { rows } }, {}, C.weekOf(NOW));
+  const cpi = ev.find((e) => e.id === "cpi:2026-10-14");
+  assert.deepStrictEqual([cpi.survey, cpi.actual, cpi.prior, cpi.hkey, cpi.code, cpi.rel, cpi.ref], ["3.6%", "3.7%", "3.4%", "US:cpi", "US", 3, "September 2026"]);
+  assert.strictEqual(ev.length, 14); // 14 rows, one folded into the official CPI event
+  assert.ok(!ev.some((e) => e.id === "nq:US:cpi:2026-10-14"));
+  assert.ok(ev.some((e) => e.id === "nq:US:cpi#2:2026-10-14"));
+  assert.strictEqual(ev.find((e) => e.title === "Beige Book").cat, "fed");
+  assert.strictEqual(ev.find((e) => e.code === "AU" && e.title === "Employment Change").cat, "macro");
+  assert.ok(ev.every((e, i) => i === 0 || ev[i - 1].t <= e.t));
+  // Nasdaq down: official events still there, just without numbers
+  const bare = C.weekEvents(official, {}, {}, C.weekOf(NOW));
+  assert.deepStrictEqual([bare.length, bare[0].survey, bare[0].hkey], [1, undefined, "US:cpi"]);
+  // other weeks are left out
+  assert.strictEqual(C.weekEvents(official, {}, {}, C.weekOf(NOW) + 7).length, 0);
+});
+
+test("week starts Monday ET", () => {
+  assert.strictEqual(new Date(C.weekOf(NOW) * 864e5).toISOString().slice(0, 10), "2026-10-12");
+  assert.strictEqual(new Date(C.weekOf(Date.parse("2026-10-19T03:00:00Z")) * 864e5).toISOString().slice(0, 10), "2026-10-12"); // Sun 11pm ET
+});
+
+test("history: builds up, notices revisions, summarises surprises", () => {
+  const hist = {};
+  const day = (date, actual, survey, previous) => ({ key: "US:cpi", date, t: Date.parse(date), name: "CPI", code: "US", flag: "", actual, survey, previous });
+  NQ.record(hist, [day("2026-08-12", "3.2%", "3.3%", "3.0%")]);
+  NQ.record(hist, [day("2026-09-11", "3.4%", "3.3%", "3.1%")]); // August printed 3.2, now shown as 3.1
+  NQ.record(hist, [day("2026-10-15", "", "3.6%", "3.4%")]);     // before the print: survey only
+  NQ.record(hist, [day("2026-10-15", "3.7%", "3.6%", "3.4%")]); // after: same entry updated
+  const list = hist["US:cpi"].list;
+  assert.deepStrictEqual(list.map((e) => [e.date, e.actual, e.survey]), [["2026-08-12", "3.2%", "3.3%"], ["2026-09-11", "3.4%", "3.3%"], ["2026-10-15", "3.7%", "3.6%"]]);
+  assert.strictEqual(list[0].revised, "3.1%");
+  assert.strictEqual(list[1].revised, undefined);
+  assert.deepStrictEqual(NQ.priorOf(hist, day("2026-09-11", "3.4%", "3.3%", "3.1%")), { prior: "3.2%", revised: "3.1%" });
+  assert.deepStrictEqual(NQ.priorOf({}, day("2026-09-11", "3.4%", "3.3%", "3.1%")), { prior: "3.1%", revised: "" });
+  assert.deepStrictEqual(NQ.stats(list), { n: 3, above: 2, below: 1, on: 0, miss: { v: 0.1, unit: "%", dec: 1 }, sd: { v: 0.1, unit: "%", dec: 1 } });
+  assert.strictEqual(NQ.stats([{ actual: "1%", survey: "" }]), null);
+  // capped
+  for (let i = 0; i < 50; i++) NQ.record(hist, [day(`2020-01-${String(i % 28 + 1).padStart(2, "0")}`.replace("2020", String(1970 + i)), "1%", "1%", "1%")]);
+  assert.strictEqual(hist["US:cpi"].list.length, NQ.MAX_HIST);
+});
+
+test("repeated names follow their own series whatever order Nasdaq sends them in", () => {
+  const hist = {};
+  const row = (date, actual, previous) => ({ key: "US:building-permits", base: "Building Permits", name: "Building Permits", date, t: Date.parse(date), code: "US", actual, survey: "", previous });
+  const day = (date, rows) => { const out = rows.map((r, i) => ({ ...r, key: i ? `${r.key}#${i + 1}` : r.key })); return NQ.record(hist, NQ.assignKeys(out, hist)) && out; };
+  day("2026-08-18", [row("2026-08-18", "1.443M", "1.374M"), row("2026-08-18", "4.3%", "-2.6%")]);
+  const sep = day("2026-09-17", [row("2026-09-17", "-2.1%", "4.3%"), row("2026-09-17", "1.394M", "1.443M")]); // swapped order
+  assert.deepStrictEqual(sep.map((r) => [r.key, r.name]), [["US:building-permits#2", "Building Permits (2)"], ["US:building-permits", "Building Permits"]]);
+  assert.deepStrictEqual(hist["US:building-permits"].list.map((e) => e.actual), ["1.443M", "1.394M"]);
+  assert.deepStrictEqual(hist["US:building-permits#2"].list.map((e) => e.actual), ["4.3%", "-2.1%"]);
+  // going back in time (the background fill) chains through the next release's prior
+  const jul = day("2026-07-17", [row("2026-07-17", "-2.6%", "1.0%"), row("2026-07-17", "1.374M", "1.360M")]);
+  assert.deepStrictEqual(jul.map((r) => r.key), ["US:building-permits#2", "US:building-permits"]);
+});
+
+test("history lookup: last 24, next release from the schedule", () => {
+  const list = Array.from({ length: 30 }, (_, i) => ({ date: `2024-${String(i % 12 + 1).padStart(2, "0")}-01`, actual: "1%", survey: "1%" }));
+  const ev = [{ hkey: "US:cpi", t: NOW + 864e5, timed: true }];
+  const h = C.historyFor({ "US:cpi": { name: "CPI", list } }, "US:cpi", ev, {}, NOW);
+  assert.strictEqual(h.list.length, 24);
+  assert.strictEqual(h.next.t, NOW + 864e5);
+  const h2 = C.historyFor({}, "AU:employment-change", [], { "2026-10-16": { rows: [{ key: "AU:employment-change", t: NOW + 3600e3, timed: true }] } }, NOW);
+  assert.deepStrictEqual([h2.list.length, h2.stats, h2.next.t], [0, null, NOW + 3600e3]);
+});
+
+test("cached Nasdaq days: past settles, today refreshes every 10 min", () => {
+  const today = "2026-10-15", now = NOW;
+  assert.strictEqual(NQ.fresh({ at: Date.parse("2026-10-14T12:00:00Z") }, "2026-10-01", today, now), true);
+  assert.strictEqual(NQ.fresh({ at: now - 11 * 60e3 }, today, today, now), false);
+  assert.strictEqual(NQ.fresh({ at: now - 5 * 60e3 }, today, today, now), true);
+  assert.strictEqual(NQ.fresh({ at: now - 5 * 3600e3 }, "2026-10-20", today, now), true);
+  assert.strictEqual(NQ.fresh(null, "2026-10-20", today, now), false);
+});

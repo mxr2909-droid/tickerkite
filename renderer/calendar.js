@@ -1,14 +1,16 @@
 /* WIRE Economic calendar page. Registers with app.js through window.WirePages (see the "pages" section there).
-   Economic releases, Fed meetings and watchlist earnings with countdowns; after a release, the new
-   reading next to the previous one (from the scorecard data) and related WIRE headlines. */
+   One week at a time: official US releases, Fed meetings and watchlist earnings, plus global events from
+   Nasdaq's calendar, with survey (consensus), actual, prior and revised. After a release the surprise
+   (actual − survey) is colored; the right pane charts actual vs survey for past releases. */
 (() => {
   const api = window.wire;
   const $ = (s) => document.querySelector(s);
   const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const DAY = 864e5;
+  const REGIONS = [["g10", "G10"], ["am", "Americas"], ["eu", "Europe/MEA"], ["as", "Asia/Pacific"], ["world", "World"]];
   const CATS = [["all", "All"], ["macro", "Macro"], ["fed", "Fed"], ["earnings", "Earnings"]];
-  const C = { active: false, data: null, cat: "all", sel: null, list: [], latest: {} };
-  try { C.cat = localStorage.getItem("wire.cal.cat") || "all"; } catch {}
+  const C = { active: false, data: null, region: "world", cat: "all", q: "", sel: null, list: [], latest: {}, week: null, hist: {} };
+  try { C.region = localStorage.getItem("wire.cal.region") || "world"; C.cat = localStorage.getItem("wire.cal.cat") || "all"; } catch {}
 
   // ---------- time (US Eastern) ----------
   const ETF = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -16,6 +18,8 @@
   const etDay = (t) => { const p = parts(t); return Date.UTC(p.year, p.month - 1, p.day) / DAY; };
   const clock = (t) => { const p = parts(t); return `${p.hour}:${String(p.minute).padStart(2, "0")}`; };
   const dayLabel = (t) => new Date(etDay(t) * DAY).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  const shortDate = (iso) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit", timeZone: "UTC" });
+  const isoDay = (n) => new Date(n * DAY).toISOString().slice(0, 10);
   function countdown(e, now = Date.now()) { // same rules as countdown() in src/calendar.js
     const dd = etDay(e.t) - etDay(now), at = e.timed ? ` ${clock(e.t)} ET` : "";
     if (dd === 0) {
@@ -36,69 +40,109 @@
     return mi >= 0 ? Date.UTC(+m[2], mi, 1) : null;
   };
 
-  // ---------- values ----------
+  // ---------- numbers (same rules as parseNum/surprise in src/calendar-nasdaq.js) ----------
+  function num(s) {
+    const m = /^([+-]?)\s*([\d,]*\.?\d+)\s*(%|[KMBT])?$/i.exec(String(s || "").trim());
+    if (!m) return null;
+    const d = m[2].replace(/,/g, "");
+    return { v: +(m[1] + d), unit: (m[3] || "").toUpperCase(), dec: (d.split(".")[1] || "").length };
+  }
+  function surp(a, b) {
+    a = num(a); b = num(b);
+    if (!a || !b || a.unit !== b.unit) return null;
+    const dec = Math.max(a.dec, b.dec);
+    return { v: +(a.v - b.v).toFixed(dec), unit: a.unit, dec };
+  }
+  const fmtN = (x, sign) => x ? (x.v < 0 ? "-" : sign && x.v > 0 ? "+" : "") + Math.abs(x.v).toLocaleString("en-US", { minimumFractionDigits: x.dec, maximumFractionDigits: x.dec }) + x.unit : "";
+  const cls = (x) => !x ? "" : x.v > 0 ? "up" : x.v < 0 ? "dn" : "on";
+
+  // scorecard readings: fallback for official releases Nasdaq has no row for
   const fmtV = (r, v) => v == null ? "—" : `${v.toFixed(r.dec ?? 1)}${r.unit === "%" ? "%" : r.unit ? " " + r.unit : ""}`;
-  /** For a released event: has the new reading landed in the scorecard data yet? */
   function landed(e, r) {
     if (!r) return false;
     if (e.key === "claims") return r.t >= e.t - 12 * DAY;
     const rs = refStart(e.ref);
     return rs != null ? r.t >= rs : r.t >= e.t - 45 * DAY;
   }
-  function valueCell(e) {
+  function scoreVals(e) {
     const rel = C.data?.releases?.[e.key];
     const r = rel?.ind?.length ? C.data.values?.[rel.ind[0]] : null;
-    if (!r) return "";
+    if (!r || e.nq) return null;
     if (e.t <= Date.now()) {
-      if (C.latest[e.key] !== e.id) return ""; // only the most recent release of each kind gets the new value
-      if (!landed(e, r)) return `<span class="cv dim">awaiting data</span>`;
-      const up = r.pv != null && r.v > r.pv, dn = r.pv != null && r.v < r.pv;
-      return `<span class="cv"><b class="${up ? "up" : dn ? "dn" : ""}">${esc(fmtV(r, r.v))}</b> <span class="dim">vs ${esc(fmtV(r, r.pv))}</span></span>`;
+      if (C.latest[e.key] !== e.id) return null;
+      if (!landed(e, r)) return { actual: "awaiting", prior: fmtV(r, r.v) };
+      return { actual: fmtV(r, r.v), prior: fmtV(r, r.pv) };
     }
-    return `<span class="cv dim">last ${esc(fmtV(r, r.v))}</span>`;
+    return { prior: fmtV(r, r.v) };
   }
 
   // ---------- list ----------
   function visible() {
-    const ev = C.data?.events || [];
-    return C.cat === "all" ? ev : ev.filter((e) => e.cat === C.cat);
+    const q = C.q.trim().toLowerCase();
+    return (C.data?.events || []).filter((e) => {
+      if (C.cat !== "all" && e.cat !== C.cat) return false;
+      if (C.region === "g10" ? !e.g10 : C.region !== "world" && e.region !== C.region) return false;
+      return !q || `${e.title} ${e.ref || ""} ${e.code} ${e.sym || ""}`.toLowerCase().includes(q);
+    });
+  }
+  const dots = (n) => `<span class="crel r${n}" title="${["", "Low", "Medium", "High"][n] || ""} importance">${"●".repeat(n)}${"○".repeat(3 - n)}</span>`;
+  function row(e, now) {
+    const fb = scoreVals(e) || {};
+    const s = surp(e.actual, e.survey);
+    const tag = e.estimated ? `<span class="x">estimated</span>` : e.fallback ? `<span class="x" title="Schedule from WIRE's checked list (source unreachable)">fallback</span>` : "";
+    const actual = e.actual ? `<b class="${cls(s)}">${esc(e.actual)}</b>` : fb.actual ? `<span class="dim">${esc(fb.actual)}</span>` : "";
+    return `<button type="button" class="row calrow c-${e.cat}${e.t <= now ? " done" : ""}" data-id="${esc(e.id)}" aria-selected="${e.id === C.sel}" title="${esc(countdown(e, now))}">
+      <span class="n">${e.timed ? esc(clock(e.t)) : ""}</span>
+      <span class="cc"><span class="fl">${e.flag || ""}</span>${esc(e.code || "")}</span>
+      ${dots(e.rel || 1)}
+      <span class="h">${e.cat === "fed" ? `<span class="ccat">FED</span>` : e.cat === "earnings" ? `<span class="ccat">EARN</span>` : ""}${esc(e.title)}${tag}</span>
+      <span class="cp">${esc(e.ref && e.cat !== "earnings" ? e.ref.replace(/ Quarter /, "Q ").replace(/^Week ending /, "wk ") : "")}</span>
+      <span class="cv sv">${esc(e.survey || "")}</span>
+      <span class="cv">${actual}</span>
+      <span class="cv su ${cls(s)}">${s ? esc(fmtN(s, true)) : ""}</span>
+      <span class="cv pr">${esc(e.prior || fb.prior || "")}</span>
+      <span class="cv rv">${esc(e.revised || "")}</span>
+    </button>`;
   }
   function render() {
     const el = $("#calendar");
     if (!C.data) { el.innerHTML = `<div class="empty">Loading the calendar…</div>`; return; }
     const now = Date.now();
+    const focused = document.activeElement?.id === "calq";
     C.list = visible();
     C.latest = {};
-    for (const e of C.data.events) if (e.t <= now) C.latest[e.key] = e.id;
-    const counts = Object.fromEntries(CATS.map(([k]) => [k, k === "all" ? C.data.events.length : C.data.events.filter((e) => e.cat === k).length]));
-    let h = `<div class="calbar">${CATS.map(([k, n], i) => `<button type="button" data-cat="${k}" aria-pressed="${C.cat === k}" title="${n} (${i + 1})">${n}<em>${counts[k]}</em></button>`).join("")}
-      <span class="calnote">${srcNote()}</span></div>`;
-    if (!C.list.length) h += `<div class="empty">${C.cat === "earnings" ? "No earnings dates yet. Add stocks to your watchlist; dates come from the company panel." : "Nothing scheduled."}</div>`;
-    let day = null, todayMarked = false;
+    for (const e of C.data.events) if (e.t <= now && e.key !== "nq") C.latest[e.key] = e.id;
+    const wk = Date.parse(C.data.week + "T12:00:00Z") / DAY, thisWk = C.data.week === C.data.thisWeek;
+    const wkLabel = `${new Date(wk * DAY).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })} – ${new Date((wk + 6) * DAY).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`;
+    let h = `<div class="calhead"><div class="calbar">
+      <span class="cgrp">${REGIONS.map(([k, n], i) => `<button type="button" data-region="${k}" aria-pressed="${C.region === k}" title="${n} (${i + 1})">${n}</button>`).join("")}</span>
+      <span class="cgrp">${CATS.map(([k, n]) => `<button type="button" data-cat="${k}" aria-pressed="${C.cat === k}">${n}</button>`).join("")}</span>
+      <span class="cgrp cweek"><button type="button" data-week="-1" title="Previous week (←)">‹</button><button type="button" data-week="0" aria-pressed="${thisWk}" title="This week (t)">This week</button><button type="button" data-week="1" title="Next week (→)">›</button><span class="wk">${esc(wkLabel)}</span></span>
+      <input id="calq" type="search" placeholder="Search events  /" value="${esc(C.q)}" spellcheck="false" autocomplete="off">
+      <span class="calnote">${srcNote()}</span></div>
+      <div class="calcols"><span>ET</span><span>CTRY</span><span>REL</span><span>EVENT</span><span>PERIOD</span><span class="r">SURVEY</span><span class="r">ACTUAL</span><span class="r">SURP</span><span class="r">PRIOR</span><span class="r">REVISED</span></div></div>`;
+    if (!C.list.length) h += `<div class="empty">${C.q ? "No events match." : C.cat === "earnings" ? "No earnings this week. Add stocks to your watchlist; dates come from the company panel." : C.data.nasdaq?.loading ? "Loading this week…" : "Nothing scheduled this week."}</div>`;
+    let day = null;
     for (const e of C.list) {
       const d = etDay(e.t);
-      if (!todayMarked && d >= etDay(now)) { todayMarked = true; if (d > etDay(now)) h += `<div class="subhead calday today">Today · nothing scheduled</div>`; }
       if (d !== day) { day = d; h += `<div class="subhead calday${d === etDay(now) ? " today" : d < etDay(now) ? " past" : ""}">${esc(dayLabel(e.t))}${d === etDay(now) ? " · Today" : ""}</div>`; }
-      const tag = e.estimated ? `<span class="x">estimated</span>` : e.fallback ? `<span class="x" title="Schedule from WIRE's checked list (source unreachable)">fallback</span>` : "";
-      h += `<button type="button" class="row calrow c-${e.cat}${e.t <= now ? " done" : ""}" data-id="${esc(e.id)}" aria-selected="${e.id === C.sel}">
-        <span class="n">${e.timed ? esc(clock(e.t)) : ""}</span>
-        <span class="h"><span class="ccat">${e.cat === "fed" ? "FED" : e.cat === "earnings" ? "EARN" : "MACRO"}</span>${esc(e.title)} <span class="cref">${esc(e.ref || "")}</span>${tag}</span>
-        <span class="cval">${valueCell(e)}</span>
-        <span class="t cdown">${esc(countdown(e, now))}</span>
-      </button>`;
+      h += row(e, now);
     }
     el.innerHTML = h;
+    if (focused) { const i = $("#calq"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
     if (!C.sel || !C.list.some((e) => e.id === C.sel)) {
       const next = C.list.find((e) => e.t > now) || C.list[C.list.length - 1];
       C.sel = next?.id || null;
-      if (C.sel) { el.querySelector(`.calrow[data-id="${CSS.escape(C.sel)}"]`)?.setAttribute("aria-selected", "true"); scrollToSel(); }
+      if (C.sel) { el.querySelector(`.calrow[data-id="${CSS.escape(C.sel)}"]`)?.setAttribute("aria-selected", "true"); if (!focused) scrollToSel(); }
     }
     renderDetail();
   }
   function srcNote() {
-    const st = C.data.status || {};
+    const st = C.data.status || {}, nq = C.data.nasdaq || {};
     const fb = Object.entries(st).filter(([, s]) => !s.live).map(([k]) => ({ fomc: "Fed", bea: "BEA", retail: "Census", cpi: "CPI", ppi: "PPI", jobs: "jobs", jolts: "JOLTS" }[k] || k));
-    return fb.length ? `fallback list (checked ${esc(C.data.fallbackChecked)}): ${esc(fb.join(", "))}` : "all schedules live";
+    const sched = fb.length ? `<span title="fallback list checked ${esc(C.data.fallbackChecked)}">fallback: ${esc(fb.join(", "))}</span>` : "schedules live";
+    const cons = nq.loading ? "consensus loading…" : nq.error ? `<span class="dn" title="${esc(nq.error)}">consensus unavailable</span>` : nq.at ? "consensus: Nasdaq" : "";
+    return [sched, cons].filter(Boolean).join(" · ");
   }
   function scrollToSel() { $("#calendar").querySelector(`.calrow[aria-selected="true"]`)?.scrollIntoView({ block: "center" }); }
   function select(id) {
@@ -112,10 +156,51 @@
     const n = C.list[Math.max(0, Math.min(C.list.length - 1, i + d))];
     if (n) { select(n.id); scrollToSel(); }
   }
+  function setRegion(k) { C.region = k; C.sel = null; try { localStorage.setItem("wire.cal.region", k); } catch {} render(); }
   function setCat(k) { C.cat = k; C.sel = null; try { localStorage.setItem("wire.cal.cat", k); } catch {} render(); }
+  function setWeek(d) {
+    const cur = Date.parse((C.data?.week || C.data?.thisWeek) + "T12:00:00Z") / DAY;
+    C.week = d === 0 ? C.data?.thisWeek : isoDay(cur + 7 * d);
+    C.sel = null;
+    api.page.invoke("calendar:get", C.week).then(apply);
+  }
 
   // ---------- detail ----------
-  let hlToken = 0;
+  function chart(list) {
+    const pts = list.map((e, i) => ({ i, a: num(e.actual), s: num(e.survey) })).filter((p) => p.a || p.s);
+    if (pts.length < 2) return "";
+    const vs = pts.flatMap((p) => [p.a?.v, p.s?.v]).filter((v) => v != null);
+    let lo = Math.min(...vs), hi = Math.max(...vs);
+    if (hi === lo) { hi += 1; lo -= 1; }
+    const pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
+    const W = 340, H = 130, L = 44, B = 18, n = list.length - 1 || 1;
+    const x = (i) => L + (i / n) * (W - L - 6), y = (v) => 6 + (1 - (v - lo) / (hi - lo)) * (H - B - 6);
+    const line = (k) => { const p = pts.filter((q) => q[k]); return p.length > 1 ? p.map((q) => `${x(q.i).toFixed(1)},${y(q[k].v).toFixed(1)}`).join(" ") : ""; };
+    const unit = (pts.find((p) => p.a) || pts[0]).a?.unit || pts[0].s?.unit || "", dec = Math.min(3, Math.max(...pts.map((p) => (p.a || p.s).dec)));
+    const lab = (v) => v.toFixed(dec) + unit;
+    const zero = lo < 0 && hi > 0 ? `<line x1="${L}" x2="${W - 6}" y1="${y(0)}" y2="${y(0)}" class="z"/>` : "";
+    const dotsSvg = pts.filter((p) => p.a && p.s).map((p) => { const s = p.a.v - p.s.v; return `<circle cx="${x(p.i).toFixed(1)}" cy="${y(p.a.v).toFixed(1)}" r="2.4" class="${s > 0 ? "up" : s < 0 ? "dn" : "on"}"/>`; }).join("");
+    return `<svg class="calchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Actual vs survey, last ${list.length} releases">
+      <line x1="${L}" x2="${W - 6}" y1="6" y2="6" class="g"/><line x1="${L}" x2="${W - 6}" y1="${H - B}" y2="${H - B}" class="g"/>${zero}
+      <text x="${L - 4}" y="10" text-anchor="end">${esc(lab(hi - pad))}</text><text x="${L - 4}" y="${H - B}" text-anchor="end">${esc(lab(lo + pad))}</text>
+      <text x="${L}" y="${H - 4}">${esc(shortDate(list[0].date))}</text><text x="${W - 6}" y="${H - 4}" text-anchor="end">${esc(shortDate(list[list.length - 1].date))}</text>
+      ${line("s") ? `<polyline points="${line("s")}" class="sv"/>` : ""}${line("a") ? `<polyline points="${line("a")}" class="ac"/>` : ""}${dotsSvg}
+    </svg><div class="calleg"><span class="ac">— actual</span><span class="sv">- - survey</span><span class="dim">dot: above / below / on survey</span></div>`;
+  }
+  function summary(st) {
+    if (!st) return `<p class="none">No releases with a survey on record yet. WIRE keeps each release as it prints and fills in the past in the background.</p>`;
+    return `<p class="calsum">Last ${st.n} with a survey: <b class="up">${st.above} above</b>, <b class="dn">${st.below} below</b>, ${st.on} on it · typical miss ${esc(fmtN(st.miss))} · SD ${esc(fmtN(st.sd))}</p>`;
+  }
+  function histTable(list) {
+    const per = list.some((e) => e.ref);
+    const rows = [...list].reverse().map((e) => {
+      const s = surp(e.actual, e.survey);
+      return `<tr><td>${esc(shortDate(e.date))}</td>${per ? `<td class="dim pl">${esc(e.ref || "")}</td>` : ""}<td class="${cls(s)}">${esc(e.actual || "—")}</td><td>${esc(e.survey || "—")}</td><td class="dim">${esc(e.prior || "")}${e.revised ? ` <span title="revised to ${esc(e.revised)} at the next release">→ ${esc(e.revised)}</span>` : ""}</td><td class="${cls(s)}">${s ? esc(fmtN(s, true)) : ""}</td></tr>`;
+    }).join("");
+    return `<table class="calhist"><thead><tr><th>RELEASE</th>${per ? `<th class="pl">PERIOD</th>` : ""}<th>ACTUAL</th><th>SURVEY</th><th>PRIOR</th><th>SURPRISE</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  let hlToken = 0, hToken = 0;
   function renderDetail() {
     if (!C.active || window.WireInstrument?.isOpen()) return;
     const el = $("#cdetail");
@@ -124,23 +209,47 @@
     const rel = C.data.releases[e.key] || {};
     const when = e.timed ? `${dayLabel(e.t)} · ${clock(e.t)} ET` : dayLabel(e.t);
     let kv = `<dt>WHEN</dt><dd>${esc(when)}</dd><dt>COUNTDOWN</dt><dd>${esc(countdown(e))}</dd>`;
-    if (e.ref) kv += `<dt>${e.cat === "earnings" ? "COMPANY" : e.cat === "fed" ? "MEETING" : "PERIOD"}</dt><dd>${esc(e.ref)}</dd>`;
-    kv += `<dt>SOURCE</dt><dd>${esc(e.src || rel.agency || "")}${e.estimated ? " · estimated date" : ""}${e.fallback ? ` · WIRE fallback list, checked ${esc(C.data.fallbackChecked)}` : ""}</dd>`;
+    if (e.cat !== "earnings") kv += `<dt>NEXT</dt><dd class="calnext">${e.t > Date.now() ? esc(countdown(e)) : "…"}</dd>`;
+    if (e.ref) kv += `<dt>${e.cat === "earnings" ? "COMPANY" : e.cat === "fed" && e.key === "fomc" ? "MEETING" : "PERIOD"}</dt><dd>${esc(e.ref)}</dd>`;
+    kv += `<dt>COUNTRY</dt><dd>${e.flag || ""} ${esc(e.code || "")} · ${["", "low", "medium", "high"][e.rel || 1]} importance</dd>`;
+    kv += `<dt>SOURCE</dt><dd>${esc(e.src || rel.agency || "")}${e.nq && e.key !== "nq" ? " · consensus from Nasdaq" : ""}${e.estimated ? " · estimated date" : ""}${e.fallback ? ` · WIRE fallback list, checked ${esc(C.data.fallbackChecked)}` : ""}</dd>`;
+    const s = surp(e.actual, e.survey);
+    const fig = e.survey || e.actual || e.prior ? `<div class="calfig">
+      <div><span>SURVEY</span><b>${esc(e.survey || "—")}</b></div>
+      <div><span>ACTUAL</span><b class="${cls(s)}">${esc(e.actual || "—")}</b></div>
+      <div><span>SURPRISE</span><b class="${cls(s)}">${s ? esc(fmtN(s, true)) : "—"}</b></div>
+      <div><span>PRIOR</span><b>${esc(e.prior || "—")}</b>${e.revised ? `<em>revised ${esc(e.revised)}</em>` : ""}</div></div>` : "";
     let vals = "";
-    for (const id of rel.ind || []) {
+    for (const id of e.key === "nq" ? [] : rel.ind || []) {
       const r = C.data.values?.[id];
       if (!r) continue;
       const fresh = e.t <= Date.now() && C.latest[e.key] === e.id && landed(e, r);
       vals += `<dt>${esc(r.name.toUpperCase())}</dt><dd><b>${esc(fmtV(r, r.v))}</b> <span class="dim">vs ${esc(fmtV(r, r.pv))} previous · ${esc(new Date(r.t).toLocaleDateString("en-US", { month: "short", year: "numeric", day: e.key === "claims" ? "numeric" : undefined, timeZone: "UTC" }))}${fresh ? " · new" : ""}</span></dd>`;
     }
-    const words = e.cat === "earnings" ? [e.sym, ...(e.ref && e.ref !== e.sym ? [e.ref.replace(/,? (Inc|Corp|Corporation|Co|Ltd|plc|Holdings)\.?$/i, "")] : [])] : rel.words;
+    const words = e.cat === "earnings" ? [e.sym, ...(e.ref && e.ref !== e.sym ? [e.ref.replace(/,? (Inc|Corp|Corporation|Co|Ltd|plc|Holdings)\.?$/i, "")] : [])]
+      : rel.words || [e.title.replace(/\s*\(\d\)$/, "")];
     el.innerHTML = `
-      <div class="dhead"><span class="code">${e.cat === "fed" ? "FED" : e.cat === "earnings" ? "EARNINGS" : esc(rel.agency || "MACRO")}</span><span class="nm">${esc(rel.long || e.ref || "")}</span><span class="dt">${esc(countdown(e))}</span></div>
+      <div class="dhead"><span class="code">${e.cat === "fed" ? "FED" : e.cat === "earnings" ? "EARNINGS" : esc(rel.agency || e.code || "MACRO")}</span><span class="nm">${esc(rel.long || e.country || "")}</span><span class="dt">${esc(countdown(e))}</span></div>
       <h1>${esc(e.title)}</h1>
       <dl class="kv">${kv}</dl>
-      ${vals ? `<div class="isec">${e.t <= Date.now() ? "LATEST READING VS PREVIOUS" : "LAST READING VS PREVIOUS"}</div><dl class="kv calvals">${vals}</dl>` : ""}
+      ${fig}
+      ${e.hkey ? `<div class="isec">ACTUAL VS SURVEY</div><div class="calh"><p class="none">Loading history…</p></div>` : ""}
+      ${e.desc ? `<p class="caldesc">${esc(e.desc)}</p>` : ""}
+      ${vals ? `<div class="isec">${e.t <= Date.now() ? "LATEST READING VS PREVIOUS" : "LAST READING VS PREVIOUS"} (SCORECARD)</div><dl class="kv calvals">${vals}</dl>` : ""}
       ${e.sym ? `<p><button type="button" class="calopen" data-sym="${esc(e.sym)}">Open ${esc(e.sym)} chart</button></p>` : ""}
       <div class="isec">RELATED WIRE HEADLINES</div><div class="calhl"><p class="none">Searching…</p></div>`;
+    if (e.hkey) {
+      const tok = ++hToken;
+      api.page.invoke("calendar:history", e.hkey).then((hs) => {
+        if (tok !== hToken) return;
+        const box = el.querySelector(".calh");
+        if (!box) return;
+        const nx = el.querySelector(".calnext");
+        if (nx) nx.textContent = hs.next ? `${countdown(hs.next)} · ${dayLabel(hs.next.t)}` : e.t > Date.now() ? countdown(e) : "not in the loaded schedule";
+        const list = hs.list || [];
+        box.innerHTML = list.length ? chart(list) + summary(hs.stats) + histTable(list) : summary(null);
+      });
+    }
     const tok = ++hlToken;
     api.page.invoke("calendar:headlines", words || []).then((hs) => {
       if (tok !== hlToken) return;
@@ -153,30 +262,46 @@
 
   // ---------- events ----------
   $("#calendar").addEventListener("click", (ev) => {
+    const g = ev.target.closest("[data-region]"); if (g) return setRegion(g.dataset.region);
     const b = ev.target.closest("[data-cat]"); if (b) return setCat(b.dataset.cat);
+    const w = ev.target.closest("[data-week]"); if (w) return setWeek(+w.dataset.week);
     const r = ev.target.closest(".calrow"); if (r) select(r.dataset.id);
   });
+  $("#calendar").addEventListener("input", (ev) => { if (ev.target.id === "calq") { C.q = ev.target.value; C.sel = null; render(); } });
   $("#cdetail").addEventListener("click", (ev) => {
     const o = ev.target.closest(".calopen"); if (o) return window.WireApp.openInstrument(o.dataset.sym);
     const s = ev.target.closest(".calstory");
     if (s && !window.WireInstrument.onStory?.(s.dataset.sid) && s.dataset.url) api.open?.(s.dataset.url);
   });
-  function apply(d) { if (!d) return; C.data = d; if (C.active) render(); }
+  function apply(d) {
+    if (!d) return;
+    if (C.week && d.week !== C.week) return; // a push for a week we've navigated away from
+    C.data = d;
+    if (C.active) { const y = $("#calendar").scrollTop, keep = !!C.sel; render(); if (keep) $("#calendar").scrollTop = y; }
+  }
   if (api?.page) {
     api.page.on("calendar:update", apply);
     api.page.invoke("calendar:get").then(apply);
   }
-  setInterval(() => { if (C.active && !window.WireInstrument?.isOpen()) { const y = $("#calendar").scrollTop; render(); $("#calendar").scrollTop = y; } }, 60e3);
+  setInterval(() => { if (C.active && !window.WireInstrument?.isOpen() && document.activeElement?.id !== "calq") { const y = $("#calendar").scrollTop; render(); $("#calendar").scrollTop = y; } }, 60e3);
 
   (window.WirePages ||= {}).calendar = {
-    show() { C.active = true; render(); if (api?.page) api.page.invoke("calendar:get").then(apply); },
+    show() { C.active = true; render(); if (api?.page) api.page.invoke("calendar:get", C.week || undefined).then(apply); },
     hide() { C.active = false; },
     key(e) {
+      if (e.target.id === "calq") {
+        if (e.key === "Escape") { C.q = ""; e.target.value = ""; e.target.blur(); render(); }
+        else if (e.key === "Enter" || e.key === "ArrowDown") { e.preventDefault(); e.target.blur(); }
+        return;
+      }
       if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); move(1); }
       else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); move(-1); }
-      else if (/^[1-4]$/.test(e.key) && !e.metaKey) setCat(CATS[+e.key - 1][0]);
-      else if (e.key === "t") { C.sel = null; render(); }
+      else if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); setWeek(e.key === "ArrowLeft" ? -1 : 1); }
+      else if (/^[1-5]$/.test(e.key) && !e.metaKey) setRegion(REGIONS[+e.key - 1][0]);
+      else if (e.key === "/") { e.preventDefault(); $("#calq")?.focus(); }
+      else if (e.key === "t") { if (C.data?.week !== C.data?.thisWeek) setWeek(0); else { C.sel = null; render(); } }
       else if (e.key === "r") api.page.invoke("calendar:refresh").then(apply);
+      else if (e.key === "Escape" && C.q) { C.q = ""; render(); }
       else if (e.key === "Enter" || e.key === "o") { const x = C.data?.events.find((v) => v.id === C.sel); if (x?.sym) window.WireApp.openInstrument(x.sym); }
     },
     restore() { renderDetail(); },

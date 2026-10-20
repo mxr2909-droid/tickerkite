@@ -12,8 +12,11 @@
 //            so a failed fetch falls back to the list below, which is marked "fallback" in the UI.
 //  - DOL:    initial jobless claims, every Thursday 8:30 ET (Wednesday in a Thanksgiving/Christmas week)
 //  - Earnings: the company panel's date for each watchlist stock (Nasdaq, else "estimated")
+//  - Consensus, actuals and global events: Nasdaq's economic calendar, one request per day, cached in
+//    calendar-nasdaq.json; every release's numbers also go into calendar-history.json (see calendar-nasdaq.js)
 
 const company = require("./company");
+const NQ = require("./calendar-nasdaq");
 const SC = require("./macro/score");
 const { INDICATORS } = require("./macro/indicators");
 
@@ -74,6 +77,8 @@ function etToMs(date, time = "00:00") {
 }
 const etDay = (t) => { const p = etParts(t); return Date.UTC(p.y, p.mo - 1, p.d) / DAY; };
 const isoDay = (n) => new Date(n * DAY).toISOString().slice(0, 10);
+/** Monday (ET day number) of the week containing t. */
+const weekOf = (t) => { const d = etDay(t); return d - ((new Date(d * DAY).getUTCDay() + 6) % 7); };
 function etClock(t) { const p = etParts(t); return `${p.h}:${String(p.mi).padStart(2, "0")} ET`; }
 
 /** Countdown label: "in 42 min", "today 8:30 ET", "tomorrow 14:00 ET", "in 3 days", "yesterday", "5 days ago". */
@@ -281,12 +286,32 @@ async function fetchSchedules(prev) {
   return { at: Date.now(), sched, errors };
 }
 
+/** One week of the calendar: official events in it, merged with that week's Nasdaq rows. Pure, for tests. */
+function weekEvents(events, days, hist, mon) {
+  const rows = [];
+  for (let d = mon; d < mon + 7; d++) rows.push(...(days[isoDay(d)]?.rows || []));
+  return NQ.merge(events.filter((e) => { const d = etDay(e.t); return d >= mon && d < mon + 7; }), rows, hist, etDay);
+}
+
+/** Release history for one event key, with the surprise summary and when it's next out. */
+function historyFor(hist, key, events, days, now = Date.now()) {
+  const h = hist[key];
+  const list = (h?.list || []).slice(-24);
+  let next = events.find((e) => e.hkey === key && e.t > now) || null;
+  if (!next) for (const d of Object.keys(days).sort()) { const r = (days[d].rows || []).find((x) => x.key === key && x.t > now); if (r) { next = { t: r.t, timed: r.timed }; break; } }
+  return { key, name: h?.name || "", list, stats: NQ.stats(list), next: next && { t: next.t, timed: next.timed !== false } };
+}
+
 // ---------- wiring ----------
 function register(ctx) {
   let cache = ctx.readJSON("calendar-cache.json", null);
   let loading = null, vals = null, valsAt = 0;
   const tried = new Set(); // watchlist symbols already sent to the company panel this session
   const store = { read: ctx.readJSON, write: ctx.writeJSON };
+  // Nasdaq days ({ date: { at, rows } }) and release history ({ cursor, keys })
+  const days = ctx.readJSON("calendar-nasdaq.json", {});
+  const hstore = ctx.readJSON("calendar-history.json", { cursor: null, keys: {} });
+  let week = weekOf(Date.now()), nq = { at: 0, error: null }, nqLoading = null, histDirty = false;
 
   function earnings() {
     const cc = ctx.readJSON("company-cache.json", {});
@@ -319,11 +344,13 @@ function register(ctx) {
     }
     return vals;
   }
+  const allEvents = () => buildEvents(cache?.sched || fallbackSched(), earnings());
   function payload() {
     const sched = cache?.sched || fallbackSched();
     const status = {};
     for (const [k, s] of [["fomc", sched.fomc], ["bea", sched.bea], ["retail", sched.retail], ...Object.entries(sched.bls || {})]) status[k] = { live: !!s?.live, at: s?.at || 0, error: cache?.errors?.[k] || null };
-    return { events: buildEvents(sched, earnings()), values: values(), releases: RELEASES, status, fetchedAt: cache?.at || 0, fallbackChecked: FALLBACK_CHECKED, now: Date.now() };
+    return { events: weekEvents(allEvents(), days, hstore.keys, week), week: isoDay(week), thisWeek: isoDay(weekOf(Date.now())), nasdaq: { ...nq, loading: !!nqLoading },
+      values: values(), releases: RELEASES, status, fetchedAt: cache?.at || 0, fallbackChecked: FALLBACK_CHECKED, now: Date.now() };
   }
   const push = () => ctx.send("calendar:update", payload());
 
@@ -336,13 +363,61 @@ function register(ctx) {
     return loading;
   }
 
-  ctx.ipcMain.handle("calendar:get", () => { refresh(false); return payload(); });
-  ctx.ipcMain.handle("calendar:refresh", async () => { await refresh(true); return payload(); });
+  function saveHist() { if (histDirty) { ctx.writeJSON("calendar-history.json", hstore); histDirty = false; } }
+  // fetch the shown week's days that are stale, one request at a time; Nasdaq being down just leaves the consensus columns empty
+  async function loadWeek(force) {
+    if (nqLoading) return nqLoading;
+    const today = isoDay(etDay(Date.now()));
+    const todo = [];
+    for (let d = week; d < week + 7; d++) { const iso = isoDay(d); if (force || !NQ.fresh(days[iso], iso, today)) todo.push(iso); }
+    if (!todo.length) return;
+    nqLoading = (async () => {
+      let ok = 0, err = null;
+      for (const iso of todo) {
+        try { const rows = NQ.assignKeys(await NQ.fetchDay(iso), hstore.keys); days[iso] = { at: Date.now(), rows }; NQ.record(hstore.keys, rows); histDirty = true; ok++; }
+        catch (e) { err = String(e.message || e); }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      nq = { at: ok ? Date.now() : nq.at, error: ok ? null : err };
+      // official releases know their period ("September 2026"); keep it with the history entry
+      for (const e of weekEvents(allEvents(), days, hstore.keys, week)) {
+        const h = e.ref && e.key !== "nq" && hstore.keys[e.hkey]?.list.find((x) => x.date === isoDay(etDay(e.t)));
+        if (h) h.ref = e.ref;
+      }
+      const lo = isoDay(etDay(Date.now()) - 60);
+      for (const k of Object.keys(days)) if (k < lo) delete days[k];
+      ctx.writeJSON("calendar-nasdaq.json", days);
+      saveHist();
+    })().catch((e) => console.error("calendar nasdaq", e)).finally(() => { nqLoading = null; push(); });
+    push();
+    return nqLoading;
+  }
+
+  // one-time slow walk back through two years of past days so the surprise history has depth from day one
+  let fails = 0;
+  async function backfillStep() {
+    const stop = isoDay(etDay(Date.now()) - 730);
+    const d = hstore.cursor ? isoDay(Date.parse(hstore.cursor) / DAY - 1) : isoDay(etDay(Date.now()) - 1);
+    if (d < stop) return;
+    try { NQ.record(hstore.keys, NQ.assignKeys(await NQ.fetchDay(d), hstore.keys)); hstore.cursor = d; histDirty = true; fails = 0; if (d.endsWith("0")) saveHist(); }
+    catch { fails++; }
+    setTimeout(backfillStep, fails >= 3 ? 3600e3 : 4000);
+  }
+
+  ctx.ipcMain.handle("calendar:get", (_e, w) => {
+    if (typeof w === "string" && /^\d{4}-\d{2}-\d{2}$/.test(w)) week = weekOf(Date.parse(w) + 12 * 3600e3);
+    refresh(false); loadWeek(false);
+    return payload();
+  });
+  ctx.ipcMain.handle("calendar:refresh", async () => { await Promise.all([refresh(true), loadWeek(true)]); return payload(); });
+  ctx.ipcMain.handle("calendar:history", (_e, key) => historyFor(hstore.keys, String(key || ""), allEvents(), days));
   ctx.ipcMain.handle("calendar:headlines", (_e, words) => headlines(ctx.get().stories, Array.isArray(words) ? words.map(String).slice(0, 20) : [])
     .map((s) => ({ id: s.id, title: s.title, publisher: s.publisher, ts: s.ts, url: s.url })));
   ctx.bus?.on?.("scores", () => { valsAt = 0; push(); });
-  setTimeout(() => refresh(false), 8000);
-  setInterval(() => refresh(false), 3600e3);
+  setTimeout(() => { refresh(false); loadWeek(false); }, 8000);
+  setTimeout(backfillStep, 60e3);
+  setInterval(() => { refresh(false); if (week === weekOf(Date.now())) loadWeek(false); }, 15 * 60e3);
+  setInterval(saveHist, 5 * 60e3);
 }
 
-module.exports = { register, parseFomc, parseBls, parseBea, parseCensus, claimsDates, countdown, etToMs, etDay, refStart, buildEvents, readings, headlines, fallbackSched, RELEASES, FALLBACK_CHECKED };
+module.exports = { register, weekOf, weekEvents, historyFor, parseFomc, parseBls, parseBea, parseCensus, claimsDates, countdown, etToMs, etDay, refStart, buildEvents, readings, headlines, fallbackSched, RELEASES, FALLBACK_CHECKED };
