@@ -131,19 +131,6 @@ Tiles are green or red by return, darker the bigger the move relative to the per
 
 WIRE downloads one year of daily prices per symbol from Yahoo Finance and computes every period locally; the full weekly history (for 3Y+ and the long chart) is downloaded once a day and kept in `markets-history-cache.json` (long returns are measured from the last weekly close before the start date). It refreshes every 5 minutes while the US market is open and every 30 minutes otherwise (only after you first open the page), and keeps the last result in `markets-cache.json` in the app's data folder so the page opens instantly. Returns are price returns in each market's own currency, ignoring dividends.
 
-## Alerts
-
-The **Alerts** page (⌘⌥5) lets you set rules that WIRE checks after every quote, news and scorecard refresh:
-
-- **Price**: any symbol on the markets strip or your watchlist: day move of at least ±X%, or price above/below a level.
-- **Scorecard**: an asset's 0–100 score above/below a threshold (e.g. Stocks below 30).
-- **Indicator**: any of the scorecard indicators above/below a level (e.g. high-yield spread above 4).
-- **Headline**: a new story whose title contains a keyword or ticker (whole word, `$NVDA` works too), optionally HIGH impact only.
-
-A rule fires when its condition *becomes* true, not every refresh while it stays true, and not again until it resets and its cooldown (60 min by default) has passed. Headline rules fire once per new story (stories already out when you add the rule don't count). Each firing shows a Mac notification (clicking a headline alert opens the story) and goes into the log; select a rule to see its own firings. Click ● to pause a rule, × to delete it; ↑/↓ and Space work too.
-
-Rules and their state live in `alerts.json` and the last 500 firings in `alerts-log.json`, both in the app's data folder, so restarting doesn't re-fire anything.
-
 ## Calendar
 
 The Calendar page (⌘⌥3) shows one week at a time: US economic releases, Fed meetings and earnings for your watchlist stocks from the official schedules, plus global releases, central-bank speakers and auctions from Nasdaq's economic calendar, with the consensus forecast for each. All times are US Eastern.
@@ -160,7 +147,7 @@ Sources, all free and keyless:
 
 ## Fed
 
-The Fed page (⌘⌥6) shows where markets expect the Fed's policy rate to go, meeting by meeting, against the Fed's own projections.
+The Fed page (⌘⌥5) shows where markets expect the Fed's policy rate to go, meeting by meeting, against the Fed's own projections.
 
 - **Header**: effective fed funds (EFFR), when the futures were last quoted and how old the data is. The target range is read off the prime rate (prime = top of the range + 3 points).
 - **Four tiles**: the next FOMC meeting's odds of a 25bp move and its direction; the cumulative move priced by the last meeting with futures ("+75bp ≈ 3.0 hikes"); the peak (or trough) implied rate and the meeting it comes after; and the gap between the market and the Fed's latest median dot.
@@ -176,7 +163,7 @@ Sources, all free and keyless: Yahoo Finance for ZQ futures prices (with ~3 mont
 
 ## Graphs
 
-The Graphs page (⌘⌥7) is a charting workspace for any FRED series or market symbol.
+The Graphs page (⌘⌥6) is a charting workspace for any FRED series or market symbol.
 
 - **Add a series**: type a FRED ID (`UNRATE`, `T10Y2Y`, `CPIAUCSL`) or a Yahoo symbol (`^GSPC`, `NVDA`, `CL=F`) and press Enter, or use **Quick picks** (your watchlist and the 53 scorecard indicators). Anything with `^ = . -` is treated as a symbol; force one with `fred:` or `yahoo:`. Up to 6 series per chart; `/` focuses the box.
 - **Compare**: SHARED puts everything on one axis, DUAL gives left and right axes (flip each series with its ◀ L / R ▶ button), NORMALIZE rebases every series to 100 at the start of the range (the first series' first date).

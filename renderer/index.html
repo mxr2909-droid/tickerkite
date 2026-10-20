@@ -7,7 +7,6 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="calendar.css">
 <link rel="stylesheet" href="markets.css">
-<link rel="stylesheet" href="alerts.css">
 <link rel="stylesheet" href="fed.css">
 <link rel="stylesheet" href="graphs.css">
 <link rel="stylesheet" href="board.css">
@@ -40,9 +39,8 @@
         <button type="button" role="tab" data-p="score" aria-selected="false" title="Scorecards (⌘⌥2)">Scorecards</button>
         <button type="button" role="tab" data-p="calendar" aria-selected="false" title="Calendar (⌘⌥3)">Calendar</button>
         <button type="button" role="tab" data-p="markets" aria-selected="false" title="Markets (⌘⌥4)">Markets</button>
-        <button type="button" role="tab" data-p="alerts" aria-selected="false" title="Alerts (⌘⌥5)">Alerts</button>
-        <button type="button" role="tab" data-p="fed" aria-selected="false" title="Fed (⌘⌥6)">Fed</button>
-        <button type="button" role="tab" data-p="graphs" aria-selected="false" title="Graphs (⌘⌥7)">Graphs</button>
+        <button type="button" role="tab" data-p="fed" aria-selected="false" title="Fed (⌘⌥5)">Fed</button>
+        <button type="button" role="tab" data-p="graphs" aria-selected="false" title="Graphs (⌘⌥6)">Graphs</button>
       </div>
       <div class="tabs news-only" id="tabs"><span class="pg"><span id="pgView">All</span><b>News</b></span></div>
       <div class="tabs score-only" id="atabs"></div>
@@ -61,7 +59,6 @@
     <div class="list num score-only" id="score" aria-label="Scorecard"></div>
     <div class="list num calendar-only" id="calendar" aria-label="Economic calendar"></div>
     <div class="list num markets-only" id="markets" aria-label="Market heatmap"></div>
-    <div class="list num alerts-only" id="alerts" aria-label="Alerts"></div>
     <div class="list num fed-only" id="fed" aria-label="Fed path"></div>
     <div class="list num graphs-only" id="graphs" aria-label="Graph workspace"></div>
     <div class="secbar news-only">
@@ -87,7 +84,6 @@
   <aside class="detail score-only" id="sdetail" aria-label="Indicator"></aside>
   <aside class="detail calendar-only" id="cdetail" aria-label="Economic calendar detail"></aside>
   <aside class="detail markets-only" id="mdetail" aria-label="Market heatmap detail"></aside>
-  <aside class="detail alerts-only" id="adetail" aria-label="Alerts detail"></aside>
   <aside class="detail fed-only" id="fdetail" aria-label="Fed path detail"></aside>
   <aside class="detail graphs-only" id="gdetail" aria-label="Graph workspace detail"></aside>
 </div>
@@ -98,7 +94,6 @@
 <script src="scorecard.js"></script>
 <script src="calendar.js"></script>
 <script src="markets.js"></script>
-<script src="alerts.js"></script>
 <script src="fed.js"></script>
 <script src="graphs.js"></script>
 <script src="app.js"></script>
