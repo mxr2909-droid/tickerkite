@@ -14,7 +14,8 @@ const EventEmitter = require("events");
 const PAGE_MODULES = {
   calendar: require("./calendar"), markets: require("./markets"), 
   fed: require("./fed"), graphs: require("./graphs"), recession: require("./recession"),
-  board: require("./board"), releases: require("./releases"), portfolio: require("./portfolio"), brief: require("./brief")
+  board: require("./board"), releases: require("./releases"), portfolio: require("./portfolio"), brief: require("./brief"),
+  companypage: require("./companypage"), curve: require("./curve"), command: require("./command")
 };
 const bus = new EventEmitter(); // "news" | "quotes" | "scores" after each refresh, for page modules
 const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");
@@ -456,6 +457,9 @@ function buildMenu() {
         { label: "Fed", accelerator: "CmdOrCtrl+Alt+5", click: () => { showStory(null); send("page:set", "fed"); } },
         { label: "Graphs", accelerator: "CmdOrCtrl+Alt+6", click: () => { showStory(null); send("page:set", "graphs"); } },
         { label: "Portfolio", accelerator: "CmdOrCtrl+Alt+7", click: () => { showStory(null); send("page:set", "portfolio"); } },
+        { label: "Yield Curve", accelerator: "CmdOrCtrl+Alt+8", click: () => { showStory(null); send("page:set", "curve"); } },
+        { label: "Company", accelerator: "CmdOrCtrl+Alt+9", click: () => { showStory(null); send("page:set", "company"); } },
+        { label: "Go To…", accelerator: "CmdOrCtrl+K", click: () => { showStory(null); send("cmd:open"); } },
         { type: "separator" },
         { label: "Show Main Window", accelerator: "CmdOrCtrl+1", click: () => showStory(null) },
         { label: "Fit Window to Screen", accelerator: "CmdOrCtrl+Alt+F", click: () => { showStory(null); fitToScreen(); } },

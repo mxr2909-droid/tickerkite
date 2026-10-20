@@ -12,6 +12,9 @@
 <link rel="stylesheet" href="board.css">
 <link rel="stylesheet" href="brief.css">
 <link rel="stylesheet" href="portfolio.css">
+<link rel="stylesheet" href="curve.css">
+<link rel="stylesheet" href="companypage.css">
+<link rel="stylesheet" href="command.css">
 </head>
 <body>
 <div class="app" id="app" data-page="news">
@@ -44,7 +47,9 @@
         <button type="button" role="tab" data-p="calendar" aria-selected="false" title="Calendar (⌘⌥3)">Calendar</button>
         <button type="button" role="tab" data-p="markets" aria-selected="false" title="Markets (⌘⌥4)">Markets</button>
         <button type="button" role="tab" data-p="fed" aria-selected="false" title="Fed (⌘⌥5)">Fed</button>
+        <button type="button" role="tab" data-p="curve" aria-selected="false" title="Yield curve (⌘⌥8)">Curve</button>
         <button type="button" role="tab" data-p="graphs" aria-selected="false" title="Graphs (⌘⌥6)">Graphs</button>
+        <button type="button" role="tab" data-p="company" aria-selected="false" title="Company (⌘⌥9) · ⌘K to look one up">Company</button>
       </div>
       <div class="tabs news-only" id="tabs"><span class="pg"><span id="pgView">All</span><b>News</b></span></div>
       <div class="tabs score-only" id="atabs"></div>
@@ -65,6 +70,8 @@
     <div class="list num graphs-only" id="graphs" aria-label="Graph workspace"></div>
     <div class="list num brief-only" id="brief" aria-label="Brief"></div>
     <div class="list num portfolio-only" id="portfolio" aria-label="Portfolio"></div>
+    <div class="list num curve-only" id="curve" aria-label="Yield curve"></div>
+    <div class="list num company-only" id="company" aria-label="Company"></div>
     <div class="secbar news-only">
       <div class="l"><b>Top Ranked News</b><span>|</span><em id="more">More »</em></div>
       <div class="toggle" id="mode">
@@ -91,6 +98,8 @@
   <aside class="detail graphs-only" id="gdetail" aria-label="Graph workspace detail"></aside>
   <aside class="detail brief-only" id="bdetail" aria-label="Today"></aside>
   <aside class="detail portfolio-only" id="pdetail" aria-label="Holding detail"></aside>
+  <aside class="detail curve-only" id="ydetail" aria-label="Yield curve detail"></aside>
+  <aside class="detail company-only" id="codetail" aria-label="Company detail"></aside>
 </div>
 <script src="company.js"></script>
 <script src="instrument.js"></script>
@@ -103,6 +112,9 @@
 <script src="graphs.js"></script>
 <script src="brief.js"></script>
 <script src="portfolio.js"></script>
+<script src="curve.js"></script>
+<script src="companypage.js"></script>
+<script src="command.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

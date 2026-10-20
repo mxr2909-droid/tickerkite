@@ -235,6 +235,81 @@ function valuation(sum, price, closes = []) {
   return { price, pe, ps, mcap, peRange: range };
 }
 
+// ---------------------------------------------------------------- full statements (Company page)
+const STMT = {
+  rnd: ["ResearchAndDevelopmentExpense", "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"],
+  ocf: ["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"],
+  capex: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForCapitalImprovements"],
+  dividends: ["PaymentsOfDividends", "PaymentsOfDividendsCommonStock"],
+  buybacks: ["PaymentsForRepurchaseOfCommonStock"],
+  assets: ["Assets"],
+  liabilities: ["Liabilities"],
+  equity: ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"]
+};
+
+/** Fiscal-year values for a flow item: 10-K facts covering about a year, latest filing wins, one per year end. */
+function annual(facts) {
+  const m = new Map();
+  for (const f of dedupe(facts.filter((x) => x.start && /^10-K/.test(x.form)))) {
+    const d = days(f.start, f.end);
+    if (d < 350 || d > 380) continue;
+    const prev = m.get(f.end);
+    if (!prev || f.filed > prev.filed) m.set(f.end, { start: f.start, end: f.end, val: f.val, filed: f.filed });
+  }
+  return [...m.values()].sort((a, b) => a.end.localeCompare(b.end));
+}
+function mergedAnnual(cf, tags, opts) {
+  const m = new Map();
+  for (const tag of tags) for (const x of annual(factsFor(cf, tag, opts))) if (!m.has(x.end)) m.set(x.end, x);
+  return [...m.values()].sort((a, b) => a.end.localeCompare(b.end));
+}
+/** Balance-sheet value at (or within 5 days of) a period end, first tag that has one. */
+function instantNear(cf, tags, end, opts) {
+  for (const t of tags) {
+    const f = instants(cf, t, opts).find((x) => Math.abs(days(x.end, end)) <= 5);
+    if (f) return f.val;
+  }
+  return null;
+}
+
+/**
+ * Income statement, cash flow and balance sheet by fiscal year (up to 10) and by quarter (up to 12).
+ * Cash-flow items come annual only: 10-Qs report them year-to-date, not per quarter.
+ */
+function statements(cf, { splits = [] } = {}) {
+  const opts = { splits };
+  const flowA = (tags, o = opts) => mergedAnnual(cf, tags, o);
+  const flowQ = (tags, o = opts) => mergedQuarterly(cf, tags, o);
+  const A = {
+    revenue: flowA(TAGS.revenue), grossProfit: flowA(TAGS.grossProfit), cogs: flowA(TAGS.costOfRevenue), opIncome: flowA(TAGS.opIncome),
+    netIncome: flowA(TAGS.netIncome), eps: flowA(TAGS.eps, { ...opts, per: "share" }), rnd: flowA(STMT.rnd),
+    ocf: flowA(STMT.ocf), capex: flowA(STMT.capex), dividends: flowA(STMT.dividends), buybacks: flowA(STMT.buybacks)
+  };
+  const Q = {
+    revenue: flowQ(TAGS.revenue), grossProfit: flowQ(TAGS.grossProfit), cogs: flowQ(TAGS.costOfRevenue), opIncome: flowQ(TAGS.opIncome),
+    netIncome: flowQ(TAGS.netIncome), eps: flowQ(TAGS.eps, { ...opts, per: "share" }), rnd: flowQ(STMT.rnd)
+  };
+  const at = (s, end) => s.find((x) => Math.abs(days(x.end, end)) <= 5)?.val ?? null;
+  function row(S, end, withCash) {
+    const revenue = at(S.revenue, end);
+    const gp = at(S.grossProfit, end) ?? (revenue != null && at(S.cogs, end) != null ? revenue - at(S.cogs, end) : null);
+    const r = {
+      end, revenue, grossProfit: gp, opIncome: at(S.opIncome, end), netIncome: at(S.netIncome, end), eps: at(S.eps, end), rnd: at(S.rnd, end),
+      cash: instantNear(cf, TAGS.cash, end), debt: totalDebt(cf, end) ?? null,
+      assets: instantNear(cf, STMT.assets, end), liabilities: instantNear(cf, STMT.liabilities, end), equity: instantNear(cf, STMT.equity, end)
+    };
+    if (withCash) {
+      r.ocf = at(S.ocf, end); r.capex = at(S.capex, end);
+      r.fcf = r.ocf != null ? r.ocf - (r.capex || 0) : null;
+      r.dividends = at(S.dividends, end); r.buybacks = at(S.buybacks, end);
+    }
+    return r;
+  }
+  const yEnds = (A.revenue.length ? A.revenue : A.netIncome).map((x) => x.end).slice(-10);
+  const qEnds = (Q.revenue.length ? Q.revenue : Q.netIncome).map((x) => x.end).slice(-12);
+  return { annual: yEnds.map((e) => row(A, e, true)), quarterly: qEnds.map((e) => row(Q, e, false)) };
+}
+
 // ---------------------------------------------------------------- networking
 const TTL = 24 * 3600e3;
 const KIND = { ETF: "ETF", MUTUALFUND: "fund", CRYPTOCURRENCY: "crypto", FUTURE: "future", INDEX: "index", CURRENCY: "currency" };
@@ -312,4 +387,4 @@ async function fetchCompany(sym, { store, contact, force = false } = {}) {
   return { sec: true, ...hit.data, earnings, fetchedAt: hit.at, valuation: valuation(hit.data, y.price, y.closes.slice(-66)), currency: y.currency };
 }
 
-module.exports = { fetchCompany, summarize, valuation, quarterly, mergedQuarterly, ttmAt, estimateNextReport, parseNasdaqEarnings, splitFactor, TAGS };
+module.exports = { fetchCompany, nasdaqEarnings, yahoo, getJSON, UA_BASE, statements, annual, summarize, valuation, quarterly, mergedQuarterly, ttmAt, estimateNextReport, parseNasdaqEarnings, splitFactor, TAGS };

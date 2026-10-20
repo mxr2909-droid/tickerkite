@@ -1,0 +1,18 @@
+/* WIRE command bar (⌘K) */
+.cmdk{position:fixed;inset:0;z-index:50;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh}
+.cmdk[hidden]{display:none}
+.cmdk-back{position:absolute;inset:0;background:rgba(5,6,9,.55);backdrop-filter:blur(2px)}
+.cmdk-box{position:relative;width:min(640px,calc(100vw - 32px));max-height:68vh;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line-2);border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,.55);overflow:hidden}
+.cmdk-in{font:inherit;font-size:16px;color:var(--fg-strong);background:transparent;border:0;border-bottom:1px solid var(--line);padding:16px 18px;outline:none}
+.cmdk-in::placeholder{color:var(--dimmer)}
+.cmdk-list{overflow:auto;padding:6px;min-height:0}
+.cmdk-g{font-size:11px;font-weight:600;color:var(--dim);padding:10px 10px 4px}
+.cmdk-it{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 10px;border-radius:7px;color:var(--fg)}
+.cmdk-it[aria-selected="true"]{background:var(--accent-soft);color:var(--fg-strong)}
+.cmdk-l{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden;white-space:nowrap}
+.cmdk-l em{font-style:normal;font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis}
+.cmdk-it kbd{font:inherit;font-size:10.5px;font-weight:600;color:var(--dim);background:var(--surface-3);border-radius:4px;padding:1px 6px;letter-spacing:.04em}
+.cmdk-none{padding:18px 12px;color:var(--dim);font-size:13px}
+.cmdk-foot{display:flex;flex-wrap:wrap;gap:4px 14px;padding:8px 14px;border-top:1px solid var(--line);font-size:11px;color:var(--dimmer)}
+.cmdk-foot b{color:var(--dim);font-weight:600}
+.cmdk-mn{margin-left:auto}

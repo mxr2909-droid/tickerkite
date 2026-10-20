@@ -174,7 +174,7 @@
     if (PAGES[p]) PAGES[p].show?.();
     else select(S.idx, false, false);
   }
-  window.WireApp = { setPage, openInstrument: (sym) => openInstrument(sym), page: () => S.page };
+  window.WireApp = { setPage, openInstrument: (sym) => openInstrument(sym), page: () => S.page, stories: () => S.stories, quotes: () => S.quotes, watch: () => S.watch };
   $("#pages").addEventListener("click", (e) => { const b = e.target.closest("button[data-p]"); if (b) setPage(b.dataset.p); });
 
   // ---------- instrument view ----------
