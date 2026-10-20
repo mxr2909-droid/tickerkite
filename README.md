@@ -105,6 +105,20 @@ Click the box for the right-pane detail: probability history with recessions sha
 
 The track record is in-sample (the model is fitted on the same history), so it flatters the model. The curve says little about timing within the window and nothing about anything else. The code is `src/recession.js`.
 
+### Decile board
+
+**OUTLOOK | BOARD** at the top right of the Scorecards page (or `B`) switches to the board: all 53 indicators in eight columns (Growth, Inflation, Labor, Rates & Fed, Credit, Consumer & Housing, Markets, Global), each tile ranked **D1–D10 against its own full history**.
+
+- **Direction-aware:** D10 is always the best tenth of history for the economy and D1 the worst. Direction is the indicator's `sign` times whether more of its factor is good (growth, labor, credit, easier Fed and conditions, consumer, global and each asset's own trend are good; inflation, higher yields, a stronger dollar and market stress are bad). So low unemployment and low inflation rank high. Override with `good: 1` or `-1` on an indicator in `src/macro/indicators.js`.
+- **Each tile** shows the latest value with ▲/▼ against the prior reading, its decile and the month. Colors run from red (1) to green (10). Striped tiles are stale, and tiles more than 400 days old don't count toward the section score.
+- **Scores:** each column's number is the average percentile of its tiles (0–100, 50 = typical), and the gauge is the average of the eight columns.
+- **Rank against:** ALL, 50Y, 30Y, 20Y, 10Y or 5Y, or drag the timeline's handles. The left handle sets where each indicator's history starts. Pull the right handle back to see the board as of that month; **BACK TO LATEST** returns to today. With a preset, the window keeps its length as the right handle moves. Recessions are shaded on the timeline. A series that starts later than the range uses all it has, and the detail pane says from when.
+- **Click a tile** for its value, decile, "Nth percentile of N readings since YEAR" and which way is better, the prior reading and a year ago, the source, **OPEN ON FRED** (or the price chart for Yahoo series), and its full history with recessions shaded and the ranked range highlighted. Arrow keys move between tiles.
+
+The board needs longer history than the scorecard's 10 years, so it downloads its own copy the first time you open it: every FRED series from its first observation and Yahoo daily closes back to 1928 (a few seconds). It's transformed exactly as the scorecard does it (year-over-year, vs 200-day and so on), cut to one reading per month (the last of each month, so daily and monthly series rank against comparable histories), cached in `board-cache.json` and refreshed at most daily, or with **UPDATE DATA**. Some history is short: GDPNow starts in 2011, PPI in 2010, the dollar index in 2006 and the credit spreads in 2023 (FRED's limit).
+
+Readings are dated by the period they cover and use today's revised data, so the board as of a past date shows what that data says now, not what was known then. The math is in `src/macro/board.js` (tests in `test/board.test.js`), the download in `src/board.js` and the view in `renderer/board.js`.
+
 ## Markets
 
 The Markets page (⌘⌥4) is a heatmap of what's leading and lagging, in three sections:
@@ -215,7 +229,7 @@ src/instruments.js   which headlines matter for each market; news-to-move matchi
 src/watchlist.js     your tickers: symbol cleanup and which stories mention them
 src/markets.js       market heatmap: sectors, global indexes, style pairs
 src/company.js       company panel: SEC EDGAR fundamentals, valuation, next earnings date
-src/macro/           scorecards: indicators, data downloads, scoring, default weights
+src/macro/           scorecards: indicators, data downloads, scoring, default weights, decile board math
 scripts/backtest.js  scorecard backtest since 2007
 src/news/feeds.js    default sources
 src/news/fetcher.js  parallel feed download with timeouts

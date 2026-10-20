@@ -17,8 +17,9 @@
 
   const K = { data: null, asset: "stocks", sel: null, active: false, series: new Map(), seq: 0, rec: null };
   const REC = "@recession"; // K.sel value when the recession model is shown in the right pane
-  K.win = "w1";
-  try { K.asset = localStorage.getItem("wire.score.asset") || "stocks"; K.win = localStorage.getItem("wire.score.win") || "w1"; } catch {}
+  K.win = "w1"; K.view = "outlook"; // view: "outlook" (asset scores) or "board" (decile board, renderer/board.js)
+  try { K.asset = localStorage.getItem("wire.score.asset") || "stocks"; K.win = localStorage.getItem("wire.score.win") || "w1"; K.view = localStorage.getItem("wire.score.view") === "board" ? "board" : "outlook"; } catch {}
+  const BOARD = () => K.view === "board" && window.WireBoard;
   let hooks = {};
 
   // ---------- formatting ----------
@@ -47,14 +48,15 @@
     const sc = K.data?.scores || {};
     const btns = (K.data?.assets || [["stocks", "Stocks"], ["bonds", "Bonds"], ["commodities", "Commodities"], ["realestate", "Real Estate"], ["crypto", "Crypto"], ["alts", "Alts"]])
       .map(([k, l]) => `<button type="button" data-a="${k}" aria-pressed="${k === K.asset}">${esc(l)}${sc[k] ? `<em>${sc[k].score}</em>` : ""}</button>`).join("");
-    $("#atabs").querySelectorAll("button").forEach((b) => b.remove());
-    $("#atabs").insertAdjacentHTML("afterbegin", btns);
+    const tog = [["outlook", "OUTLOOK"], ["board", "BOARD"]].map(([k, l]) => `<button type="button" data-view="${k}" aria-pressed="${k === K.view}" title="${k === "board" ? "Every indicator ranked against its own history (B)" : "0–100 outlook per asset class (B)"}">${l}</button>`).join("");
+    $("#atabs").innerHTML = (BOARD() ? "" : btns) + `<span class="vtog">${tog}</span>`;
   }
 
   function renderInfo() {
     const d = K.data, btn = $("#sref");
     btn.disabled = !!d?.refreshing;
     btn.textContent = d?.refreshing ? "UPDATING…" : "⟳ UPDATE DATA";
+    if (BOARD()) { const st = window.WireBoard.status(); $("#sinfo").textContent = `Decile board · ${d?.defs?.length || 53} indicators ranked D1–D10 against their own history${st ? " · " + st : ""}`; return; }
     if (!d?.fetchedAt) { $("#sinfo").textContent = "Scores 0–100: higher = more constructive over the next 6–12 months"; return; }
     const ago = Math.round((Date.now() - d.fetchedAt) / 60000);
     const when = ago < 1 ? "just now" : ago < 60 ? `${ago}m ago` : ago < 1440 ? `${Math.round(ago / 60)}h ago` : `${Math.round(ago / 1440)}d ago`;
@@ -118,6 +120,7 @@
   function render() {
     renderTabs(); renderInfo();
     const d = K.data, el = $("#score");
+    if (BOARD() && d?.defs) { window.WireBoard.render(); return; }
     if (!d || !Object.keys(d.scores || {}).length) {
       el.innerHTML = `<div class="sc-empty">${d?.refreshing || !d ? "Downloading economic data: about 50 series from the St. Louis Fed (FRED) and Yahoo Finance. This takes 5–10 seconds the first time." : `<b>No economic data yet.</b> ${esc(d.error || "Check your connection, then click UPDATE DATA.")}`}</div>`;
       renderDetail();
@@ -171,6 +174,7 @@
 
   // ---------- detail ----------
   function renderDetail(byUser = false) {
+    if (BOARD()) { window.WireBoard.renderDetail(byUser); return; }
     const el = $("#sdetail");
     if (window.WireInstrument?.isOpen()) { if (!byUser) return; window.WireInstrument.close(); }
     const d = K.data;
@@ -367,21 +371,33 @@
     select(ids[Math.max(0, Math.min(ids.length - 1, (i < 0 ? 0 : i + dir)))]);
   }
 
-  $("#atabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-a]"); if (b) setAsset(b.dataset.a); });
+  function setView(v) {
+    if (v === K.view) return;
+    K.view = v;
+    try { localStorage.setItem("wire.score.view", v); } catch {}
+    window.WireBoard?.[v === "board" ? "show" : "hide"]();
+    render();
+    $("#score").scrollTop = 0;
+  }
+  $("#atabs").addEventListener("click", (e) => {
+    const v = e.target.closest("button[data-view]"); if (v) { setView(v.dataset.view); return; }
+    const b = e.target.closest("button[data-a]"); if (b) setAsset(b.dataset.a);
+  });
   $("#score").addEventListener("click", (e) => {
+    if (BOARD()) return; // board.js handles its own clicks
     const a = e.target.closest(".relbar [data-a]"); if (a) { setAsset(a.dataset.a); return; }
     const w = e.target.closest("[data-win]");
     if (w) { K.win = w.dataset.win; try { localStorage.setItem("wire.score.win", K.win); } catch {} render(); return; }
     const b = e.target.closest("[data-id]"); if (b) select(b.dataset.id);
   });
   $("#sdetail").addEventListener("click", (e) => { if (e.target.closest("[data-act=recref]")) api?.page.invoke("recession:refresh"); });
-  $("#sref").addEventListener("click", () => api?.refreshScores());
+  $("#sref").addEventListener("click", () => { api?.refreshScores(); if (BOARD()) window.WireBoard.refresh(); });
   $("#sdetail").addEventListener("click", (e) => {
     if (window.WireInstrument?.isOpen()) return; // the price chart handles its own clicks
     const b = e.target.closest("[data-act=inst]"); if (b) hooks.openInstrument?.(b.dataset.sym);
   });
   let rt = null;
-  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (K.active && K.sel === REC && !window.WireInstrument?.isOpen()) drawRecCharts(); else if (K.active && K.sel && K.series.has(K.sel) && !window.WireInstrument?.isOpen()) drawChart(def(K.sel), K.series.get(K.sel)); }, 150); });
+  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (K.active && BOARD()) window.WireBoard.resize(); else if (K.active && K.sel === REC && !window.WireInstrument?.isOpen()) drawRecCharts(); else if (K.active && K.sel && K.series.has(K.sel) && !window.WireInstrument?.isOpen()) drawChart(def(K.sel), K.series.get(K.sel)); }, 150); });
 
   function apply(d) {
     if (!d) return;
@@ -394,6 +410,7 @@
   window.WireScore = {
     init(h) {
       hooks = h || {};
+      window.WireBoard?.init({ esc, fmt, fmtDate, ord, defs: () => K.data?.defs || [], sections: () => K.data?.sections || [] });
       if (!api) return;
       api.onScores(apply);
       api.getScores().then(apply);
@@ -402,11 +419,14 @@
       api.page?.invoke("recession:get").then(recApply).catch(() => {});
       setInterval(() => { if (K.active) renderInfo(); }, 30000);
     },
-    show() { K.active = true; render(); },
-    hide() { K.active = false; },
+    show() { K.active = true; if (BOARD()) window.WireBoard.show(); render(); },
+    hide() { K.active = false; window.WireBoard?.hide(); },
+    info() { if (K.active) renderInfo(); },
     /** Restore the indicator view after the price chart closes. */
     restore() { renderDetail(true); },
     key(e) {
+      if ((e.key === "b" || e.key === "B") && !e.metaKey) { setView(K.view === "board" ? "outlook" : "board"); return; }
+      if (BOARD()) { if (e.key === "Enter" || e.key === "o") { const b = document.querySelector("#sdetail [data-act=inst], #sdetail [data-act=fred]"); b?.click(); } else window.WireBoard.key(e); return; }
       if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); move(1); }
       else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); move(-1); }
       else if (/^[1-6]$/.test(e.key) && !e.metaKey) setAsset(K.data?.assets?.[+e.key - 1]?.[0] || ["stocks", "bonds", "commodities", "realestate", "crypto", "alts"][+e.key - 1]);
