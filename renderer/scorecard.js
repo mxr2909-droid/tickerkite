@@ -15,7 +15,8 @@
     realestate: "REITs and housing-linked assets", crypto: "Bitcoin and large crypto", alts: "Gold and precious metals"
   };
 
-  const K = { data: null, asset: "stocks", sel: null, active: false, series: new Map(), seq: 0 };
+  const K = { data: null, asset: "stocks", sel: null, active: false, series: new Map(), seq: 0, rec: null };
+  const REC = "@recession"; // K.sel value when the recession model is shown in the right pane
   K.win = "w1";
   try { K.asset = localStorage.getItem("wire.score.asset") || "stocks"; K.win = localStorage.getItem("wire.score.win") || "w1"; } catch {}
   let hooks = {};
@@ -135,7 +136,7 @@
           <div class="sc-chg">${chg(A.m1, "vs 1 month ago")}${chg(A.m3, "vs 3 months ago")}</div>
           ${spark(d.history)}
         </div>
-        ${regimeBox(d.regime)}
+        <div class="sc-side">${regimeBox(d.regime)}${recBox()}</div>
       </div>
       <div class="drv"><div><h3>PUSHING THE SCORE UP</h3>${drv(A.up)}</div><div><h3>PULLING THE SCORE DOWN</h3>${drv(A.down)}</div></div>
       ${changed(A)}
@@ -163,7 +164,7 @@
       }
     }
     el.innerHTML = h;
-    if (!K.sel || !d.ind[K.sel]) K.sel = A.down[0]?.[0] || A.up[0]?.[0] || d.defs[0].id;
+    if (!K.sel || (!d.ind[K.sel] && K.sel !== REC)) K.sel = A.down[0]?.[0] || A.up[0]?.[0] || d.defs[0].id;
     el.querySelector(`.srow[data-id="${K.sel}"]`)?.setAttribute("aria-selected", "true");
     renderDetail();
   }
@@ -174,6 +175,7 @@
     if (window.WireInstrument?.isOpen()) { if (!byUser) return; window.WireInstrument.close(); }
     const d = K.data;
     if (!d || !K.sel || !d.scores[K.asset]) { el.innerHTML = ""; return; }
+    if (K.sel === REC) { el.innerHTML = recDetail(); drawRecCharts(); return; }
     const x = def(K.sel), r = d.ind[K.sel];
     if (!x) { el.innerHTML = ""; return; }
     const [kind, sym] = x.src.split(":");
@@ -270,6 +272,83 @@
     hit.addEventListener("mouseleave", () => { cross.setAttribute("visibility", "hidden"); tip.hidden = true; });
   }
 
+  // ---------- recession model (src/recession.js) ----------
+  const pct = (p) => (p == null ? "—" : p < 0.01 ? "<1%" : Math.round(p * 100) + "%");
+  const sgn = (v, d = 2) => (v < 0 ? "−" : "") + Math.abs(v).toFixed(d);
+  const leadTxt = (t) => `caught ${t.caught} of ${t.total} recessions${t.avgLead != null ? `, ${Math.round(t.avgLead)} mo avg lead` : ""}, ${t.falseAlarms.length} false alarm${t.falseAlarms.length === 1 ? "" : "s"}`;
+
+  function recBox() {
+    const r = K.rec, m = r?.model;
+    if (!m) return `<div class="recbox" id="recbox"><div class="rt">RECESSION ODDS · 12 MONTHS</div><div class="rx">${r?.refreshing || !r ? "Downloading Treasury history…" : esc(r.error || "No data yet")}</div></div>`;
+    const L = m.latest, on = L.p >= m.threshold, t = m.track, fa = t.falseAlarms[t.falseAlarms.length - 1];
+    const when = L.source === "daily" ? `${new Date(L.asOf).toLocaleDateString("en-US", { month: "numeric", day: "numeric", timeZone: "UTC" })} live` : `${L.monthLabel} monthly`;
+    const since = t.recessions[0]?.start.slice(-4);
+    return `<button type="button" class="recbox${on ? " warn" : ""}${K.sel === REC ? " sel" : ""}" id="recbox" data-id="${REC}" title="Yield-curve probit: chance of a US recession 12 months from now. Click for detail.">
+      <div class="rt">RECESSION ODDS, NEXT 12 MONTHS</div>
+      <div class="rv"><b>${pct(L.p)}</b><span class="${on ? "dn" : "up"}">${on ? "ABOVE" : "BELOW"} ${Math.round(m.threshold * 100)}% WARNING LINE</span></div>
+      <div class="rx">Yield curve 10Y-3M ${L.spread > 0 ? "+" : ""}${sgn(L.spread)} pp, ${when}</div>
+      <div class="rx">Called ${t.caught} of ${t.total} since ${since}${fa ? ` · false alarm ${fa.start.slice(-4)}${fa.end.slice(-4) !== fa.start.slice(-4) ? "–" + fa.end.slice(-2) : ""}` : ""}</div>
+    </button>`;
+  }
+
+  function recDetail() {
+    const r = K.rec, m = r?.model;
+    if (!m) return `<div class="ind"><div class="dhead"><span class="code">RECESSION MODEL</span></div><div class="iload">${esc(r?.error || "Downloading Treasury history from FRED…")}</div></div>`;
+    const L = m.latest, t = m.track, thr = Math.round(m.threshold * 100);
+    const d0 = (x) => new Date(x).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+    const src = L.source === "daily"
+      ? `Spread ${sgn(L.spread)} pts: daily T10Y3M averaged over the ${L.days} trading days to ${d0(L.asOf)} (fresher than the monthly GS10 − TB3MS, ${sgn(L.monthly.spread)} pts in ${new Date(Date.UTC(Math.floor(L.monthly.month / 12), L.monthly.month % 12, 1)).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })} → ${pct(L.monthly.p)}).`
+      : `Spread ${sgn(L.spread)} pts: monthly GS10 − TB3MS for ${L.monthLabel}.`;
+    const rows = t.recessions.map((x) => `<tr><td>${x.start} – ${x.end}</td><td class="${x.caught ? "up" : "dn"}">${x.caught ? "caught" : "missed"}</td><td>${x.caught ? `${x.signal} · ${x.lead} mo` : "—"}</td></tr>`).join("")
+      + t.falseAlarms.map((w) => `<tr><td>${w.start} – ${w.end}</td><td class="dn">false alarm</td><td>peak ${pct(w.peak)}</td></tr>`).join("")
+      + t.pending.map((w) => `<tr><td>${w.start} – ${w.end}</td><td class="dim">pending</td><td>peak ${pct(w.peak)}</td></tr>`).join("");
+    const sahm = m.sahm ? `<dt>SAHM RULE</dt><dd>${m.sahm.v.toFixed(2)} pts (${new Date(m.sahm.asOf).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}) · ${m.sahm.triggered ? `<span class="dn">triggered</span>` : "not triggered"} (0.50 = trigger; real-time unemployment rule)${m.sahm.lastTrigger ? `, last triggered ${new Date(m.sahm.lastTrigger).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}` : ""}</dd>` : "";
+    return `<div class="ind rec">
+      <div class="dhead"><span class="code">RECESSION MODEL</span><span class="nm">FRED · GS10 − TB3MS → USREC</span><span class="dt">${r.refreshing ? "updating…" : `<button type="button" class="iclose" data-act="recref">⟳ UPDATE</button>`}</span></div>
+      <h1 style="margin:4px 0 0">Recession odds, 12 months ahead</h1>
+      <div class="big"><b>${pct(L.p)}</b><span class="${L.p >= m.threshold ? "dn" : "up"}">${L.p >= m.threshold ? "above" : "below"} the ${thr}% threshold</span><span class="dim">chance of recession in ${esc(L.target)}</span></div>
+      <p style="margin:0" class="dim">${esc(src)}</p>
+      <div class="isec">PROBABILITY (READING MONTH) · RECESSIONS SHADED · ${thr}% THRESHOLD DASHED</div>
+      <div class="ichart" id="recp"></div>
+      <div class="isec">10-YEAR MINUS 3-MONTH SPREAD (PTS)</div>
+      <div class="ichart" id="recs"></div>
+      <dl class="kv">
+        <dt>TRACK</dt><dd>${esc(leadTxt(t))}${t.recessions.filter((x) => x.caught).length ? ` (leads ${t.recessions.filter((x) => x.caught).map((x) => x.lead).join(", ")} mo)` : ""}</dd>
+        <dt>BASE RATE</dt><dd>${pct(m.baseRate)} of months had a recession 12 months later</dd>
+        <dt>FITTED ON</dt><dd>${m.fit.from} – ${m.fit.to} (${m.fit.n} months; outcomes known to ${m.fit.outcomesTo}) · P = Φ(${sgn(m.fit.a, 3)} ${m.fit.b < 0 ? "−" : "+"} ${Math.abs(m.fit.b).toFixed(3)} × spread)</dd>
+        ${sahm}
+      </dl>
+      <div class="isec">TRACK RECORD · WARNING = ≥${thr}% WITHIN ${m.window} MONTHS BEFORE THE START</div>
+      <table class="rtrack"><tr><th>PERIOD</th><th>RESULT</th><th>FIRST WARNING · LEAD</th></tr>${rows}</table>
+      <p class="ifoot">What it tells you: an inverted curve (3-month yields above 10-year) has preceded every US recession since the 1960s, usually by 6–18 months, and this turns the spread into odds. What it can't: the timing is loose, it has false alarms (most recently the long 2022–24 inversion), and it ignores everything except the curve. The track record is in-sample (fitted on the same history), so it flatters the model. Refits on all known outcomes each daily refresh; USREC dates are set by the NBER months after the fact.</p>
+    </div>`;
+  }
+
+  function recChart(id, pts, { lo, hi, fmtV, line }) {
+    const box = $("#" + id), m = K.rec?.model;
+    if (!box || !pts?.length) return;
+    const W = Math.max(280, box.clientWidth), H = 160, padL = 4, padR = 44, padT = 8, padB = 20;
+    const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+    const X = (t) => padL + ((t - t0) / (t1 - t0 || 1)) * (W - padL - padR);
+    const Y = (v) => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
+    let g = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img">`;
+    for (const [a, b] of m.recessions) if (b >= t0) g += `<rect x="${X(Math.max(a, t0))}" y="${padT}" width="${Math.max(2, X(Math.min(b, t1)) - X(Math.max(a, t0)))}" height="${H - padT - padB}" fill="rgba(255,255,255,.08)"/>`;
+    for (let k = 0; k <= 4; k++) { const v = lo + ((hi - lo) * k) / 4; g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1d1d20"/><text x="${W - padR + 6}" y="${Y(v) + 3}" fill="#8f8a84" font-size="9.5">${fmtV(v)}</text>`; }
+    if (line != null) g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(line)}" y2="${Y(line)}" stroke="#8f8a84" stroke-dasharray="4 3"/>`;
+    const y0 = new Date(t0).getUTCFullYear(), y1 = new Date(t1).getUTCFullYear();
+    for (let yr = Math.ceil(y0 / 10) * 10; yr <= y1; yr += 10) g += `<text x="${X(Date.UTC(yr, 0, 1))}" y="${H - 5}" fill="#8f8a84" font-size="9.5" text-anchor="middle">${yr}</text>`;
+    g += `<polyline points="${pts.map(([t, v]) => `${X(t).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--orange)" stroke-width="1.3"/>`;
+    const [lt, lv] = pts[pts.length - 1];
+    box.innerHTML = g + `<circle cx="${X(lt)}" cy="${Y(lv)}" r="3" fill="var(--orange)"/></svg>`;
+  }
+  function drawRecCharts() {
+    const m = K.rec?.model;
+    if (!m) return;
+    recChart("recp", m.probs, { lo: 0, hi: 1, fmtV: (v) => Math.round(v * 100) + "%", line: m.threshold });
+    const vs = m.spread.map((p) => p[1]);
+    recChart("recs", m.spread, { lo: Math.floor(Math.min(...vs)), hi: Math.ceil(Math.max(...vs)), fmtV: (v) => sgn(v, 1), line: 0 });
+  }
+
   // ---------- interaction ----------
   function select(id, byUser = true) {
     if (!id) return;
@@ -298,13 +377,14 @@
     if (w) { K.win = w.dataset.win; try { localStorage.setItem("wire.score.win", K.win); } catch {} render(); return; }
     const b = e.target.closest("[data-id]"); if (b) select(b.dataset.id);
   });
+  $("#sdetail").addEventListener("click", (e) => { if (e.target.closest("[data-act=recref]")) api?.page.invoke("recession:refresh"); });
   $("#sref").addEventListener("click", () => api?.refreshScores());
   $("#sdetail").addEventListener("click", (e) => {
     if (window.WireInstrument?.isOpen()) return; // the price chart handles its own clicks
     const b = e.target.closest("[data-act=inst]"); if (b) hooks.openInstrument?.(b.dataset.sym);
   });
   let rt = null;
-  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (K.active && K.sel && K.series.has(K.sel) && !window.WireInstrument?.isOpen()) drawChart(def(K.sel), K.series.get(K.sel)); }, 150); });
+  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (K.active && K.sel === REC && !window.WireInstrument?.isOpen()) drawRecCharts(); else if (K.active && K.sel && K.series.has(K.sel) && !window.WireInstrument?.isOpen()) drawChart(def(K.sel), K.series.get(K.sel)); }, 150); });
 
   function apply(d) {
     if (!d) return;
@@ -320,6 +400,9 @@
       if (!api) return;
       api.onScores(apply);
       api.getScores().then(apply);
+      const recApply = (r) => { K.rec = r; if (!K.active) return; const b = $("#recbox"); if (b) b.outerHTML = recBox(); if (K.sel === REC) renderDetail(); };
+      api.page?.on("recession:update", recApply);
+      api.page?.invoke("recession:get").then(recApply).catch(() => {});
       setInterval(() => { if (K.active) renderInfo(); }, 30000);
     },
     show() { K.active = true; render(); },
