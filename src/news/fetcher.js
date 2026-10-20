@@ -1,22 +1,9 @@
 const { parseFeed } = require("./parse");
 
-const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) WIRE/0.1";
+const { getText } = require("../data/http");
 
-async function fetchText(url, timeoutMs = 12000) {
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      signal: ac.signal,
-      headers: { "User-Agent": UA, Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*" },
-      redirect: "follow"
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
-  } finally {
-    clearTimeout(t);
-  }
-}
+const fetchText = (url, timeoutMs = 12000) =>
+  getText(url, { timeoutMs, headers: { Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*" } });
 
 /** Fetch every feed in parallel. A failing feed never breaks the others. */
 async function fetchAll(feeds) {

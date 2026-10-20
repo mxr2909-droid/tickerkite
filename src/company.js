@@ -313,22 +313,16 @@ function statements(cf, { splits = [] } = {}) {
 // ---------------------------------------------------------------- networking
 const TTL = 24 * 3600e3;
 const KIND = { ETF: "ETF", MUTUALFUND: "fund", CRYPTOCURRENCY: "crypto", FUTURE: "future", INDEX: "index", CURRENCY: "currency" };
-const UA_BASE = "WIRE-Terminal/0.1 (personal desktop market app)";
+const http = require("./data/http");
+const Y = require("./data/yahoo");
+const nasdaq = require("./data/nasdaq");
+const UA_BASE = http.UA; // the SEC wants "app contact@email"; the contact is appended per request
 
-async function getJSON(url, headers, timeoutMs = 15000) {
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { signal: ac.signal, headers });
-    if (!res.ok) { const e = new Error(`HTTP ${res.status}`); e.status = res.status; throw e; }
-    return await res.json();
-  } finally { clearTimeout(t); }
-}
+const getJSON = (url, headers, timeoutMs = 15000) => http.getJSON(url, { headers, timeoutMs });
 
 /** Yahoo monthly closes, splits, price and instrument type in one call. */
 async function yahoo(sym) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=10y&interval=1mo&events=split`;
-  const j = await getJSON(url, { "User-Agent": "Mozilla/5.0 WIRE/0.1" }, 10000);
+  const j = await Y.chart(sym, { range: "10y", interval: "1mo", events: "split" }, 10000);
   const r = j.chart.result[0];
   const close = r.indicators?.quote?.[0]?.close || [];
   const closes = (r.timestamp || []).map((t, i) => ({ t: t * 1000, c: close[i] })).filter((p) => p.c != null);
@@ -338,7 +332,7 @@ async function yahoo(sym) {
 
 async function nasdaqEarnings(sym) {
   try {
-    const j = await getJSON(`https://api.nasdaq.com/api/analyst/${encodeURIComponent(sym)}/earnings-date`, { "User-Agent": "Mozilla/5.0 WIRE/0.1", Accept: "application/json" }, 8000);
+    const j = await nasdaq.earningsDate(sym, 8000);
     return parseNasdaqEarnings(j);
   } catch { return null; }
 }

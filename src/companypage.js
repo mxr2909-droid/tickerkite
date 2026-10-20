@@ -11,18 +11,11 @@ const WL = require("./watchlist");
 const DAY = 864e5;
 const TTL = 24 * 3600e3;
 const MAX_CACHED = 40;
-const NASDAQ_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+const nasdaq = require("./data/nasdaq");
+const http = require("./data/http");
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function getText(url, headers, timeoutMs = 15000) {
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { signal: ac.signal, headers });
-    if (!res.ok) { const e = new Error(`HTTP ${res.status}`); e.status = res.status; throw e; }
-    return await res.text();
-  } finally { clearTimeout(t); }
-}
+const getText = (url, headers, timeoutMs = 15000) => http.getText(url, { headers, timeoutMs });
 
 function register(ctx) {
   const contact = () => ctx.prefs().secContact || "";
@@ -113,8 +106,7 @@ function register(ctx) {
     sym = WL.normalizeSymbol(sym);
     if (holders[sym] && Date.now() - holders[sym].at < TTL) return holders[sym].data;
     try {
-      const j = await company.getJSON(`https://api.nasdaq.com/api/company/${encodeURIComponent(sym)}/institutional-holdings?limit=15&type=TOTAL&sortColumn=marketValue&sortOrder=DESC`,
-        { "User-Agent": NASDAQ_UA, Accept: "application/json" }, 15000);
+      const j = await nasdaq.holdings(sym, 15000);
       const data = { ok: true, ...(SEC.parseHolders(j) || { empty: true }) };
       holders[sym] = { at: Date.now(), data };
       return data;

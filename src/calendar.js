@@ -17,13 +17,13 @@
 //    calendar-nasdaq.json; every release's numbers also go into calendar-history.json (see calendar-nasdaq.js)
 
 const company = require("./company");
+const http = require("./data/http");
 const NQ = require("./calendar-nasdaq");
 const SC = require("./macro/score");
 const { INDICATORS } = require("./macro/indicators");
 
 const DAY = 864e5;
 const TTL = 20 * 3600e3;
-const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 // What each release is, which scorecard indicators it moves, and words for the headline match.
@@ -245,18 +245,8 @@ function headlines(stories, words, max = 12) {
 }
 
 // ---------- fetching ----------
-async function getText(url, timeoutMs = 15000) {
-  // Electron's own network stack looks like a browser to BLS's bot filter; plain fetch elsewhere
-  let f = fetch;
-  try { const { net } = require("electron"); if (net?.fetch) f = net.fetch.bind(net); } catch {}
-  const ac = new AbortController();
-  const tm = setTimeout(() => ac.abort(), timeoutMs);
-  try {
-    const res = await f(url, { signal: ac.signal, headers: { "User-Agent": UA, Accept: "text/html,application/xhtml+xml", "Accept-Language": "en-US,en;q=0.9" } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
-  } finally { clearTimeout(tm); }
-}
+// BLS's bot filter drops Node's own fetch; Electron's network stack gets through
+const getText = (url, timeoutMs = 15000) => http.getText(url, { timeoutMs, net: true, headers: { Accept: "text/html,application/xhtml+xml", "Accept-Language": "en-US,en;q=0.9" } });
 
 function fallbackSched() {
   const bls = {};

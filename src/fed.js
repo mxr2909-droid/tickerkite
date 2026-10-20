@@ -15,12 +15,13 @@
 //  - FRED fredgraph.csv (no key): DFF, SOFR, DPRIME, DGS2, DGS10
 
 const { fetchText } = require("./news/fetcher");
+const http = require("./data/http");
+const yahoo = require("./data/yahoo");
 const { parseFredCsv } = require("./macro/data");
 const calendar = require("./calendar");
 
 const DAY = 864e5;
 const TTL = 4 * 3600e3;
-const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 const CODES = "FGHJKMNQUVXZ";
 const AHEAD = 16; // contract months fetched from the current month on
 
@@ -205,19 +206,8 @@ function curves(rows) {
 }
 
 // ---------- fetching ----------
-async function getText(url, timeoutMs = 20000) {
-  // federalreserve.gov drops Node's own fetch; Electron's network stack gets through (as in calendar.js)
-  let net = null;
-  try { net = require("electron").net; } catch {}
-  if (!net?.fetch) return fetchText(url, timeoutMs);
-  const ac = new AbortController();
-  const tm = setTimeout(() => ac.abort(), timeoutMs);
-  try {
-    const res = await net.fetch(url, { signal: ac.signal, headers: { "User-Agent": UA, Accept: "text/html,text/csv,*/*" } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
-  } finally { clearTimeout(tm); }
-}
+// federalreserve.gov drops Node's own fetch; Electron's network stack gets through (as in calendar.js)
+const getText = (url, timeoutMs = 20000) => http.getText(url, { timeoutMs, net: true, headers: { Accept: "text/html,text/csv,*/*" } });
 
 async function fetchAll(prev) {
   const now = Date.now(), today = iso(now), errors = {};
@@ -225,7 +215,7 @@ async function fetchAll(prev) {
   const futures = {};
   const futP = Promise.all(contracts(today).map(async (c) => {
     try {
-      const f = parseChart(await fetchText(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(c.sym)}?range=3mo&interval=1d`, 15000));
+      const f = parseChart(await yahoo.chart(c.sym, { range: "3mo", interval: "1d" }, 15000));
       futures[c.key] = { sym: c.sym, ...f };
     } catch (e) { if (prev?.futures?.[c.key]) futures[c.key] = prev.futures[c.key]; }
   }));

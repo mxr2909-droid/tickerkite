@@ -3,7 +3,7 @@
 //  - IPC channels must start with "markets:" (the preload only forwards those for this page)
 // One year of daily bars per symbol from Yahoo's free chart endpoint, plus the full weekly history (fetched once a day,
 // cached in markets-history-cache.json) for the 3Y/5Y/10Y periods and the long chart; every period is computed locally.
-const { fetchText } = require("./news/fetcher");
+const yahoo = require("./data/yahoo");
 
 const GROUPS = [
   { id: "sectors", title: "US sectors", items: [
@@ -136,15 +136,14 @@ function usMarketOpen(now = new Date()) {
 }
 
 // ---------- fetching ----------
-const chartUrl = (sym, q) => `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?${q}&includePrePost=false`;
 async function fetchDaily(sym) {
-  const parsed = barsFromChart(JSON.parse(await fetchText(chartUrl(sym, "range=1y&interval=1d"), 10000)));
+  const parsed = barsFromChart(await yahoo.chart(sym, "range=1y&interval=1d&includePrePost=false", 10000));
   if (!parsed || parsed.bars.length < 2) throw new Error("no data");
   return parsed;
 }
 /** Whole weekly history as compact [{t, close}] (no live-price override). */
 async function fetchWeekly(sym) {
-  const parsed = barsFromChart(JSON.parse(await fetchText(chartUrl(sym, "range=max&interval=1wk"), 20000)));
+  const parsed = barsFromChart(await yahoo.chart(sym, "range=max&interval=1wk&includePrePost=false", 20000));
   return parsed ? parsed.bars.map((b) => ({ t: b.t, close: +b.close.toFixed(4) })) : null;
 }
 

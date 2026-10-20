@@ -10,6 +10,7 @@
 const fs = require("fs");
 const path = require("path");
 const { fetchText } = require("./news/fetcher");
+const yahoo = require("./data/yahoo");
 const { parseFredCsv } = require("./macro/data");
 const { INDICATORS, RECESSIONS } = require("./macro/indicators");
 
@@ -46,13 +47,8 @@ async function loadFred(id) {
 }
 
 async function loadYahoo(sym) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?period1=-1500000000&period2=${Math.floor(Date.now() / 1000)}&interval=1d`; // range=max returns monthly bars
-  const r = JSON.parse(await fetchText(url, 30000)).chart?.result?.[0];
-  if (!r?.timestamp) throw new Error(`no Yahoo data for ${sym}`);
-  const close = r.indicators.quote[0].close, points = [];
-  r.timestamp.forEach((t, i) => { if (close[i] != null) points.push([t * 1000, close[i]]); });
-  if (!points.length) throw new Error(`no Yahoo data for ${sym}`);
-  return { title: r.meta?.longName || r.meta?.shortName || sym, units: r.meta?.currency || "", freq: "Daily", points };
+  const { meta, points } = await yahoo.dailyCloses(sym, -1500000000, 30000); // range=max returns monthly bars
+  return { title: meta.longName || meta.shortName || sym, units: meta.currency || "", freq: "Daily", points };
 }
 
 function register(ctx) {

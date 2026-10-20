@@ -1,8 +1,8 @@
 {
   "name": "wire-terminal",
   "productName": "WIRE",
-  "version": "0.1.0",
-  "description": "Desktop market news terminal: ranks the biggest US and global market-moving headlines from live feeds.",
+  "version": "1.0.0",
+  "description": "Desktop market news terminal for Mac: ranks the biggest US and global market-moving headlines from live feeds.",
   "main": "src/main.js",
   "private": true,
   "scripts": {
@@ -10,7 +10,8 @@
     "dev": "electron . --dev",
     "test": "node --test test/*.test.js",
     "dist": "electron-builder --mac",
-    "update": "bash install.sh"
+    "update": "bash install.sh",
+    "release": "electron-builder --mac --publish always"
   },
   "devDependencies": {
     "electron": "37.2.0",
@@ -21,9 +22,46 @@
     "productName": "WIRE",
     "mac": {
       "category": "public.app-category.finance",
-      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
-      "darkModeSupport": true
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true
     },
-    "files": ["src/**", "renderer/**", "package.json"]
+    "files": [
+      "src/**",
+      "renderer/**",
+      "legal/**",
+      "package.json"
+    ],
+    "copyright": "Copyright © 2026 WIRE",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR-GITHUB-USERNAME",
+        "repo": "wire-terminal",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "6.6.2"
   }
 }

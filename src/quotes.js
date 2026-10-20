@@ -1,6 +1,8 @@
-// Free delayed quotes from Yahoo Finance's public chart endpoint (no key).
-// It is unofficial and can change; failures show as "—" in the app.
-const { fetchText } = require("./news/fetcher");
+// Delayed quotes from Yahoo Finance's public chart endpoint (no key), through src/data/yahoo.js.
+// It is unofficial and can change; failures show as "—" in the app. With a Finnhub key (Settings),
+// prices for US stocks and ETFs (watchlist, portfolio) come from Finnhub instead; Yahoo still draws the sparkline.
+const yahoo = require("./data/yahoo");
+const finnhub = require("./data/finnhub");
 
 const SYMBOLS = [
   ["^GSPC", "S&P 500", "idx"], ["^IXIC", "Nasdaq", "idx"], ["^DJI", "Dow", "idx"], ["^RUT", "Russell 2K", "idx"],
@@ -15,16 +17,28 @@ function setWatch(list) {
   WATCH = new Map((list || []).map((e) => [e.sym, { label: e.sym, name: e.name }]));
 }
 
+// API keys, set by main.js from prefs
+let KEYS = {};
+function setKeys(k) { KEYS = { ...(k || {}) }; }
+
 async function one([sym, label, type, extra = {}]) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=15m`;
+  if (KEYS.finnhub && finnhub.finnhubSymbol(sym)) { // US stocks and ETFs: watchlist and portfolio
+    const [fh, y] = await Promise.all([finnhub.quote(sym, KEYS.finnhub).catch(() => null), yahooOne(sym, label, type, extra)]);
+    if (fh) return { ...y, last: fh.last, prev: fh.prev, chg: fh.last - fh.prev, pct: ((fh.last - fh.prev) / fh.prev) * 100, time: fh.time || y.time, src: "Finnhub" };
+    return y;
+  }
+  return yahooOne(sym, label, type, extra);
+}
+
+async function yahooOne(sym, label, type, extra) {
   try {
-    const j = JSON.parse(await fetchText(url, 8000));
+    const j = await yahoo.chart(sym, { range: "1d", interval: "15m" }, 8000);
     const r = j.chart.result[0];
     const m = r.meta;
     const last = m.regularMarketPrice;
     const prev = m.chartPreviousClose ?? m.previousClose;
     const closes = (r.indicators?.quote?.[0]?.close || []).filter((v) => v != null);
-    return { sym, label, type, last, prev, chg: last - prev, pct: prev ? ((last - prev) / prev) * 100 : 0, spark: closes.slice(-26), time: m.regularMarketTime * 1000, currency: m.currency, ...extra };
+    return { sym, label, type, last, prev, chg: last - prev, pct: prev ? ((last - prev) / prev) * 100 : 0, spark: closes.slice(-26), time: m.regularMarketTime * 1000, currency: m.currency, src: "Yahoo", ...extra };
   } catch {
     return { sym, label, type, last: null, ...extra };
   }
@@ -38,9 +52,8 @@ async function fetchQuotes() {
 
 /** Check that a symbol exists on Yahoo and get its display name. Throws if it doesn't. */
 async function lookupSymbol(sym) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1d`;
   let j;
-  try { j = JSON.parse(await fetchText(url, 8000)); }
+  try { j = await yahoo.chart(sym, { range: "1d", interval: "1d" }, 8000); }
   catch (e) { throw new Error(/HTTP 404/.test(e.message) ? `No market data for "${sym}"` : `Couldn't reach Yahoo Finance (${e.message})`); }
   const m = j?.chart?.result?.[0]?.meta;
   if (!m || m.regularMarketPrice == null) throw new Error(`No market data for "${sym}"`);
@@ -64,12 +77,11 @@ async function fetchHistory(sym, rangeKey, { force = false } = {}) {
   const key = `${sym}|${rangeKey}`;
   const hit = histCache.get(key);
   if (!force && hit && Date.now() - hit.at < cfg.refreshMs * 0.9) return hit.data;
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${cfg.range}&interval=${cfg.interval}&includePrePost=false`;
-  const json = JSON.parse(await fetchText(url, 10000));
+  const json = await yahoo.chart(sym, { range: cfg.range, interval: cfg.interval, includePrePost: false }, 10000);
   const info = symInfo(sym);
   const data = { ...info, ...analyze(json, rangeKey, info.type), fetchedAt: Date.now() };
   histCache.set(key, { at: Date.now(), data });
   return data;
 }
 
-module.exports = { fetchQuotes, fetchHistory, symInfo, lookupSymbol, setWatch, SYMBOLS, quoteOne: one };
+module.exports = { fetchQuotes, fetchHistory, symInfo, lookupSymbol, setWatch, setKeys, SYMBOLS, quoteOne: one };

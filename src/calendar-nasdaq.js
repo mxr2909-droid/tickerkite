@@ -9,7 +9,7 @@
 // and works out revisions from the release history it keeps (calendar-history.json).
 
 const DAY = 864e5;
-const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+const nasdaq = require("./data/nasdaq");
 
 // country → [code, flag, region, G10]
 const COUNTRIES = {
@@ -201,18 +201,10 @@ function merge(events, rows, hist, etDay) {
 
 // ---------- fetching ----------
 async function fetchDay(date, timeoutMs = 15000) {
-  let f = fetch;
-  try { const { net } = require("electron"); if (net?.fetch) f = net.fetch.bind(net); } catch {}
-  const ac = new AbortController();
-  const tm = setTimeout(() => ac.abort(), timeoutMs);
-  try {
-    const ask = new Date(Date.parse(date) + DAY).toISOString().slice(0, 10);
-    const res = await f(`https://api.nasdaq.com/api/calendar/economicevents?date=${ask}`, { signal: ac.signal, headers: { "User-Agent": UA, Accept: "application/json, text/plain, */*", Origin: "https://www.nasdaq.com", Referer: "https://www.nasdaq.com/" } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const rows = parseDay(await res.json(), date, etOffset());
-    if (!rows) throw new Error("unexpected reply");
-    return rows;
-  } finally { clearTimeout(tm); }
+  const ask = new Date(Date.parse(date) + DAY).toISOString().slice(0, 10);
+  const rows = parseDay(await nasdaq.economicEvents(ask, timeoutMs), date, etOffset());
+  if (!rows) throw new Error("unexpected reply");
+  return rows;
 }
 
 /** Is a cached day still good? Past days settle once fetched 2+ days later; today changes as numbers print. */

@@ -1,6 +1,7 @@
 // Downloads the raw series behind the scorecard: FRED's public CSV export (no key needed)
 // and Yahoo daily closes. Each series is a list of [timestampMs, value], oldest first.
 const { fetchText } = require("../news/fetcher");
+const Y = require("../data/yahoo");
 const { INDICATORS, sourcesFor, RECESSIONS } = require("./indicators");
 
 const YEARS = 11; // 10 years of history for percentiles, plus a year for year-over-year math
@@ -24,8 +25,7 @@ async function fred(id, since) {
 }
 
 async function yahoo(sym, years = YEARS) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${years}y&interval=1d`;
-  const r = JSON.parse(await fetchText(url, 20000)).chart.result[0];
+  const r = (await Y.chart(sym, { range: `${years}y`, interval: "1d" }, 20000)).chart.result[0];
   const close = r.indicators.quote[0].close;
   const out = [];
   r.timestamp.forEach((t, i) => { if (close[i] != null) out.push([t * 1000, close[i]]); });

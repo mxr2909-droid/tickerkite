@@ -10,6 +10,9 @@ const instruments = require("./instruments");
 const { relevantLive, attributeIntraday, attributeHistory } = instruments;
 const WL = require("./watchlist");
 const company = require("./company");
+const license = require("./license");
+const settings = require("./settings");
+const updater = require("./updater");
 const EventEmitter = require("events");
 const PAGE_MODULES = {
   calendar: require("./calendar"), markets: require("./markets"), 
@@ -31,6 +34,9 @@ const MAX_ITEMS = 4000;
 let win = null;
 let widget = null;
 let quitting = false;
+let lic = null; // license.register() result: { status() }
+let upd = null; // updater.register() result: { checkNow() }
+const locked = () => !!lic?.status().locked;
 let prefs = { alerts: true, watchAlerts: true, releaseAlerts: true, widget: { open: false, onTop: false, bounds: null } };
 const userDir = () => app.getPath("userData");
 const file = (n) => path.join(userDir(), n);
@@ -249,7 +255,7 @@ function notifyNew() {
   const firstRun = state.seen.size === 0;
   const fresh = state.stories.filter((s) => !state.seen.has(s.id));
   for (const s of state.stories) state.seen.add(s.id);
-  if (firstRun || !Notification.isSupported()) return;
+  if (firstRun || !Notification.isSupported() || locked()) return;
   const recent = fresh.filter((s) => s.kind === "news" && Date.now() - s.updated < 3 * 3600e3);
   // your tickers first: any story that mentions one, whatever its impact score
   const mine = state.watchAlerts ? recent.filter((s) => s.watch?.length).slice(0, 3) : [];
@@ -369,6 +375,7 @@ function onScreen(b) {
 
 function createWidget() {
   if (widget) { widget.show(); return; }
+  if (locked()) { showStory(null); return; } // the main window shows why
   const b = onScreen(prefs.widget.bounds) ? prefs.widget.bounds : defaultWidgetBounds();
   widget = new BrowserWindow({
     ...b,
@@ -444,7 +451,24 @@ function updateMenu() { buildMenu(); }
 
 function buildMenu() {
   const template = [
-    { role: "appMenu" },
+    {
+      label: app.name,
+      submenu: [
+        { role: "about" },
+        { label: "Settings…", accelerator: "CmdOrCtrl+,", click: () => { showStory(null); send("settings:open", "settings"); } },
+        { label: "Check for Updates…", click: () => upd?.checkNow() },
+        { type: "separator" },
+        { label: "License Agreement", click: () => { showStory(null); send("settings:open", "terms"); } },
+        { label: "Privacy Policy", click: () => { showStory(null); send("settings:open", "privacy"); } },
+        { label: "Data Sources", click: () => { showStory(null); send("settings:open", "sources"); } },
+        { type: "separator" },
+        { role: "services" },
+        { type: "separator" },
+        { role: "hide" }, { role: "hideOthers" }, { role: "unhide" },
+        { type: "separator" },
+        { role: "quit" }
+      ]
+    },
     { role: "editMenu" },
     {
       label: "View",
@@ -578,13 +602,22 @@ app.whenReady().then(() => {
     state.seen = new Set(cache.seen || []);
   }
   watchFile();
+  app.setAboutPanelOptions({ applicationName: "WIRE", applicationVersion: require("../package.json").version, copyright: "Market data is delayed and for information only. Not investment advice." });
   const ctx = {
-    ipcMain, send, file, readJSON, writeJSON, bus, Notification, showStory,
+    ipcMain, send, file, readJSON, writeJSON, bus, Notification, showStory, openExternal, savePrefs,
+    packaged: app.isPackaged, version: require("../package.json").version,
+    setKeys: quotes.setKeys, refreshQuotes,
+    license: () => lic?.status() || null,
+    checkUpdates: () => upd?.checkNow(),
+    onChange: () => { if (locked() && widget) closeWidget(); },
     expose: {}, // getters modules publish for each other (calendarToday, releases, portfolio, …)
     prefs: () => prefs,
     showPage: (p) => { showStory(null); send("page:set", p); },
     get: () => ({ stories: state.stories, quotes: state.quotes, watch: state.watch, scores: macro.result })
   };
+  lic = license.register(ctx);
+  upd = updater.register(ctx);
+  settings.register(ctx);
   for (const m of Object.values(PAGE_MODULES)) m.register(ctx);
   const mc = readJSON("macro-cache.json", null);
   if (mc?.series) { macro.series = mc.series; macro.errors = mc.errors || {}; macro.fetchedAt = mc.fetchedAt || 0; computeScores(); }

@@ -2,7 +2,7 @@
 //  - IPC channels must start with "cmd:" (the preload only forwards those)
 // The renderer matches pages, commands, your tickers and headlines locally; this adds every other listed
 // symbol through Yahoo's search (stocks, ETFs, funds, indexes, futures, crypto), cached per query for 10 minutes.
-const { fetchText } = require("./news/fetcher");
+const yahoo = require("./data/yahoo");
 
 const KINDS = { EQUITY: "Stock", ETF: "ETF", MUTUALFUND: "Fund", INDEX: "Index", FUTURE: "Future", CRYPTOCURRENCY: "Crypto", CURRENCY: "Currency" };
 
@@ -23,7 +23,7 @@ function register(ctx) {
     const hit = cache.get(q.toLowerCase());
     if (hit && Date.now() - hit.at < 10 * 60e3) return hit.list;
     try {
-      const j = JSON.parse(await fetchText(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0&listsCount=0`, 6000));
+      const j = await yahoo.search(q, 6000);
       const list = parseSearch(j);
       cache.set(q.toLowerCase(), { at: Date.now(), list });
       if (cache.size > 300) cache.delete(cache.keys().next().value);

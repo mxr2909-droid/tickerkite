@@ -9,7 +9,7 @@
 //  2. measures how markets moved in the first five minutes from Yahoo's 1-minute bars, then alerts with that too.
 // Yahoo's futures bars run about 10 minutes behind, so the reaction is read ~16 minutes after the release.
 // Everything is logged in userData/releases.json so the Brief and the Calendar can show it later.
-const { fetchText } = require("./news/fetcher");
+const yahoo = require("./data/yahoo");
 const NQ = require("./calendar-nasdaq");
 
 const WINDOW_MIN = 5;
@@ -96,7 +96,7 @@ async function measure(alert) {
   const basket = basketFor(alert.code);
   await Promise.all(basket.map(async ([sym, label, unit]) => {
     try {
-      const json = JSON.parse(await fetchText(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?period1=${p1}&period2=${p2}&interval=1m&includePrePost=true`, 10000));
+      const json = await yahoo.chart(sym, { period1: p1, period2: p2, interval: "1m", includePrePost: true }, 10000);
       const m = reaction(barsFrom(json), alert.t, WINDOW_MIN, unit);
       if (m) { moves.push({ sym, label, ...m }); covered++; }
     } catch {}

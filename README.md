@@ -20,7 +20,7 @@ The first pull takes about 10 seconds. After that the app opens instantly from i
 npm run dist
 ```
 
-The installer lands in `dist/`. The build is unsigned, so the first time you open it, right-click **WIRE.app → Open → Open**. After that it launches normally and can live in your Dock.
+The installer lands in `dist/`. Without an Apple Developer ID certificate the build is unsigned, so the first time you open it, right-click **WIRE.app → Open → Open**. See *Selling WIRE* below to sign and notarize it.
 
 ## Using it
 
@@ -267,3 +267,36 @@ test/                parser and ranking tests (npm test)
 - Paid real-time data (Finnhub, Polygon, Benzinga) as an optional source, set up with your API key.
 - An economic calendar pane (CPI, FOMC, earnings dates), using a free FRED API key for release dates.
 - AI one-line summaries for each top story.
+
+## Settings, trial and license
+
+- **WIRE › Settings…** (`⌘,`) shows your license, an optional Finnhub key and links to the License Agreement, Privacy Policy and Data Sources.
+- The first launch asks you to accept the License Agreement (`legal/EULA.md`). Raising `TERMS_VERSION` in `src/settings.js` asks everyone again.
+- A packaged WIRE.app runs a 14-day trial, then needs a Lemon Squeezy license key. `npm start` is a development run and is never locked.
+- **Finnhub key (optional):** with your own free key from finnhub.io, prices for US stocks and ETFs on your watchlist and portfolio come from Finnhub. Indices, futures, FX and charts still come from Yahoo. The key is encrypted with the macOS Keychain.
+
+## Where the data comes from
+
+Every outside request goes through `src/data/`:
+
+- `http.js` sends every request as `WIRE/<version>`, never as a browser. Set `"homepage"` in package.json and the URL is added to the User-Agent.
+- `yahoo.js`, `nasdaq.js` and `googlenews.js` are the unofficial sources. Replacing one means editing one file.
+- `finnhub.js` is the optional keyed quote source.
+
+`legal/DATA-SOURCES.md` lists every source, including the FRED series that are copyrighted by their original publishers.
+
+## Selling WIRE
+
+Here's what you need to fill in before the first sale:
+
+1. **Lemon Squeezy.** Create the product with *Generate license keys* turned on. Then set `storeId`, `productId` and `checkoutUrl` in `STORE` at the top of `src/license.js`.
+2. **Legal text.** Replace every `[bracketed]` item in `legal/EULA.md` and `legal/PRIVACY.md`, and have a lawyer review both.
+3. **Signing and notarization.** Join the Apple Developer Program and install your *Developer ID Application* certificate in Keychain. Then build with these set:
+   ```bash
+   export APPLE_ID="you@example.com"
+   export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"   # appleid.apple.com › App-Specific Passwords
+   export APPLE_TEAM_ID="ABCDE12345"
+   npm run dist
+   ```
+4. **Auto-updates.** Set `build.publish[0].owner` in package.json to your GitHub username, and create the `wire-terminal` repository. To ship an update, bump `version`, then run `GH_TOKEN=<token with repo scope> npm run release`. That uploads the .dmg, the .zip and `latest-mac.yml` to a GitHub release. Installed copies pick the update up within 6 hours, or straight away from **WIRE › Check for Updates…**. Only signed builds can update themselves.
+5. **Optional:** add an app icon at `build/icon.icns`, an `"author"` field, and a `"homepage"` field in package.json.

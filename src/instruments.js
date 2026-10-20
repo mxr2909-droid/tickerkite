@@ -3,6 +3,7 @@
 //  re = regex used to match live WIRE stories to the instrument
 //  macro = live story desks that also move this instrument (e.g. Fed news moves yields)
 const { fetchText } = require("./news/fetcher");
+const { searchUrl } = require("./data/googlenews");
 const { parseFeed } = require("./news/parse");
 const { rank } = require("./news/rank");
 const { matcher } = require("./watchlist");
@@ -77,7 +78,7 @@ async function headlinesForWindow(sym, label, from, to) {
   const key = `${sym}|${from}|${to}`;
   if (dayCache.has(key)) return dayCache.get(key);
   const I = instr(sym, label);
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(`(${I.q}) after:${from} before:${to}`)}&hl=en-US&gl=US&ceid=US:en`;
+  const url = searchUrl(`(${I.q}) after:${from} before:${to}`);
   const job = (async () => {
     try {
       const items = parseFeed(await fetchText(url, 10000), { id: "gn-hist", name: "Google News", weight: 0, kind: "news" });

@@ -5,8 +5,8 @@
 // kind: "news" = headlines, "ctx" = background, analysis and opinion
 // weight: 0–10 source authority, added to the impact score
 
-const gn = (q) =>
-  `https://news.google.com/rss/search?q=${encodeURIComponent(q + " when:2d")}&hl=en-US&gl=US&ceid=US:en`;
+const { searchUrl } = require("../data/googlenews");
+const gn = (q) => searchUrl(q + " when:2d");
 
 module.exports = [
   // Google News searches surface Reuters, Bloomberg, WSJ, FT, AP etc. The real publisher is read from each item.

@@ -8,6 +8,7 @@
 // board-cache.json as one transformed reading per month (a few hundred KB), not the raw dailies.
 
 const { fetchText } = require("./news/fetcher");
+const yahoo = require("./data/yahoo");
 const { parseFredCsv } = require("./macro/data");
 const { INDICATORS, sourcesFor, RECESSIONS } = require("./macro/indicators");
 const { transform } = require("./macro/score");
@@ -22,12 +23,7 @@ async function fredFull(id) {
   return rows;
 }
 async function yahooFull(sym) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?period1=${YAHOO_FROM}&period2=${Math.floor(Date.now() / 1000)}&interval=1d`;
-  const r = JSON.parse(await fetchText(url, 40000)).chart.result[0];
-  const close = r.indicators.quote[0].close, out = [];
-  r.timestamp.forEach((t, i) => { if (close[i] != null) out.push([t * 1000, close[i]]); });
-  if (!out.length) throw new Error("no data");
-  return out;
+  return (await yahoo.dailyCloses(sym, YAHOO_FROM, 40000)).points;
 }
 
 async function pool(jobs, n) {
