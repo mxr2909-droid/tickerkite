@@ -150,6 +150,21 @@ How the path is worked out: each monthly 30-day fed funds future (CBOT ZQ) impli
 
 Sources, all free and keyless: Yahoo Finance for ZQ futures prices (with ~3 months of daily closes, used for the 1-week / 1-month comparison), the Federal Reserve's FOMC calendar and SEP projections table (a checked copy is built in, marked in the page, if the Fed's site can't be reached), the U.S. Treasury's daily par yield curve CSV, FRED's CSV export (DFF, SOFR, DPRIME, DGS2, DGS10), and FOMC dates from the Calendar page. Data is cached in `fed-cache.json` (opens instantly) and refreshed every 4 hours; each day's futures-implied rates are also saved in `fed-history.json` so the comparisons keep working for contracts that have expired.
 
+## Graphs
+
+The Graphs page (⌘⌥7) is a charting workspace for any FRED series or market symbol.
+
+- **Add a series**: type a FRED ID (`UNRATE`, `T10Y2Y`, `CPIAUCSL`) or a Yahoo symbol (`^GSPC`, `NVDA`, `CL=F`) and press Enter, or use **Quick picks** (your watchlist and the 53 scorecard indicators). Anything with `^ = . -` is treated as a symbol; force one with `fred:` or `yahoo:`. Up to 6 series per chart; `/` focuses the box.
+- **Compare**: SHARED puts everything on one axis, DUAL gives left and right axes (flip each series with its ◀ L / R ▶ button), NORMALIZE rebases every series to 100 at the start of the range (the first series' first date).
+- **Per series**: Level, % YoY or Change, plus a moving-average study (MA, in observations, drawn dashed; 0 = off). Ranges 6M / YTD / 1Y / 2Y / 5Y / 10Y / 20Y / MAX / CUSTOM (from–to dates).
+- **NBER RECESSION** shades recessions (FRED `USREC`). **CLIP 1–99%** fits the y-axis to the 1st–99th percentile so one spike doesn't flatten the rest. Hover for a crosshair with every series' value.
+- **Reading it**: legend chips show each series' latest value and date ("UNRATE 4.3% 09/26"), and the latest value sits as a colored tag on its axis. Under the chart, for the selected series (click its name): frequency, where the latest reading ranks in its full history ("30th percentile of 314 readings since 1948"), the transform, the prior print, the value a year ago, the source ID and OPEN ON FRED.
+- **Lines**: TREND LINE then drag; H-LINE then click. Click a line (with no tool selected) to remove it, or CLEAR LINES. In DUAL mode lines attach to the selected series' axis.
+- **Save**: SAVE names the chart (series, transforms, range, lines) into `graphs.json`; reopen or delete it from **MY GRAPHS** in the right pane. NEW starts over. The current chart is also kept between launches.
+- **Export**: CSV and PNG go to ~/Downloads ("WIRE <name>.csv/.png"); COPY FOR EXCEL puts tab-separated rows on the clipboard. Exports hold what's on the chart (transformed, in range, MA columns included).
+
+Data: FRED's public CSV export and series page (title, units, frequency), and Yahoo daily closes, full history, cached per series in `graphs-cache/` for a day (the last copy is used offline).
+
 ## Charts, momentum and "what moved it"
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
@@ -223,6 +238,7 @@ src/instruments.js   which headlines matter for each market; news-to-move matchi
 src/watchlist.js     your tickers: symbol cleanup and which stories mention them
 src/markets.js       market heatmap: sectors, global indexes, style pairs
 src/company.js       company panel: SEC EDGAR fundamentals, valuation, next earnings date
+src/graphs.js        graph workspace: FRED/Yahoo downloads, cache, saved charts, exports
 src/macro/           scorecards: indicators, data downloads, scoring, default weights
 scripts/backtest.js  scorecard backtest since 2007
 src/news/feeds.js    default sources
