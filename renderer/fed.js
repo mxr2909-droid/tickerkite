@@ -22,7 +22,13 @@
   const moveWord = (r) => (r.dir === "hold" ? "hold" : `${Math.abs(r.move) > 37.5 ? 50 : 25}bp ${r.dir}`);
   const was = (path, date) => path?.rows.find((x) => x.date === date) || null;
 
+  const PRIME = 3.12; // prime rate over fed funds, as in the reference layout
+  const hikeCls = (v, eps = 0.5) => (v == null ? "" : v > eps ? "hk" : v < -eps ? "ct" : "");
+  const short = (d) => day(d, { month: "short", day: "numeric" });
+  const age = (t) => { const m = Math.round((Date.now() - t) / 60e3); return m < 2 ? "just now" : m < 90 ? `${m} min ago` : `${Math.round(m / 60)}h ago`; };
+
   // ---------- charts ----------
+  // series: { pts, cls, step, dots }; marks: diamonds at (i, v) with a label
   function lineChart({ w = 760, h = 210, xs, series, marks = [], fmtY = (v) => v.toFixed(2), pad = [44, 16, 22, 26] }) {
     const [L, R, T, B] = pad;
     const all = [...series.flatMap((s) => s.pts.filter((p) => p != null)), ...marks.map((m) => m.v)];
@@ -39,12 +45,21 @@
     }
     xs.forEach((x, i) => { if (x) g += `<text x="${X(i)}" y="${h - 6}" class="fax" text-anchor="middle">${esc(x)}</text>`; });
     for (const s of series) {
-      let d = "";
-      s.pts.forEach((p, i) => { if (p != null) d += `${d ? "L" : "M"}${X(i).toFixed(1)},${Y(p).toFixed(1)}`; });
+      let d = "", last = null;
+      s.pts.forEach((p, i) => {
+        if (p == null) return;
+        const x = X(i).toFixed(1), y = Y(p).toFixed(1);
+        d += !d ? `M${x},${y}` : s.step ? `H${x}V${y}` : `L${x},${y}`;
+        last = i;
+      });
+      if (s.step && last != null && last < xs.length - 1) d += `H${X(xs.length - 1).toFixed(1)}`;
       g += `<path d="${d}" class="fline ${s.cls}"/>`;
-      if (s.dots) s.pts.forEach((p, i) => { if (p != null) g += `<circle cx="${X(i)}" cy="${Y(p)}" r="2.6" class="fpt ${s.cls}"/>`; });
+      if (s.dots) s.pts.forEach((p, i) => { if (p != null) g += `<circle cx="${X(i)}" cy="${Y(p)}" r="2.4" class="fpt ${s.cls}"/>`; });
     }
-    for (const m of marks) g += `<g class="fdot"><circle cx="${X(m.i)}" cy="${Y(m.v)}" r="5"/><text x="${X(m.i) + (X(m.i) > w * 0.8 ? -8 : 8)}" y="${Y(m.v) + 16}" text-anchor="${X(m.i) > w * 0.8 ? "end" : "start"}">${esc(m.label)}</text></g>`;
+    for (const m of marks) {
+      const x = X(m.i), y = Y(m.v), right = x > w * 0.7;
+      g += `<g class="fdot"><path d="M${x},${y - 6}L${x + 6},${y}L${x},${y + 6}L${x - 6},${y}Z"/><text x="${x + (right ? -9 : 9)}" y="${y + 17}" text-anchor="${right ? "end" : "start"}">${esc(m.label)}</text></g>`;
+    }
     return `<svg class="fchart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">${g}</svg>`;
   }
 
@@ -52,67 +67,108 @@
     const rows = d.path.rows;
     const xs = ["now", ...rows.map((r, i) => (i === 0 || yr(r) !== yr(rows[i - 1]) ? day(r.date, { month: "short", year: "2-digit" }) : day(r.date, { month: "short" })))];
     const pts = (p) => [p ? p.start : null, ...rows.map((r) => was(p, r.date)?.post ?? null)];
+    const sepDay = short(d.sep.asOf).toUpperCase();
     const marks = [];
     for (const x of d.dots) {
       const i = rows.map((r) => yr(r)).lastIndexOf(x.year);
-      if (i >= 0 && x.dot != null) marks.push({ i: i + 1, v: x.dot, label: `${x.year} dot ${x.dot.toFixed(2)}` });
+      if (i >= 0 && x.dot != null) marks.push({ i: i + 1, v: x.dot, label: `${sepDay} DOT, END-${x.year.slice(2)}: ${x.dot.toFixed(2)}` });
     }
     return lineChart({ xs, marks, series: [
-      { pts: pts(d.m1), cls: "m1" }, { pts: pts(d.w1), cls: "w1" }, { pts: [d.path.start, ...rows.map((r) => r.post)], cls: "now", dots: true }
+      { pts: pts(d.m1), cls: "m1", step: true }, { pts: pts(d.w1), cls: "w1", step: true }, { pts: [d.path.start, ...rows.map((r) => r.post)], cls: "now", step: true }
     ] });
   }
 
   function curveChart(c) {
-    const s = (row, k) => (row ? c.tenors.map((t) => row.y[t] ?? null) : []);
-    return lineChart({ xs: c.tenors, series: [{ pts: s(c.y1), cls: "m1" }, { pts: s(c.m1), cls: "w1" }, { pts: s(c.now), cls: "now", dots: true }] });
+    const s = (row) => (row ? c.tenors.map((t) => row.y[t] ?? null) : []);
+    return lineChart({ w: 420, h: 200, pad: [36, 10, 14, 24], xs: c.tenors.map((t, i) => (i % 2 ? "" : t)), series: [{ pts: s(c.y1), cls: "m1" }, { pts: s(c.m1), cls: "w1" }, { pts: s(c.now), cls: "now" }] });
   }
 
   // ---------- list ----------
+  function tiles(d) {
+    const p = d.path, rows = p.rows, next = rows[0], last = rows[rows.length - 1];
+    const t = (label, big, sub, c = "") => `<div class="ftile"><span class="fl">${label}</span><b class="${c}">${big}</b><span>${sub}</span></div>`;
+    let h = "";
+    if (next) {
+      const mv = Math.min(1, Math.abs(next.move) / 25), dir = next.move >= 0 ? "hike" : "cut";
+      h += t(`NEXT FOMC · ${esc(short(next.date).toUpperCase())}`, odd(mv), `odds of a 25bp ${dir}`, mv >= 0.5 ? hikeCls(next.move) : "");
+      h += t(`PRICED BY ${esc(day(last.date).toUpperCase())}`, bp(last.cum), `≈ ${Math.abs(last.cum / 25).toFixed(1)} ${last.cum >= 0 ? "hikes" : "cuts"}`, hikeCls(last.cum, 2));
+    }
+    h += p.extreme
+      ? t(p.extreme.kind === "peak" ? "PEAK IMPLIED RATE" : "TROUGH IMPLIED RATE", pct(p.extreme.rate), `after the ${esc(day(p.extreme.date))} meeting`)
+      : t("PEAK IMPLIED RATE", pct(p.start), "no move priced");
+    const gap = [...d.dots].reverse().find((x) => x.gap != null);
+    h += gap
+      ? t(`MARKET VS. FED DOT (${esc(short(d.sep.asOf).toUpperCase())})`, bp(gap.gap), `market ${pct(gap.market)} vs. ${esc(short(d.sep.asOf))} median (end-${esc(gap.year.slice(2))})`, hikeCls(gap.gap, 2))
+      : t("MARKET VS. FED DOT", "—", "no overlapping year");
+    return `<div class="fsum">${h}</div>`;
+  }
+
+  function table(d) {
+    const p = d.path;
+    let h = `<div class="isec fsec">MEETING BY MEETING</div>
+      <div class="frow fhead"><span>MEETING</span><span>IMPLIED RATE</span><span>MOVE (BP)</span><span>ODDS OF A 25BP MOVE</span><span>CUMULATIVE (BP)</span><span># HIKES</span><span>PRIME</span></div>
+      <div class="frow ftoday"><span class="fm">Today <em>EFFR</em></span><span>${pct(p.start)}</span><span class="dim">—</span><span></span><span class="dim">—</span><span class="dim">—</span><span>${pct(p.start + PRIME)}</span></div>`;
+    for (const r of p.rows) {
+      const mv = Math.min(1, Math.abs(r.move) / 25), dir = r.move >= 0 ? "HIKE" : "CUT";
+      h += `<button type="button" class="row frow" data-date="${r.date}" aria-selected="${r.date === F.sel}">
+        <span class="fm">${esc(day(r.date))}${r.sep ? `<span class="x" title="Comes with new projections (dots)">SEP</span>` : ""}</span>
+        <span>${pct(r.post)}</span>
+        <span class="${hikeCls(r.move, 2)}">${bp(r.move)}</span>
+        <span class="fodds" title="${odd(r.hold)} hold · ${odd(r.p25)} 25bp · ${odd(r.p50)} 50bp"><i class="${r.move >= 0 ? "hk" : "ct"}" style="width:${(mv * 100).toFixed(0)}%"></i><b>${odd(mv)} ${dir}</b></span>
+        <span class="${hikeCls(r.cum, 2)}">${bp(r.cum)}</span>
+        <span>${r.cum >= 0 ? "+" : "−"}${Math.abs(r.cum / 25).toFixed(2)}</span>
+        <span>${pct(r.post + PRIME)}</span>
+      </button>`;
+    }
+    return h;
+  }
+
+  function moved(d) {
+    const p = d.path, ch = (o) => (o?.rows.length ? bp((p.end - o.end) * 100) : null);
+    const w = ch(d.w1), m = ch(d.m1);
+    const cap = w || m ? `End-of-path rate ${[w && `${w} vs. a week ago`, m && `${m} vs. a month ago`].filter(Boolean).join(", ")}.` : "Builds up as WIRE saves daily prices.";
+    return `<div class="isec fsec">HOW THE PATH MOVED <span class="flegend"><i class="now"></i>today <i class="w1"></i>1 week ago <i class="m1"></i>1 month ago <i class="dot"></i>Fed median dot</span></div>
+      ${pathChart(d)}<p class="fcap">${esc(cap)}</p>`;
+  }
+
+  function dotsTable(d) {
+    return `<div class="isec fsec">MARKET VS FED DOTS <span class="dim">median fed funds projection, SEP of ${esc(day(d.sep.asOf))}${d.sep.live ? "" : ` · WIRE's checked copy (${esc(d.sepChecked)})`}</span></div>
+      <div class="frow fdots fhead"><span>YEAR-END</span><span>FED DOT</span><span>PRIOR SEP</span><span>MARKET</span><span>MKT − DOT</span></div>
+      ${d.dots.map((x) => `<div class="frow fdots"><span>${esc(x.year)}</span><span>${pct(x.dot)}</span><span class="dim">${pct(x.prior)}</span><span>${x.market == null ? `<span class="dim">${x.year === "Longer run" ? "—" : "past futures"}</span>` : pct(x.market)}</span><span class="${hikeCls(x.gap, 2)}">${x.gap == null ? "—" : bp(x.gap)}</span></div>`).join("")}`;
+  }
+
+  function side(d) {
+    let h = "";
+    const c = d.curve;
+    if (c) {
+      const row = (t) => {
+        const v = c.now.y[t], m = c.m1?.y[t], y = c.y1?.y[t], dd = (a) => (a != null && v != null ? (v - a) * 100 : null);
+        return `<div class="fcrow"><span>${t}</span><span>${pct(v)}</span><span class="${hikeCls(dd(m), 1)}">${bp(dd(m))}</span><span class="${hikeCls(dd(y), 1)}">${bp(dd(y))}</span></div>`;
+      };
+      h += `<div class="isec">TREASURY CURVE</div>
+        <div class="flegend fl2"><i class="now"></i>${esc(short(c.now.date))} ${c.m1 ? `<i class="w1"></i>1 month ago` : ""} ${c.y1 ? `<i class="m1"></i>1 year ago` : ""}</div>
+        ${curveChart(c)}
+        <div class="fcrow fhead"><span></span><span>LEVEL</span><span>1M</span><span>1Y</span></div>${["3M", "2Y", "10Y", "30Y"].map(row).join("")}`;
+    }
+    h += `<div class="isec">MONEY MARKETS</div>${d.strip.map((s) => `<div class="fcrow fmm"><span>${esc(s.name)}</span><span>${pct(s.v)}</span><span class="${hikeCls(s.chg, 0.5)}">${bp(s.chg)}</span><span class="dim">1M</span></div>`).join("")}`;
+    return `<div class="fside">${h}</div>`;
+  }
+
   function render() {
     const el = $("#fed");
     const d = F.data;
     if (!d || d.loading) { el.innerHTML = `<div class="empty">Loading fed funds futures, Fed projections and Treasury yields…</div>`; return; }
     const errs = Object.keys(d.errors || {});
-    const note = `${d.fetchedAt ? "updated " + new Date(d.fetchedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : ""}${errs.length ? ` · unavailable: ${esc(errs.join(", "))}` : ""}${d.meetingsLive ? "" : " · FOMC dates from WIRE's checked list"}`;
-    let h = `<div class="fedbar"><span class="ftitle">FED PATH</span>${d.target ? `<span>target <b>${d.target[0].toFixed(2)}–${d.target[1].toFixed(2)}%</b></span>` : ""}
-      <span class="fnote">${note}</span><button type="button" class="frefresh" title="Refresh (r)">↻</button></div>`;
-    h += `<div class="fstrip">${d.strip.map((s) => `<div class="ftile"><span class="fl">${esc(s.name)}</span><b>${pct(s.v)}</b><span class="${cls(s.chg)}">${bp(s.chg)} <em>1m</em></span></div>`).join("")}</div>`;
-    if (!d.path) {
-      h += `<div class="empty">Fed funds futures aren't available right now${d.errors?.futures ? ` (${esc(d.errors.futures)})` : ""}, so there's no market-implied path. WIRE won't guess one; press r to try again.</div>`;
-    } else {
-      const p = d.path, rows = p.rows, next = rows[0];
-      const endW = d.w1?.rows.length ? p.end - d.w1.end : null, endM = d.m1?.rows.length ? p.end - d.m1.end : null;
-      h += `<div class="fsum">
-        ${next ? `<div class="ftile"><span class="fl">Next meeting · ${esc(meetingLabel(next))}</span><b class="${next.dir === "hike" ? "up" : next.dir === "cut" ? "dn" : ""}">${esc(moveWord(next).toUpperCase())}</b><span>${odd(next.hold)} hold · ${odd(next.p25 + next.p50)} ${next.move >= 0 ? "hike" : "cut"}</span></div>` : ""}
-        <div class="ftile"><span class="fl">${p.extreme ? (p.extreme.kind === "peak" ? "Peak" : "Trough") + " implied" : "Peak / trough"}</span><b>${p.extreme ? pct(p.extreme.rate) : "flat"}</b><span>${p.extreme ? esc(day(p.extreme.date, { month: "short", year: "numeric" })) : "no move priced"}</span></div>
-        <div class="ftile"><span class="fl">End of path · ${esc(rows.length ? day(rows[rows.length - 1].date, { month: "short", year: "numeric" }) : "")}</span><b>${pct(p.end)}</b><span class="${cls((p.end - p.start) * 100)}">${bp((p.end - p.start) * 100)} from ${pct(p.start)}</span></div>
-        <div class="ftile"><span class="fl">Path end vs 1w / 1m ago</span><b><span class="${cls(endW * 100)}">${endW == null ? "—" : bp(endW * 100)}</span> / <span class="${cls(endM * 100)}">${endM == null ? "—" : bp(endM * 100)}</span></b><span class="dim">${endW == null || endM == null ? "builds up as WIRE saves daily prices" : "week / month change"}</span></div>
-      </div>`;
-      h += `<div class="isec fsec">IMPLIED POLICY RATE BY MEETING <span class="flegend"><i class="now"></i>today <i class="w1"></i>1 week ago <i class="m1"></i>1 month ago <i class="dot"></i>Fed median dot</span></div>${pathChart(d)}`;
-      h += `<div class="frow fhead"><span>MEETING</span><span>IMPLIED</span><span>MOVE</span><span>CUM</span><span>ODDS</span><span>Δ 1W</span><span>Δ 1M</span></div>`;
-      for (const r of rows) {
-        const w = was(d.w1, r.date), m = was(d.m1, r.date);
-        const mv = Math.max(0, Math.min(1, r.p25 + r.p50));
-        h += `<button type="button" class="row frow" data-date="${r.date}" aria-selected="${r.date === F.sel}">
-          <span class="fm">${esc(meetingLabel(r))} <em>${yr(r)}</em>${r.sep ? `<span class="x" title="Comes with new projections (dots)">SEP</span>` : ""}</span>
-          <span>${pct(r.post, 3)}</span>
-          <span class="${cls(r.move, 2)}">${bp(r.move)}</span>
-          <span class="${cls(r.cum, 2)}">${bp(r.cum)}</span>
-          <span class="fodds" title="${odd(r.hold)} hold · ${odd(r.p25)} 25bp · ${odd(r.p50)} 50bp"><i class="${r.move >= 0 ? "hk" : "ct"}" style="width:${(mv * 100).toFixed(0)}%"></i><b>${r.dir === "hold" ? `hold ${odd(r.hold)}` : `${r.dir} ${odd(mv)}`}</b></span>
-          <span class="${cls(w ? (r.post - w.post) * 100 : null, 1)}">${w ? bp((r.post - w.post) * 100) : "—"}</span>
-          <span class="${cls(m ? (r.post - m.post) * 100 : null, 1)}">${m ? bp((r.post - m.post) * 100) : "—"}</span>
-        </button>`;
-      }
-    }
-    h += `<div class="isec fsec">MARKET VS FED DOTS <span class="dim">median fed funds projection, SEP of ${esc(day(d.sep.asOf))}${d.sep.live ? "" : ` · WIRE's checked copy (${esc(d.sepChecked)})`}</span></div>
-      <div class="frow fdots fhead"><span>YEAR-END</span><span>FED DOT</span><span>PRIOR SEP</span><span>MARKET</span><span>MKT − DOT</span></div>
-      ${d.dots.map((x) => `<div class="frow fdots"><span>${esc(x.year)}</span><span>${pct(x.dot)}</span><span class="dim">${pct(x.prior)}</span><span>${x.market == null ? `<span class="dim">${x.year === "Longer run" ? "—" : "past futures"}</span>` : pct(x.market)}</span><span class="${cls(x.gap, 2)}">${x.gap == null ? "—" : bp(x.gap)}</span></div>`).join("")}`;
-    if (d.curve) {
-      const c = d.curve;
-      h += `<div class="isec fsec">TREASURY YIELD CURVE <span class="flegend"><i class="now"></i>${esc(day(c.now.date))} ${c.m1 ? `<i class="w1"></i>${esc(day(c.m1.date))}` : ""} ${c.y1 ? `<i class="m1"></i>${esc(day(c.y1.date))}` : ""}</span></div>${curveChart(c)}
-        <div class="fcurve">${c.tenors.map((t) => { const v = c.now.y[t], m = c.m1?.y[t]; return `<span><em>${t}</em>${v == null ? "—" : v.toFixed(2)}<i class="${cls(m != null && v != null ? (v - m) * 100 : null, 1)}">${m != null && v != null ? bp((v - m) * 100) : ""}</i></span>`; }).join("")}</div>`;
-    }
-    h += `<p class="fsrc">Fed funds futures: CBOT 30-day contracts via Yahoo Finance; implied rate = 100 − price, split around each meeting by days in the month. Projections: Federal Reserve SEP. Yields: U.S. Treasury par yield curve. Rates: FRED.</p>`;
+    const right = [d.effr != null ? `EFFR <b>${pct(d.effr)}</b>` : "", d.quoteAt ? `futures ${esc(new Date(d.quoteAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}` : "",
+      d.fetchedAt ? `data ${age(d.fetchedAt)}` : "", errs.length ? `unavailable: ${esc(errs.join(", "))}` : "", d.meetingsLive ? "" : "FOMC dates from WIRE's checked list"].filter(Boolean).join(" · ");
+    let h = `<div class="fedbar"><span class="ftitle">FED FUNDS PATH, MARKET-IMPLIED</span>${d.target ? `<span class="dim">target ${d.target[0].toFixed(2)}–${d.target[1].toFixed(2)}%</span>` : ""}
+      <span class="fnote">${right}</span><button type="button" class="frefresh" title="Refresh (r)">↻</button></div>`;
+    let main = "";
+    if (!d.path) main = `<div class="empty">Fed funds futures aren't available right now${d.errors?.futures ? ` (${esc(d.errors.futures)})` : ""}, so there's no market-implied path. WIRE won't guess one; press r to try again.</div>`;
+    else main = tiles(d) + table(d) + moved(d);
+    main += dotsTable(d);
+    h += `<div class="fcols"><div class="fmain">${main}</div>${side(d)}</div>
+      <p class="fsrc">CBOT 30-day fed funds futures via Yahoo Finance (delayed); implied rate = 100 − price, split around each meeting by days in the month (CME FedWatch method; odds are for one 25bp move). Dots = FOMC median year-end projection (Summary of Economic Projections). Prime = fed funds + ${PRIME.toFixed(2)}%. Yields: U.S. Treasury par yield curve. Rates: FRED.</p>`;
     const y = el.scrollTop;
     el.innerHTML = h;
     el.scrollTop = y;

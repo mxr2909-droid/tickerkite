@@ -138,12 +138,13 @@ Sources, all free and keyless: the Federal Reserve's FOMC calendar page, BEA's r
 
 The Fed page (⌘⌥6) shows where markets expect the Fed's policy rate to go, meeting by meeting, against the Fed's own projections.
 
-- **Strip at the top**: effective fed funds, SOFR, prime, 2-year and 10-year Treasury yields with their change over the last month in bp. The target range shown in the bar is read off the prime rate (prime = top of the range + 3 points).
-- **Summary**: what the next meeting is priced for (hold / 25bp / 50bp and the odds), the peak or trough of the implied path, the rate at the end of the path, and how the end of the path moved over a week and a month.
-- **Chart and table**: the implied rate after each FOMC meeting (orange) with the same path as of 1 week (dashed) and 1 month ago (dotted), and the Fed's median dots (blue) at each year's last meeting. The table gives each meeting's implied rate, move, cumulative move from today, odds and change since 1 week / 1 month ago. Meetings with new projections are tagged SEP. ↑/↓ or j/k pick a meeting; r refreshes.
+- **Header**: effective fed funds (EFFR), when the futures were last quoted and how old the data is. The target range is read off the prime rate (prime = top of the range + 3 points).
+- **Four tiles**: the next FOMC meeting's odds of a 25bp move and its direction; the cumulative move priced by the last meeting with futures ("+75bp ≈ 3.0 hikes"); the peak (or trough) implied rate and the meeting it comes after; and the gap between the market and the Fed's latest median dot.
+- **Meeting by meeting**: a "Today" row (EFFR), then each meeting's implied rate, move in bp, odds of a 25bp move as a bar (red for hikes, blue for cuts), cumulative bp, cumulative number of hikes, and the prime rate that implies (fed funds + 3.12%). Meetings with new projections are tagged SEP. ↑/↓ or j/k pick a meeting; r refreshes.
+- **How the path moved**: a stepped chart of today's path, with the path as of 1 week ago (dashed) and 1 month ago (dotted) and the Fed's median dots as diamonds, plus how much the end-of-path rate moved.
 - **Right pane**: the selected meeting's rate before and after, odds of holding / a 25bp / a 50bp move, how it was priced a week and a month ago, the Fed dot for that year, and WIRE headlines about the Fed.
 - **Market vs Fed dots**: the median fed funds projection for each year and the longer run from the latest Summary of Economic Projections, next to the previous SEP and the market's year-end rate.
-- **Treasury curve**: 1M–30Y par yields today vs about 1 month and 1 year ago, with 1-month changes.
+- **Treasury curve and money markets** (right column, or below on narrow windows): 1M–30Y par yields today, about 1 month ago (dashed) and 1 year ago (dotted), with 3M/2Y/10Y/30Y levels and 1-month / 1-year changes; then effective fed funds, SOFR, prime, 2Y and 10Y with 1-month changes.
 
 How the path is worked out: each monthly 30-day fed funds future (CBOT ZQ) implies that month's average rate as 100 − price. In a month with a meeting on day d of N, the old rate holds d days and the new one N − d, so post = (N·average − d·pre) / (N − d); when the following month has no meeting, its average is used as the post-meeting rate directly. The first meeting starts from today's effective fed funds rate and each meeting's result feeds the next. The move is split between the two nearest 25bp steps for the odds (a +10bp move = 40% odds of a 25bp hike). If futures can't be loaded, the page says so instead of showing a path.
 

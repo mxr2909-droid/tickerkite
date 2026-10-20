@@ -269,6 +269,7 @@ function build(cache, mt, history, now = Date.now()) {
   return {
     ...base,
     path, w1: path ? pathOn(addDays(today, -7)) : null, m1: path ? pathOn(addDays(today, -30)) : null,
+    effr: valueOn(dff, today), quoteAt: Math.max(0, ...Object.values(cache.futures || {}).map((f) => f.at || 0)),
     target: prime != null ? [prime - 3.25, prime - 3] : null, // prime is set at the top of the target range + 3
     futures: Object.entries(cache.futures || {}).map(([k, f]) => ({ month: k, sym: f.sym, price: f.price, rate: 100 - f.price, at: f.at })).sort((a, b) => (a.month < b.month ? -1 : 1)),
     sep, dots: marketVsDots(path, sep),
