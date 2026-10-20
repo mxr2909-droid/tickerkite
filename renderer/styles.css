@@ -300,3 +300,17 @@ button.mk:hover{background:#fff}
 .wchg>button:hover .nm{color:var(--link)}
 .wchg .vt{color:var(--dim);font-variant-numeric:tabular-nums}
 .srow .new{margin-left:6px;padding:0 3px;font-size:9px;font-style:normal;letter-spacing:.04em;color:#000;background:var(--orange);border-radius:2px;vertical-align:1px}
+
+/* recession odds (Scorecards; src/recession.js) */
+.sc-side{display:flex;flex-direction:column;gap:8px;min-width:0}
+.recbox{display:block;width:100%;text-align:left;border:1px solid #232326;padding:5px 7px;font-size:10.5px;cursor:pointer}
+.recbox:hover,.recbox.sel{border-color:var(--orange)}
+.recbox.warn{box-shadow:inset 2px 0 0 var(--down)}
+.recbox .rt{color:var(--dim);letter-spacing:.06em;font-size:11px}
+.recbox .rv{display:flex;align-items:baseline;gap:8px;margin:2px 0}
+.recbox .rv b{font-size:20px;color:#fff;font-weight:600}
+.recbox .rx{color:var(--dim);line-height:1.35}
+.rtrack{width:100%;border-collapse:collapse;font-size:12px}
+.rtrack th{color:var(--dim);font-weight:400;text-align:left;font-size:10.5px;letter-spacing:.05em;padding:4px 0}
+.rtrack td{padding:3px 0;border-top:1px solid #1d1d20}
+.ind.rec .ichart{min-height:0}

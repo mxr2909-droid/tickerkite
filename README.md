@@ -97,6 +97,14 @@ It uses today's revised data and overlapping 12-month windows, so treat it as a 
 
 **Limits:** free data only. There are no consensus forecasts, so the scorecard can't show "CPI came in hotter than expected." FRED keeps only 3 years of the credit-spread history, so those rows compare against 3 years. China has no good free monthly data; exports (several months behind), Chinese stocks and copper stand in. Past scores (the 12-month line and the 1- and 3-month changes) use today's revised data, so they can differ slightly from what the scorecard would have shown at the time. The scores summarize conditions; they are not a forecast or investment advice.
 
+### Recession odds
+
+Under the regime box, **RECESSION ODDS · 12 MONTHS** shows the chance of a US recession 12 months from now from the classic yield-curve probit: P = Φ(a + b × spread), where spread = 10-year minus 3-month Treasury yield (FRED `GS10` − `TB3MS`, monthly since 1953) and the outcome is the NBER recession flag (`USREC`) 12 months later. WIRE fits a and b itself by maximum likelihood on every month whose outcome is known, and refits on each daily refresh (cached in `recession-cache.json`). The latest reading uses the daily `T10Y3M` (30-day average) when it is fresher than the monthly data; the detail pane says which. The Sahm rule (`SAHMREALTIME`, triggered at 0.50) is shown alongside as a second signal.
+
+Click the box for the right-pane detail: probability history with recessions shaded and the 30% threshold, the spread history, the fitted parameters and range, the base rate, and the track record. A warning is a run of months at or above 30%; it catches a recession that starts 0–24 months after the run begins (lead = months between them). A run with no recession within 24 months is a false alarm; one that started less than 24 months ago is pending. As of October 2026 it caught 7 of the 10 recessions since 1957 (missing 1957, 1960 and 1990), with a 9-month average lead, and gave 2 false alarms (1966, 2022–24).
+
+The track record is in-sample (the model is fitted on the same history), so it flatters the model. The curve says little about timing within the window and nothing about anything else. The code is `src/recession.js`.
+
 ## Markets
 
 The Markets page (⌘⌥4) is a heatmap of what's leading and lagging, in three sections:
