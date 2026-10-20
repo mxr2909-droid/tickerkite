@@ -134,6 +134,20 @@ The Calendar page (⌘⌥3) lists what's coming up: US economic releases, Fed me
 
 Sources, all free and keyless: the Federal Reserve's FOMC calendar page, BEA's release schedule (GDP, PCE), Census's retail sales schedule and BLS's per-release schedule pages (CPI, PPI, jobs, JOLTS). Jobless claims follow the Labor Department's rule (Thursdays, Wednesday in Thanksgiving and Christmas weeks). Schedules are cached in `calendar-cache.json` and refreshed once a day. BLS often blocks apps, so when a source can't be reached WIRE uses a built-in list checked against the official pages (date shown in the bar at the top), and those rows are tagged "fallback".
 
+## Graphs
+
+The Graphs page (⌘⌥7) is a charting workspace for any FRED series or market symbol.
+
+- **Add a series**: type a FRED ID (`UNRATE`, `T10Y2Y`, `CPIAUCSL`) or a Yahoo symbol (`^GSPC`, `NVDA`, `CL=F`) and press Enter, or use **Quick picks** (your watchlist and the 53 scorecard indicators). Anything with `^ = . -` is treated as a symbol; force one with `fred:` or `yahoo:`. Up to 6 series per chart; `/` focuses the box.
+- **Compare**: SHARED puts everything on one axis, DUAL gives left and right axes (flip each series with its ◀ L / R ▶ button), NORMALIZE rebases every series to 100 at the start of the range (the first series' first date).
+- **Per series**: Level, % YoY or Change, plus a moving-average study (MA, in observations, drawn dashed; 0 = off). Ranges 1Y / 5Y / 10Y / MAX / CUSTOM (from–to dates).
+- **RECESSIONS** shades NBER recessions (FRED `USREC`). **CLIP 1–99%** fits the y-axis to the 1st–99th percentile so one spike doesn't flatten the rest. Hover for a crosshair with every series' value.
+- **Lines**: TREND LINE then drag; H-LINE then click. Click a line (with no tool selected) to remove it, or CLEAR LINES. In DUAL mode lines attach to the selected series' axis.
+- **Save**: SAVE names the chart (series, transforms, range, lines) into `graphs.json`; reopen or delete it from **MY GRAPHS** in the right pane. NEW starts over. The current chart is also kept between launches.
+- **Export**: CSV and PNG go to ~/Downloads ("WIRE <name>.csv/.png"); COPY FOR EXCEL puts tab-separated rows on the clipboard. Exports hold what's on the chart (transformed, in range, MA columns included).
+
+Data: FRED's public CSV export and series page (title, units, frequency), and Yahoo daily closes, full history, cached per series in `graphs-cache/` for a day (the last copy is used offline).
+
 ## Charts, momentum and "what moved it"
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
@@ -207,6 +221,7 @@ src/instruments.js   which headlines matter for each market; news-to-move matchi
 src/watchlist.js     your tickers: symbol cleanup and which stories mention them
 src/markets.js       market heatmap: sectors, global indexes, style pairs
 src/company.js       company panel: SEC EDGAR fundamentals, valuation, next earnings date
+src/graphs.js        graph workspace: FRED/Yahoo downloads, cache, saved charts, exports
 src/macro/           scorecards: indicators, data downloads, scoring, default weights
 scripts/backtest.js  scorecard backtest since 2007
 src/news/feeds.js    default sources
