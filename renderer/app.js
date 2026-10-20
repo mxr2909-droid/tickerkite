@@ -106,10 +106,10 @@
   function renderPulled() {
     const el = $("#pulled");
     el.classList.toggle("busy", S.refreshing);
-    if (S.refreshing) { el.textContent = "PULLING…"; return; }
-    if (!S.pulledAt) { el.textContent = "NOT PULLED YET"; return; }
+    if (S.refreshing) { el.textContent = "Updating…"; return; }
+    if (!S.pulledAt) { el.textContent = "Not updated yet"; return; }
     const m = Math.round((Date.now() - S.pulledAt) / 60000);
-    el.textContent = m < 1 ? "PULLED JUST NOW" : m < 60 ? `PULLED ${m}M AGO` : `PULLED ${Math.round(m / 60)}H AGO`;
+    el.textContent = m < 1 ? "Updated just now" : m < 60 ? `Updated ${m}m ago` : `Updated ${Math.round(m / 60)}h ago`;
   }
 
   // ---------- detail ----------
@@ -133,19 +133,19 @@
       <h1>${esc(s.title)}</h1>
       ${s.summary ? `<p>${esc(s.summary)}</p>` : `<p class="none">The feed carries no summary for this story. Open it for the full text.</p>`}
       <dl class="kv">
-        <dt>WHY</dt><dd>${esc(s.why)}</dd><hr>
-        <dt>IMPACT</dt><dd>${{ h: "HIGH", m: "MEDIUM", l: "LOW" }[s.sev]} · ${s.score}<span class="meter"><i style="width:${s.score}%"></i></span></dd>
-        <dt>SIGNAL</dt><dd>${esc(s.signal)}</dd>
-        <dt>REGION</dt><dd>${esc(s.region)}</dd>
-        <dt>DESK</dt><dd>${s.desks.map((d) => DESK_NAMES[d] || d).join(" / ")}</dd>
-        ${s.watch?.length ? `<dt>WATCH</dt><dd>★ ${s.watch.map((sym) => esc(sym)).join("  ·  ")}</dd>` : ""}
-        <dt>ASSETS</dt><dd>${s.assets.length ? s.assets.map(esc).join("  ·  ") : "—"}</dd>
-        <dt>COVERAGE</dt><dd>${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""}</dd>
-        <dt>CONF</dt><dd>${s.conf.toFixed(2)}</dd>
+        <dt>Why it matters</dt><dd>${esc(s.why)}</dd><hr>
+        <dt>Impact</dt><dd>${{ h: "High", m: "Medium", l: "Low" }[s.sev]} · ${s.score}<span class="meter"><i style="width:${s.score}%"></i></span></dd>
+        <dt>Signal</dt><dd>${esc(s.signal)}</dd>
+        <dt>Region</dt><dd>${esc(s.region)}</dd>
+        <dt>Desk</dt><dd>${s.desks.map((d) => DESK_NAMES[d] || d).join(" / ")}</dd>
+        ${s.watch?.length ? `<dt>Watchlist</dt><dd>★ ${s.watch.map((sym) => esc(sym)).join("  ·  ")}</dd>` : ""}
+        <dt>Assets</dt><dd>${s.assets.length ? s.assets.map(esc).join("  ·  ") : "—"}</dd>
+        <dt>Coverage</dt><dd>${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""}</dd>
+        <dt>Confidence</dt><dd>${s.conf.toFixed(2)}</dd>
       </dl>
-      <button type="button" class="open" data-url="${esc(s.link)}">OPEN STORY <span>›</span></button>
+      <button type="button" class="open" data-url="${esc(s.link)}">Open story <span>›</span></button>
       <div class="url">${esc(s.link)}</div>
-      ${others.length ? `<div class="cov"><div class="lbl">ALSO REPORTED BY</div>${others.map((x) => `<button type="button" data-url="${esc(x.link)}"><span class="c">${esc(x.code)}</span><span class="t">${esc(x.title)}</span></button>`).join("")}</div>` : ""}`;
+      ${others.length ? `<div class="cov"><div class="lbl">Also reported by</div>${others.map((x) => `<button type="button" data-url="${esc(x.link)}"><span class="c">${esc(x.code)}</span><span class="t">${esc(x.title)}</span></button>`).join("")}</div>` : ""}`;
   }
 
   // ---------- events ----------
@@ -281,7 +281,7 @@
     if (!vals || vals.length < 2) return "";
     const min = Math.min(...vals), max = Math.max(...vals), r = max - min || 1;
     const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * 100},${13 - ((v - min) / r) * 12}`).join(" ");
-    return `<svg viewBox="0 0 100 14" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${up ? "#3ccf7e" : "#ff5a4e"}" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>`;
+    return `<svg viewBox="0 0 100 14" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${up ? "#3ecf8e" : "#f2706b"}" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>`;
   }
   function quoteRow(q, cur, watch = null) {
     const name = watch ? watch.name : q.label;

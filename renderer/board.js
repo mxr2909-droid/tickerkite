@@ -11,7 +11,7 @@
   let H = {}; // helpers from scorecard.js: esc, fmt, fmtDate, ord, defs(), sections(), openInstrument
 
   // ---------- colors ----------
-  const color = (d) => `hsl(${Math.round(((d - 1) / 9) * 128)},50%,${d === 5 || d === 6 ? 25 : 27}%)`;
+  const color = (d) => `hsl(${Math.round(((d - 1) / 9) * 128)},42%,${d === 5 || d === 6 ? 26 : 29}%)`;
   const scoreColor = (s) => color(M.decile(s / 100));
 
   // ---------- time ----------
@@ -45,8 +45,8 @@
       ${seg.join("")}
       ${v == null ? "" : `<line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>`}
       <circle cx="${cx}" cy="${cy}" r="5" fill="#fff"/>
-      <text x="${cx - R}" y="${cy + 16}" fill="#8f8a84" font-size="9.5" text-anchor="middle">0</text>
-      <text x="${cx + R}" y="${cy + 16}" fill="#8f8a84" font-size="9.5" text-anchor="middle">100</text>
+      <text x="${cx - R}" y="${cy + 16}" fill="#8c93a1" font-size="9.5" text-anchor="middle">0</text>
+      <text x="${cx + R}" y="${cy + 16}" fill="#8c93a1" font-size="9.5" text-anchor="middle">100</text>
     </svg>`;
   }
 
@@ -76,7 +76,7 @@
     const defs = H.defs();
     return H.sections().map(([k, l]) => {
       const g = B.res.groups[k];
-      return `<div class="bcol"><div class="bch"><span>${H.esc(l.replace(" & Conditions", "").toUpperCase())}</span><b style="background:${g == null ? "#222" : scoreColor(g)}">${g ?? "—"}</b></div>
+      return `<div class="bcol"><div class="bch"><span>${H.esc(l.replace(" & Conditions", "").toUpperCase())}</span><b style="background:${g == null ? "#20242b" : scoreColor(g)}">${g ?? "—"}</b></div>
         ${defs.filter((x) => x.section === k).map((x) => tile(x, B.res.tiles[x.id])).join("")}</div>`;
     }).join("");
   }
@@ -88,11 +88,11 @@
     const W = Math.max(300, box.clientWidth - 36), Ht = 46, pad = 8; // 36 = the box's side padding
     const X = (t) => pad + ((t - start) / (end - start)) * (W - 2 * pad);
     let g = `<svg viewBox="0 0 ${W} ${Ht}" width="${W}" height="${Ht}" id="bdsvg">`;
-    g += `<rect x="${pad}" y="6" width="${W - 2 * pad}" height="22" fill="#111113"/>`;
-    g += `<rect x="${X(from)}" y="6" width="${X(asOf) - X(from)}" height="22" fill="rgba(255,154,31,.14)" stroke="var(--orange)" stroke-width="1"/>`;
+    g += `<rect x="${pad}" y="6" width="${W - 2 * pad}" height="22" fill="#191c22"/>`;
+    g += `<rect x="${X(from)}" y="6" width="${X(asOf) - X(from)}" height="22" fill="rgba(139,147,255,.14)" stroke="var(--orange)" stroke-width="1"/>`;
     for (const [a, b] of B.data.recessions || []) if (b >= start) g += `<rect x="${X(Math.max(a, start))}" y="7" width="${Math.max(2, X(b) - X(Math.max(a, start)))}" height="20" fill="rgba(255,255,255,.3)"><title>Recession ${mlabel(a)} – ${mlabel(b)}</title></rect>`;
     const y0 = new Date(start).getUTCFullYear(), y1 = new Date(end).getUTCFullYear(), every = W < 520 ? 20 : 10;
-    for (let yr = Math.ceil(y0 / every) * every; yr <= y1; yr += every) if (X(Date.UTC(yr, 0, 1)) > 14 && X(Date.UTC(yr, 0, 1)) < W - 14) g += `<line x1="${X(Date.UTC(yr, 0, 1))}" x2="${X(Date.UTC(yr, 0, 1))}" y1="28" y2="32" stroke="#55555a"/><text x="${X(Date.UTC(yr, 0, 1))}" y="42" fill="#8f8a84" font-size="9.5" text-anchor="middle">${yr}</text>`;
+    for (let yr = Math.ceil(y0 / every) * every; yr <= y1; yr += every) if (X(Date.UTC(yr, 0, 1)) > 14 && X(Date.UTC(yr, 0, 1)) < W - 14) g += `<line x1="${X(Date.UTC(yr, 0, 1))}" x2="${X(Date.UTC(yr, 0, 1))}" y1="28" y2="32" stroke="#4a5160"/><text x="${X(Date.UTC(yr, 0, 1))}" y="42" fill="#8c93a1" font-size="9.5" text-anchor="middle">${yr}</text>`;
     const handle = (t, k) => `<rect class="bh" data-h="${k}" x="${X(t) - 4}" y="2" width="8" height="30" rx="1.5" fill="var(--orange)"><title>${k === "lo" ? "Rank against readings from here" : "Show the board as of here"}</title></rect>`;
     g += handle(from, "lo") + handle(asOf, "hi") + `</svg>`;
     box.innerHTML = g;
@@ -158,10 +158,10 @@
       <div class="isec">FULL HISTORY · RECESSIONS SHADED · RANKED RANGE HIGHLIGHTED</div>
       <div class="ichart" id="bdchart"></div>
       <dl class="kv">
-        <dt>PRIOR</dt><dd>${r ? pv(r.prior) : "—"}</dd>
-        <dt>YEAR AGO</dt><dd>${r ? pv(r.yearAgo) : "—"}</dd>
-        <dt>RANKED</dt><dd>${mlabel(Math.max(from, r?.since ?? from))} – ${asOf >= end ? "latest" : mlabel(asOf)}, one reading per month</dd>
-        <dt>SOURCE</dt><dd>${H.esc(srcLabel)}</dd>
+        <dt>Prior</dt><dd>${r ? pv(r.prior) : "—"}</dd>
+        <dt>Year ago</dt><dd>${r ? pv(r.yearAgo) : "—"}</dd>
+        <dt>Ranked</dt><dd>${mlabel(Math.max(from, r?.since ?? from))} – ${asOf >= end ? "latest" : mlabel(asOf)}, one reading per month</dd>
+        <dt>Source</dt><dd>${H.esc(srcLabel)}</dd>
       </dl>
       <p style="margin:12px 0 0">${H.esc(x.desc || "")}</p>
       ${fredIds ? `<button type="button" class="open" data-act="fred" data-ids="${H.esc(fredIds.join(","))}">OPEN ON FRED <span>›</span></button>` : ""}
@@ -183,14 +183,14 @@
     const ai = M.idxAt(P, asOf), a = Math.max(from, t0), b = ai >= 0 ? P[ai][0] : t0;
     let g = `<svg viewBox="0 0 ${W} ${Hc}" width="${W}" height="${Hc}" role="img" aria-label="${H.esc(x.name)} full history">`;
     for (const [ra, rb] of B.data.recessions || []) if (rb >= t0 && ra <= t1) g += `<rect x="${X(Math.max(ra, t0))}" y="${padT}" width="${Math.max(1.5, X(Math.min(rb, t1)) - X(Math.max(ra, t0)))}" height="${Hc - padT - padB}" fill="rgba(255,255,255,.08)"/>`;
-    if (b > a) g += `<rect x="${X(a)}" y="${padT}" width="${X(b) - X(a)}" height="${Hc - padT - padB}" fill="rgba(255,154,31,.07)" stroke="rgba(255,154,31,.35)"/>`;
-    for (let k = 0; k <= 3; k++) { const v = lo + ((hi - lo) * k) / 3; g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1d1d20"/><text x="${W - padR + 6}" y="${Y(v) + 3}" fill="#8f8a84" font-size="9.5">${H.fmt(v, x)}</text>`; }
-    if (lo < 0 && hi > 0) g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(0)}" y2="${Y(0)}" stroke="#4a4a4f"/>`;
+    if (b > a) g += `<rect x="${X(a)}" y="${padT}" width="${X(b) - X(a)}" height="${Hc - padT - padB}" fill="rgba(139,147,255,.07)" stroke="rgba(139,147,255,.35)"/>`;
+    for (let k = 0; k <= 3; k++) { const v = lo + ((hi - lo) * k) / 3; g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(v)}" y2="${Y(v)}" stroke="#22262d"/><text x="${W - padR + 6}" y="${Y(v) + 3}" fill="#8c93a1" font-size="9.5">${H.fmt(v, x)}</text>`; }
+    if (lo < 0 && hi > 0) g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(0)}" y2="${Y(0)}" stroke="#323843"/>`;
     const y0 = new Date(t0).getUTCFullYear(), y1 = new Date(t1).getUTCFullYear(), every = [1, 2, 5, 10, 20].find((e) => (y1 - y0) / e <= 7) || 20;
-    for (let yr = Math.ceil((y0 + 1) / every) * every; yr <= y1; yr += every) g += `<text x="${X(Date.UTC(yr, 0, 1))}" y="${Hc - 5}" fill="#8f8a84" font-size="9.5" text-anchor="middle">${yr}</text>`;
+    for (let yr = Math.ceil((y0 + 1) / every) * every; yr <= y1; yr += every) g += `<text x="${X(Date.UTC(yr, 0, 1))}" y="${Hc - 5}" fill="#8c93a1" font-size="9.5" text-anchor="middle">${yr}</text>`;
     g += `<polyline points="${P.map(([t, v]) => `${X(t).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--orange)" stroke-width="1.3"/>`;
     if (ai >= 0) g += `<circle cx="${X(P[ai][0])}" cy="${Y(P[ai][1])}" r="3.2" fill="#fff" stroke="var(--orange)"/>`;
-    g += `<line id="bdx" x1="0" x2="0" y1="${padT}" y2="${Hc - padB}" stroke="#55555a" visibility="hidden"/><rect x="0" y="0" width="${W}" height="${Hc}" fill="transparent" id="bdhit"/></svg><div class="tip" id="bdtip" hidden></div>`;
+    g += `<line id="bdx" x1="0" x2="0" y1="${padT}" y2="${Hc - padB}" stroke="#4a5160" visibility="hidden"/><rect x="0" y="0" width="${W}" height="${Hc}" fill="transparent" id="bdhit"/></svg><div class="tip" id="bdtip" hidden></div>`;
     box.innerHTML = g;
     const hit = box.querySelector("#bdhit"), cross = box.querySelector("#bdx"), tip = box.querySelector("#bdtip");
     hit.addEventListener("mousemove", (e) => {

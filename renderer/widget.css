@@ -1,56 +1,57 @@
-/* Floating panel: same terminal palette as the main window, compacted */
+/* Floating panel: same slate palette as the main window, compacted */
 :root{
-  --body:rgba(6,6,7,.86); --red:#8e121c; --orange:#ff9a1f; --orange-ink:#1a0d00;
-  --fg:#ece9e2; --hl:#ff9a1f; --dim:#8f8a84; --src:#ff5b3a; --line:rgba(255,255,255,.08);
-  --up:#3ccf7e; --down:#ff5a4e; --blue:#1a64e0;
-  --mono:ui-monospace,"SF Mono",Menlo,Monaco,monospace;
+  --body:rgba(15,17,21,.88); --surface:#191c22; --surface-3:#2a2f38; --accent:#8b93ff; --accent-ink:#0d0f24;
+  --sel:#2b2f52; --sel-ink:#d4d8ff; --red:#e5484d; --orange:var(--accent); --warn:#f2b34a;
+  --fg:#e4e7ec; --hl:#f6f7f9; --dim:#8c93a1; --src:#a5adc0; --line:rgba(255,255,255,.07);
+  --up:#3ecf8e; --down:#f2706b; --blue:var(--accent);
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
   color-scheme:dark;
 }
-html,body{height:100%;margin:0;background:transparent;color:var(--fg);font-family:var(--mono);font-size:12px;overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none}
+html,body{height:100%;margin:0;background:transparent;color:var(--fg);font-family:var(--sans);font-size:12px;overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none}
 *{box-sizing:border-box}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
-:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:4px}
 .num{font-variant-numeric:tabular-nums}
-.w{height:100%;display:flex;flex-direction:column;background:var(--body);border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.07)}
+.w{height:100%;display:flex;flex-direction:column;background:var(--body);border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
 
-.bar{display:flex;align-items:center;gap:8px;background:var(--red);padding:7px 8px 7px 10px;-webkit-app-region:drag}
-.brand{background:var(--orange);color:var(--orange-ink);font-weight:700;padding:1px 6px;letter-spacing:.05em}
-.seg{display:flex;-webkit-app-region:no-drag}
-.seg button{padding:1px 7px;color:#f3d7d9;font-size:11.5px}
-.seg button[aria-selected="true"]{background:#000;color:#fff}
+.bar{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px;border-bottom:1px solid var(--line);-webkit-app-region:drag}
+.brand{color:var(--fg);font-weight:700;letter-spacing:.04em}
+.seg{display:flex;-webkit-app-region:no-drag;background:var(--surface);border-radius:6px;padding:2px;gap:2px}
+.seg button{padding:2px 9px;color:var(--dim);font-size:11px;border-radius:4px}
+.seg button[aria-selected="true"]{background:var(--surface-3);color:var(--hl)}
 .ctl{margin-left:auto;display:flex;gap:2px;-webkit-app-region:no-drag}
-.ctl button{width:22px;height:20px;border-radius:4px;color:#f3d7d9;font-size:13px;line-height:20px;text-align:center}
-.ctl button:hover{background:rgba(0,0,0,.25);color:#fff}
-.ctl .pin{width:auto;padding:0 5px;font-size:10.5px;letter-spacing:.06em;border:1px solid rgba(255,255,255,.25)}
-.ctl .pin[aria-pressed="true"]{background:var(--orange);color:var(--orange-ink);border-color:var(--orange)}
+.ctl button{width:22px;height:20px;border-radius:5px;color:var(--dim);font-size:13px;line-height:20px;text-align:center}
+.ctl button:hover{background:rgba(255,255,255,.08);color:var(--fg)}
+.ctl .pin{width:auto;padding:0 7px;font-size:10.5px;border:1px solid var(--line)}
+.ctl .pin[aria-pressed="true"]{background:var(--sel);color:var(--sel-ink);border-color:var(--sel)}
 
 .quotes{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
 .qt{display:flex;justify-content:space-between;align-items:baseline;gap:6px;padding:5px 9px;background:var(--body);white-space:nowrap;min-width:0}
 .qt{cursor:pointer}
-.qt:hover{background:#151517}
+.qt:hover{background:var(--surface)}
 .qt .lb{color:var(--dim);overflow:hidden;text-overflow:ellipsis}
-.qt .px{color:#fff;margin-left:auto}
+.qt .px{color:var(--hl);margin-left:auto}
 .qt .pc{min-width:48px;text-align:right}
 .up{color:var(--up)} .dn{color:var(--down)}
 
 .list{list-style:none;margin:0;padding:0;flex:1;overflow:auto;min-height:0}
-.list::-webkit-scrollbar{width:8px}.list::-webkit-scrollbar-thumb{background:#3a3a3d;border-radius:4px}
+.list::-webkit-scrollbar{width:8px}.list::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:4px}
 .it{display:grid;grid-template-columns:3px 18px minmax(0,1fr);gap:0 7px;padding:7px 10px 7px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .it:hover{background:rgba(255,255,255,.06)}
 .sev{border-radius:0 2px 2px 0}
-.sev.h{background:var(--down)} .sev.m{background:var(--orange)} .sev.l{background:#4b4f52}
+.sev.h{background:var(--down)} .sev.m{background:var(--warn)} .sev.l{background:#3a404b}
 .it .n{color:var(--dim);text-align:right}
-.it .h{color:var(--hl);font-size:12.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.it .h{color:var(--fg);font-size:12.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .it .meta{grid-column:3;display:flex;gap:8px;margin-top:3px;font-size:11px;color:var(--dim)}
 .it .meta .s{color:var(--src)}
 .it .meta .x{margin-left:auto}
-.badge{color:#fff;padding:0 3px;margin-right:5px;font-size:10px;vertical-align:1px}
-.badge.hi{background:var(--red)} .badge.nw{background:var(--blue)}
+.badge{padding:0 5px;margin-right:5px;font-size:9.5px;font-weight:600;border-radius:4px;vertical-align:1px}
+.badge.hi{background:rgba(229,72,77,.18);color:#ff9592} .badge.nw{background:rgba(139,147,255,.16);color:var(--sel-ink)}
 .empty{padding:20px 12px;color:var(--dim);line-height:1.5}
 
 .foot{display:flex;align-items:center;gap:12px;padding:5px 10px;border-top:1px solid var(--line);font-size:11px;color:var(--dim);-webkit-app-region:drag}
-.foot b{color:#fff;font-weight:500}
+.foot b{color:var(--fg);font-weight:500}
 .foot button{-webkit-app-region:no-drag;color:var(--dim);font-size:13px}
-.foot button:hover{color:var(--orange)}
+.foot button:hover{color:var(--fg)}
 .foot .r{margin-left:auto}
 .foot .r.busy{color:var(--orange)}

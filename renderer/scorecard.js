@@ -48,14 +48,14 @@
     const sc = K.data?.scores || {};
     const btns = (K.data?.assets || [["stocks", "Stocks"], ["bonds", "Bonds"], ["commodities", "Commodities"], ["realestate", "Real Estate"], ["crypto", "Crypto"], ["alts", "Alts"]])
       .map(([k, l]) => `<button type="button" data-a="${k}" aria-pressed="${k === K.asset}">${esc(l)}${sc[k] ? `<em>${sc[k].score}</em>` : ""}</button>`).join("");
-    const tog = [["outlook", "OUTLOOK"], ["board", "BOARD"]].map(([k, l]) => `<button type="button" data-view="${k}" aria-pressed="${k === K.view}" title="${k === "board" ? "Every indicator ranked against its own history (B)" : "0–100 outlook per asset class (B)"}">${l}</button>`).join("");
+    const tog = [["outlook", "Outlook"], ["board", "Board"]].map(([k, l]) => `<button type="button" data-view="${k}" aria-pressed="${k === K.view}" title="${k === "board" ? "Every indicator ranked against its own history (B)" : "0–100 outlook per asset class (B)"}">${l}</button>`).join("");
     $("#atabs").innerHTML = (BOARD() ? "" : btns) + `<span class="vtog">${tog}</span>`;
   }
 
   function renderInfo() {
     const d = K.data, btn = $("#sref");
     btn.disabled = !!d?.refreshing;
-    btn.textContent = d?.refreshing ? "UPDATING…" : "⟳ UPDATE DATA";
+    btn.textContent = d?.refreshing ? "Updating…" : "⟳ Update data";
     if (BOARD()) { const st = window.WireBoard.status(); $("#sinfo").textContent = `Decile board · ${d?.defs?.length || 53} indicators ranked D1–D10 against their own history${st ? " · " + st : ""}`; return; }
     if (!d?.fetchedAt) { $("#sinfo").textContent = "Scores 0–100: higher = more constructive over the next 6–12 months"; return; }
     const ago = Math.round((Date.now() - d.fetchedAt) / 60000);
@@ -71,7 +71,7 @@
     const line = hist.map((h, i) => `${x(i).toFixed(1)},${y(h.scores[K.asset]).toFixed(1)}`).join(" ");
     const last = hist[n - 1].scores[K.asset];
     return `<svg class="sc-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(assetName(K.asset))} score over the last 12 months">
-      <line x1="0" x2="${W}" y1="${y(50)}" y2="${y(50)}" stroke="#3a3a3d" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
+      <line x1="0" x2="${W}" y1="${y(50)}" y2="${y(50)}" stroke="#323843" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
       <polyline points="${line}" fill="none" stroke="var(--orange)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
       <circle cx="${x(n - 1)}" cy="${y(last)}" r="2.6" fill="var(--orange)"/>
     </svg><div class="sc-sub" style="display:flex;justify-content:space-between"><span>12 months ago</span><span>50 = neutral</span><span>now</span></div>`;
@@ -203,10 +203,10 @@
       <p style="margin:0">${esc(x.desc || "")}</p>
       <div class="ichart" id="ichart"><div class="iload">Loading history…</div></div>
       ${r ? `<dl class="kv">
-        <dt>LEVEL</dt><dd>${ord(Math.round(r.L * 100))} percentile of the last ${span(r)}${r.years < 9.5 ? " (all the free history available)" : ""}</dd>
-        <dt>TREND</dt><dd>${r.chg == null ? "—" : `6-month change ${fmt(r.chg, x, true)}, ${ord(Math.round(r.T * 100))} percentile of past 6-month changes`}</dd>
-        <dt>FEEDS</dt><dd>${esc(FACTORS[x.factor] || x.factor)}${esc(signNote)}</dd>
-        <dt>EFFECT</dt><dd>${c == null ? `Not used for ${esc(assetName(K.asset).toLowerCase())}` : `${pts(c)} points on the ${esc(assetName(K.asset).toLowerCase())} score`}</dd>
+        <dt>Level</dt><dd>${ord(Math.round(r.L * 100))} percentile of the last ${span(r)}${r.years < 9.5 ? " (all the free history available)" : ""}</dd>
+        <dt>Trend</dt><dd>${r.chg == null ? "—" : `6-month change ${fmt(r.chg, x, true)}, ${ord(Math.round(r.T * 100))} percentile of past 6-month changes`}</dd>
+        <dt>Feeds</dt><dd>${esc(FACTORS[x.factor] || x.factor)}${esc(signNote)}</dd>
+        <dt>Effect</dt><dd>${c == null ? `Not used for ${esc(assetName(K.asset).toLowerCase())}` : `${pts(c)} points on the ${esc(assetName(K.asset).toLowerCase())} score`}</dd>
       </dl>` : ""}
       <div class="isec">EFFECT ON EACH OUTLOOK (POINTS)</div>
       <div class="effs">${effRows}</div>
@@ -246,21 +246,21 @@
     }
     for (let k = 0; k <= 3; k++) {
       const v = lo + ((hi - lo) * k) / 3, y = Y(v);
-      g += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="#1d1d20"/><text x="${W - padR + 6}" y="${y + 3}" fill="#8f8a84" font-size="9.5">${fmt(v, x)}</text>`;
+      g += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="#22262d"/><text x="${W - padR + 6}" y="${y + 3}" fill="#8c93a1" font-size="9.5">${fmt(v, x)}</text>`;
     }
-    if (lo < 0 && hi > 0) g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(0)}" y2="${Y(0)}" stroke="#4a4a4f"/>`;
-    g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(med)}" y2="${Y(med)}" stroke="#6a6560" stroke-dasharray="3 3"/><text x="${padL + 2}" y="${Y(med) - 4}" fill="#8f8a84" font-size="9" paint-order="stroke" stroke="#000" stroke-width="3">median ${fmt(med, x)}</text>`;
+    if (lo < 0 && hi > 0) g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(0)}" y2="${Y(0)}" stroke="#323843"/>`;
+    g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(med)}" y2="${Y(med)}" stroke="#5d6472" stroke-dasharray="3 3"/><text x="${padL + 2}" y="${Y(med) - 4}" fill="#8c93a1" font-size="9" paint-order="stroke" stroke="#000" stroke-width="3">median ${fmt(med, x)}</text>`;
     const y0 = new Date(t0).getUTCFullYear(), y1 = new Date(t1).getUTCFullYear();
     const every = Math.ceil((y1 - y0 + 1) / 6);
     for (let yr = y0 + 1; yr <= y1; yr++) {
       if ((yr - y0) % every) continue;
       const t = Date.UTC(yr, 0, 1);
-      g += `<text x="${X(t)}" y="${H - 5}" fill="#8f8a84" font-size="9.5" text-anchor="middle">${yr}</text>`;
+      g += `<text x="${X(t)}" y="${H - 5}" fill="#8c93a1" font-size="9.5" text-anchor="middle">${yr}</text>`;
     }
     g += `<polyline points="${P.map(([t, v]) => `${X(t).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--orange)" stroke-width="1.5"/>`;
     const [lt, lv] = P[P.length - 1];
     g += `<circle cx="${X(lt)}" cy="${Y(lv)}" r="3" fill="var(--orange)"/>`;
-    g += `<line id="ch-x" x1="0" x2="0" y1="${padT}" y2="${H - padB}" stroke="#55555a" visibility="hidden"/><rect x="0" y="0" width="${W}" height="${H}" fill="transparent" id="ch-hit"/></svg><div class="tip" id="ch-tip" hidden></div>`;
+    g += `<line id="ch-x" x1="0" x2="0" y1="${padT}" y2="${H - padB}" stroke="#4a5160" visibility="hidden"/><rect x="0" y="0" width="${W}" height="${H}" fill="transparent" id="ch-hit"/></svg><div class="tip" id="ch-tip" hidden></div>`;
     box.innerHTML = g;
     const hit = box.querySelector("#ch-hit"), cross = box.querySelector("#ch-x"), tip = box.querySelector("#ch-tip");
     hit.addEventListener("mousemove", (e) => {
@@ -306,7 +306,7 @@
     const rows = t.recessions.map((x) => `<tr><td>${x.start} – ${x.end}</td><td class="${x.caught ? "up" : "dn"}">${x.caught ? "caught" : "missed"}</td><td>${x.caught ? `${x.signal} · ${x.lead} mo` : "—"}</td></tr>`).join("")
       + t.falseAlarms.map((w) => `<tr><td>${w.start} – ${w.end}</td><td class="dn">false alarm</td><td>peak ${pct(w.peak)}</td></tr>`).join("")
       + t.pending.map((w) => `<tr><td>${w.start} – ${w.end}</td><td class="dim">pending</td><td>peak ${pct(w.peak)}</td></tr>`).join("");
-    const sahm = m.sahm ? `<dt>SAHM RULE</dt><dd>${m.sahm.v.toFixed(2)} pts (${new Date(m.sahm.asOf).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}) · ${m.sahm.triggered ? `<span class="dn">triggered</span>` : "not triggered"} (0.50 = trigger; real-time unemployment rule)${m.sahm.lastTrigger ? `, last triggered ${new Date(m.sahm.lastTrigger).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}` : ""}</dd>` : "";
+    const sahm = m.sahm ? `<dt>Sahm rule</dt><dd>${m.sahm.v.toFixed(2)} pts (${new Date(m.sahm.asOf).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}) · ${m.sahm.triggered ? `<span class="dn">triggered</span>` : "not triggered"} (0.50 = trigger; real-time unemployment rule)${m.sahm.lastTrigger ? `, last triggered ${new Date(m.sahm.lastTrigger).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}` : ""}</dd>` : "";
     return `<div class="ind rec">
       <div class="dhead"><span class="code">RECESSION MODEL</span><span class="nm">FRED · GS10 − TB3MS → USREC</span><span class="dt">${r.refreshing ? "updating…" : `<button type="button" class="iclose" data-act="recref">⟳ UPDATE</button>`}</span></div>
       <h1 style="margin:4px 0 0">Recession odds, 12 months ahead</h1>
@@ -317,9 +317,9 @@
       <div class="isec">10-YEAR MINUS 3-MONTH SPREAD (PTS)</div>
       <div class="ichart" id="recs"></div>
       <dl class="kv">
-        <dt>TRACK</dt><dd>${esc(leadTxt(t))}${t.recessions.filter((x) => x.caught).length ? ` (leads ${t.recessions.filter((x) => x.caught).map((x) => x.lead).join(", ")} mo)` : ""}</dd>
-        <dt>BASE RATE</dt><dd>${pct(m.baseRate)} of months had a recession 12 months later</dd>
-        <dt>FITTED ON</dt><dd>${m.fit.from} – ${m.fit.to} (${m.fit.n} months; outcomes known to ${m.fit.outcomesTo}) · P = Φ(${sgn(m.fit.a, 3)} ${m.fit.b < 0 ? "−" : "+"} ${Math.abs(m.fit.b).toFixed(3)} × spread)</dd>
+        <dt>Track</dt><dd>${esc(leadTxt(t))}${t.recessions.filter((x) => x.caught).length ? ` (leads ${t.recessions.filter((x) => x.caught).map((x) => x.lead).join(", ")} mo)` : ""}</dd>
+        <dt>Base rate</dt><dd>${pct(m.baseRate)} of months had a recession 12 months later</dd>
+        <dt>Fitted on</dt><dd>${m.fit.from} – ${m.fit.to} (${m.fit.n} months; outcomes known to ${m.fit.outcomesTo}) · P = Φ(${sgn(m.fit.a, 3)} ${m.fit.b < 0 ? "−" : "+"} ${Math.abs(m.fit.b).toFixed(3)} × spread)</dd>
         ${sahm}
       </dl>
       <div class="isec">TRACK RECORD · WARNING = ≥${thr}% WITHIN ${m.window} MONTHS BEFORE THE START</div>
@@ -337,10 +337,10 @@
     const Y = (v) => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
     let g = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img">`;
     for (const [a, b] of m.recessions) if (b >= t0) g += `<rect x="${X(Math.max(a, t0))}" y="${padT}" width="${Math.max(2, X(Math.min(b, t1)) - X(Math.max(a, t0)))}" height="${H - padT - padB}" fill="rgba(255,255,255,.08)"/>`;
-    for (let k = 0; k <= 4; k++) { const v = lo + ((hi - lo) * k) / 4; g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1d1d20"/><text x="${W - padR + 6}" y="${Y(v) + 3}" fill="#8f8a84" font-size="9.5">${fmtV(v)}</text>`; }
-    if (line != null) g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(line)}" y2="${Y(line)}" stroke="#8f8a84" stroke-dasharray="4 3"/>`;
+    for (let k = 0; k <= 4; k++) { const v = lo + ((hi - lo) * k) / 4; g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(v)}" y2="${Y(v)}" stroke="#22262d"/><text x="${W - padR + 6}" y="${Y(v) + 3}" fill="#8c93a1" font-size="9.5">${fmtV(v)}</text>`; }
+    if (line != null) g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(line)}" y2="${Y(line)}" stroke="#8c93a1" stroke-dasharray="4 3"/>`;
     const y0 = new Date(t0).getUTCFullYear(), y1 = new Date(t1).getUTCFullYear();
-    for (let yr = Math.ceil(y0 / 10) * 10; yr <= y1; yr += 10) g += `<text x="${X(Date.UTC(yr, 0, 1))}" y="${H - 5}" fill="#8f8a84" font-size="9.5" text-anchor="middle">${yr}</text>`;
+    for (let yr = Math.ceil(y0 / 10) * 10; yr <= y1; yr += 10) g += `<text x="${X(Date.UTC(yr, 0, 1))}" y="${H - 5}" fill="#8c93a1" font-size="9.5" text-anchor="middle">${yr}</text>`;
     g += `<polyline points="${pts.map(([t, v]) => `${X(t).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--orange)" stroke-width="1.3"/>`;
     const [lt, lv] = pts[pts.length - 1];
     box.innerHTML = g + `<circle cx="${X(lt)}" cy="${Y(lv)}" r="3" fill="var(--orange)"/></svg>`;

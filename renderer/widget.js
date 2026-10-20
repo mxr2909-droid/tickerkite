@@ -52,10 +52,10 @@
   function renderPulled() {
     const el = $("#pulled");
     el.classList.toggle("busy", W.refreshing);
-    if (W.refreshing) { el.textContent = "PULLING…"; return; }
+    if (W.refreshing) { el.textContent = "Updating…"; return; }
     if (!W.pulledAt) { el.textContent = "—"; return; }
     const m = Math.round((Date.now() - W.pulledAt) / 60000);
-    el.textContent = m < 1 ? "JUST NOW" : m < 60 ? `${m}M AGO` : `${Math.round(m / 60)}H AGO`;
+    el.textContent = m < 1 ? "Just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`;
   }
 
   function renderQuotes() {

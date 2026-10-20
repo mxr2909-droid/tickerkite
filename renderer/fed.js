@@ -203,17 +203,17 @@
       <div class="dhead"><span class="code">FOMC</span><span class="nm">${r.sep ? "decision + projections" : "rate decision"}</span><span class="dt">${esc(day(r.date))}</span></div>
       <h1>${esc(meetingLabel(r))}, ${yr(r)}: market prices ${esc(r.dir === "hold" ? "a hold" : `a ${moveWord(r)}`)}</h1>
       <dl class="kv fkv">
-        <dt>DECISION</dt><dd>${esc(day(r.date, { weekday: "short", month: "short", day: "numeric", year: "numeric" }))} · 2:00 PM ET</dd>
-        <dt>RATE BEFORE</dt><dd>${pct(r.pre, 3)}</dd>
-        <dt>RATE AFTER</dt><dd>${pct(r.post, 3)} <span class="${cls(r.move, 2)}">(${bp(r.move)})</span></dd>
-        <dt>VS TODAY</dt><dd class="${cls(r.cum, 2)}">${bp(r.cum)} cumulative</dd>
+        <dt>Decision</dt><dd>${esc(day(r.date, { weekday: "short", month: "short", day: "numeric", year: "numeric" }))} · 2:00 PM ET</dd>
+        <dt>Rate before</dt><dd>${pct(r.pre, 3)}</dd>
+        <dt>Rate after</dt><dd>${pct(r.post, 3)} <span class="${cls(r.move, 2)}">(${bp(r.move)})</span></dd>
+        <dt>Vs today</dt><dd class="${cls(r.cum, 2)}">${bp(r.cum)} cumulative</dd>
         <hr>
-        <dt>HOLD</dt><dd>${odd(r.hold)}</dd>
+        <dt>Hold</dt><dd>${odd(r.hold)}</dd>
         <dt>25BP ${dirW.toUpperCase()}</dt><dd>${odd(r.p25)}</dd>
         <dt>50BP ${dirW.toUpperCase()}</dt><dd>${odd(r.p50)}</dd>
         <hr>
-        <dt>1 WEEK AGO</dt><dd>${w ? `${pct(w.post, 3)} <span class="${cls((r.post - w.post) * 100, 1)}">(${bp((r.post - w.post) * 100)} since)</span>` : `<span class="dim">no data yet</span>`}</dd>
-        <dt>1 MONTH AGO</dt><dd>${m ? `${pct(m.post, 3)} <span class="${cls((r.post - m.post) * 100, 1)}">(${bp((r.post - m.post) * 100)} since)</span>` : `<span class="dim">no data yet</span>`}</dd>
+        <dt>1 week ago</dt><dd>${w ? `${pct(w.post, 3)} <span class="${cls((r.post - w.post) * 100, 1)}">(${bp((r.post - w.post) * 100)} since)</span>` : `<span class="dim">no data yet</span>`}</dd>
+        <dt>1 month ago</dt><dd>${m ? `${pct(m.post, 3)} <span class="${cls((r.post - m.post) * 100, 1)}">(${bp((r.post - m.post) * 100)} since)</span>` : `<span class="dim">no data yet</span>`}</dd>
         ${dot?.dot != null ? `<dt>${esc(dot.year)} DOT</dt><dd>${pct(dot.dot)} <span class="dim">Fed median for year-end</span></dd>` : ""}
       </dl>
       <p class="fnote2">Odds use the usual simplification: the expected move is split between the two nearest 25bp steps.</p>

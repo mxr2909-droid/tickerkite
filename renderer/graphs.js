@@ -112,7 +112,7 @@
   const api = window.wire;
   const $ = (s) => document.querySelector(s);
   const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const COLORS = ["#ff9a1f", "#6cc7e0", "#3ccf7e", "#ff5b3a", "#c792ea", "#f2d36b"];
+  const COLORS = ["#8b93ff", "#7cc4f5", "#3ecf8e", "#f2b34a", "#e88ac0", "#f2706b"];
   const TFS = [["level", "Level"], ["yoy", "% YoY"], ["chg", "Change"]];
   const RANGES = ["6M", "YTD", "1Y", "2Y", "5Y", "10Y", "20Y", "MAX", "CUSTOM"];
   const blank = () => ({ name: "", series: [], range: "5Y", from: "", to: "", mode: "shared", rec: true, clip: false, notes: [] });
@@ -268,7 +268,7 @@
       return out.map(([t, v]) => `${X(t).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
     };
     let g = `<svg id="gsvg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Chart"><defs><clipPath id="gclip"><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}"/></clipPath></defs>
-      <rect width="${W}" height="${H}" fill="#050505"/>`;
+      <rect width="${W}" height="${H}" fill="#0f1115"/>`;
     if (G.spec.rec) for (const [a, b] of G.rec) {
       if (b < t0 || a > t1) continue;
       g += `<rect x="${X(Math.max(a, t0))}" y="${padT}" width="${Math.max(2, X(Math.min(b, t1)) - X(Math.max(a, t0)))}" height="${H - padT - padB}" fill="rgba(255,255,255,.08)"/>`;
@@ -276,24 +276,24 @@
     for (const [ax, sc] of Object.entries(scales)) {
       for (let k = 0; k <= 4; k++) {
         const v = sc.lo + ((sc.hi - sc.lo) * k) / 4, y = sc.Y(v);
-        if (ax === "R" || !scales.R) g += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="#1d1d20"/>`;
-        g += ax === "R" ? `<text x="${W - padR + 6}" y="${y + 3}" fill="#8f8a84" font-size="10">${fmtNum(v, sc.hi - sc.lo)}</text>`
-          : `<text x="${padL - 6}" y="${y + 3}" fill="#8f8a84" font-size="10" text-anchor="end">${fmtNum(v, sc.hi - sc.lo)}</text>`;
+        if (ax === "R" || !scales.R) g += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="#22262d"/>`;
+        g += ax === "R" ? `<text x="${W - padR + 6}" y="${y + 3}" fill="#8c93a1" font-size="10">${fmtNum(v, sc.hi - sc.lo)}</text>`
+          : `<text x="${padL - 6}" y="${y + 3}" fill="#8c93a1" font-size="10" text-anchor="end">${fmtNum(v, sc.hi - sc.lo)}</text>`;
       }
-      if (sc.lo < 0 && sc.hi > 0 && G.spec.mode !== "norm") g += `<line x1="${padL}" x2="${W - padR}" y1="${sc.Y(0)}" y2="${sc.Y(0)}" stroke="#4a4a4f"/>`;
+      if (sc.lo < 0 && sc.hi > 0 && G.spec.mode !== "norm") g += `<line x1="${padL}" x2="${W - padR}" y1="${sc.Y(0)}" y2="${sc.Y(0)}" stroke="#323843"/>`;
     }
-    if (G.spec.mode === "norm" && scales.R) g += `<line x1="${padL}" x2="${W - padR}" y1="${scales.R.Y(100)}" y2="${scales.R.Y(100)}" stroke="#4a4a4f" stroke-dasharray="3 3"/>`;
+    if (G.spec.mode === "norm" && scales.R) g += `<line x1="${padL}" x2="${W - padR}" y1="${scales.R.Y(100)}" y2="${scales.R.Y(100)}" stroke="#323843" stroke-dasharray="3 3"/>`;
     const span = (t1 - t0) / YEAR;
     if (span <= 2.2) {
       const d = new Date(t0), step = span <= 1.2 ? 1 : 3;
       for (let y = d.getUTCFullYear(), m = d.getUTCMonth() + 1; ; m += step) {
         const t = Date.UTC(y, m, 1); if (t > t1) break;
         const dt = new Date(t);
-        g += `<text x="${X(t)}" y="${H - 6}" fill="#8f8a84" font-size="10" text-anchor="middle">${dt.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" })}${dt.getUTCMonth() === 0 ? " " + dt.getUTCFullYear() : ""}</text>`;
+        g += `<text x="${X(t)}" y="${H - 6}" fill="#8c93a1" font-size="10" text-anchor="middle">${dt.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" })}${dt.getUTCMonth() === 0 ? " " + dt.getUTCFullYear() : ""}</text>`;
       }
     } else {
       const y0 = new Date(t0).getUTCFullYear(), y1 = new Date(t1).getUTCFullYear(), every = Math.max(1, Math.ceil((y1 - y0 + 1) / 10));
-      for (let yr = y0 + 1; yr <= y1; yr++) if (!(yr % every)) g += `<text x="${X(Date.UTC(yr, 0, 1))}" y="${H - 6}" fill="#8f8a84" font-size="10" text-anchor="middle">${yr}</text>`;
+      for (let yr = y0 + 1; yr <= y1; yr++) if (!(yr % every)) g += `<text x="${X(Date.UTC(yr, 0, 1))}" y="${H - 6}" fill="#8c93a1" font-size="10" text-anchor="middle">${yr}</text>`;
     }
     g += `<g clip-path="url(#gclip)">`;
     S.forEach((s, i) => {
@@ -304,8 +304,8 @@
     G.spec.notes.forEach((n, k) => {
       const Y = axisOf(n.axis).Y;
       const [x1, y1, x2, y2] = n.type === "h" ? [padL, Y(n.v), W - padR, Y(n.v)] : [X(n.t1), Y(n.v1), X(n.t2), Y(n.v2)];
-      g += `<g class="gnote" data-note="${k}"><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#ece9e2" stroke-width="1.2"${n.type === "h" ? ` stroke-dasharray="6 3"` : ""}/><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="9"><title>Click to remove</title></line></g>`;
-      if (n.type === "h") g += `<text x="${W - padR - 4}" y="${Y(n.v) - 4}" fill="#ece9e2" font-size="10" text-anchor="end" paint-order="stroke" stroke="#000" stroke-width="3">${fmtNum(n.v)}</text>`;
+      g += `<g class="gnote" data-note="${k}"><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#e4e7ec" stroke-width="1.2"${n.type === "h" ? ` stroke-dasharray="6 3"` : ""}/><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="9"><title>Click to remove</title></line></g>`;
+      if (n.type === "h") g += `<text x="${W - padR - 4}" y="${Y(n.v) - 4}" fill="#e4e7ec" font-size="10" text-anchor="end" paint-order="stroke" stroke="#000" stroke-width="3">${fmtNum(n.v)}</text>`;
     });
     g += `</g>`;
     S.forEach((s, i) => { // latest value as a colored tag on its axis
@@ -321,10 +321,10 @@
       const when = last ? new Date(last[0]).toLocaleDateString("en-US", { month: "2-digit", ...(daily ? { day: "2-digit" } : { year: "2-digit" }), timeZone: "UTC" }) : "";
       const txt = `${short(s)}${tfName(s)} ${last ? fmtNum(last[1]) + (pctUnit(s) ? "%" : "") : "—"} ${when}${s.ma > 1 ? ` · ${s.ma} MA` : ""}${dual ? (side(i) === "L" ? " (L)" : " (R)") : ""}`;
       const w = 22 + txt.length * 6.6;
-      g += `<g><title>${esc(label(s))}</title><rect x="${lx}" y="5" width="${w}" height="17" fill="#0b0b0c" stroke="${s.color}"/><rect x="${lx + 5}" y="10" width="7" height="7" fill="${s.color}"/><text x="${lx + 17}" y="17.5" fill="#ece9e2" font-size="11">${esc(txt)}</text></g>`;
+      g += `<g><title>${esc(label(s))}</title><rect x="${lx}" y="5" width="${w}" height="17" fill="#13161b" stroke="${s.color}"/><rect x="${lx + 5}" y="10" width="7" height="7" fill="${s.color}"/><text x="${lx + 17}" y="17.5" fill="#e4e7ec" font-size="11">${esc(txt)}</text></g>`;
       lx += w + 6;
     });
-    g += `<line id="gx" x1="0" x2="0" y1="${padT}" y2="${H - padB}" stroke="#55555a" visibility="hidden"/><line id="gdraft" stroke="#ff9a1f" stroke-width="1.2" visibility="hidden"/></svg><div class="tip" id="gtip" hidden></div>${statsHtml(c)}`;
+    g += `<line id="gx" x1="0" x2="0" y1="${padT}" y2="${H - padB}" stroke="#4a5160" visibility="hidden"/><line id="gdraft" stroke="#8b93ff" stroke-width="1.2" visibility="hidden"/></svg><div class="tip" id="gtip" hidden></div>${statsHtml(c)}`;
     box.innerHTML = g;
     G.view = { W, H, padL, padR, padT, padB, X, T, scales, S, lines, side, axisOf, dual };
     box.dataset.tool = G.tool;

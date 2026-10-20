@@ -103,7 +103,7 @@
         <span class="${st ? (st.chg >= 0 ? "up" : "dn") : "dim"}">${st ? fmtChg(st, type) : ""}</span>
         <span class="dim">${I.range === "1D" ? "vs prior close" : RANGE_NAME[I.range]}</span></div>
       <div class="rtabs" role="tablist">${RANGES.map((r) => `<button type="button" role="tab" data-range="${r}" aria-selected="${r === I.range}">${r}</button>`).join("")}
-        <span class="upd num">${d ? "UPDATED " + new Date(d.fetchedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}</span></div>`;
+        <span class="upd num">${d ? "Updated " + new Date(d.fetchedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}</span></div>`;
     if (I.loading || (!d && !I.err)) { el.innerHTML = `<div class="inst">${head}<div class="iload">Loading ${esc(I.range)} history…</div></div>`; return; }
     if (!d) { el.innerHTML = `<div class="inst">${head}<div class="iload">Couldn't load prices: ${esc(I.err)}. WIRE will try again; check your connection.</div></div>`; schedule(); return; }
 
@@ -238,7 +238,7 @@
     const padY = (hi - lo || hi * 0.01) * 0.1; lo -= padY; hi += padY;
     const y = (v) => P1.top + (1 - (v - lo) / (hi - lo)) * P1.h;
     const up = pts.at(-1).c >= base;
-    const UP = css("--up") || "#3ccf7e", DN = css("--down") || "#ff5a4e", DIM = "#8f8a84", GRID = "rgba(255,255,255,.07)", ORG = "#ff9a1f", CY = "#6cc7e0";
+    const UP = css("--up") || "#3ecf8e", DN = css("--down") || "#f2706b", DIM = "#8c93a1", GRID = "rgba(255,255,255,.07)", ORG = "#8b93ff", CY = "#7cc4f5";
     const col = up ? UP : DN;
 
     let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="isvg" role="img" aria-label="${esc(d.label)} ${I.range} price, velocity and acceleration">`;

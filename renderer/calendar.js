@@ -208,11 +208,11 @@
     if (!e) { el.innerHTML = `<div class="empty">Pick an event.</div>`; return; }
     const rel = C.data.releases[e.key] || {};
     const when = e.timed ? `${dayLabel(e.t)} · ${clock(e.t)} ET` : dayLabel(e.t);
-    let kv = `<dt>WHEN</dt><dd>${esc(when)}</dd><dt>COUNTDOWN</dt><dd>${esc(countdown(e))}</dd>`;
-    if (e.cat !== "earnings") kv += `<dt>NEXT</dt><dd class="calnext">${e.t > Date.now() ? esc(countdown(e)) : "…"}</dd>`;
+    let kv = `<dt>When</dt><dd>${esc(when)}</dd><dt>Countdown</dt><dd>${esc(countdown(e))}</dd>`;
+    if (e.cat !== "earnings") kv += `<dt>Next</dt><dd class="calnext">${e.t > Date.now() ? esc(countdown(e)) : "…"}</dd>`;
     if (e.ref) kv += `<dt>${e.cat === "earnings" ? "COMPANY" : e.cat === "fed" && e.key === "fomc" ? "MEETING" : "PERIOD"}</dt><dd>${esc(e.ref)}</dd>`;
-    kv += `<dt>COUNTRY</dt><dd>${e.flag || ""} ${esc(e.code || "")} · ${["", "low", "medium", "high"][e.rel || 1]} importance</dd>`;
-    kv += `<dt>SOURCE</dt><dd>${esc(e.src || rel.agency || "")}${e.nq && e.key !== "nq" ? " · consensus from Nasdaq" : ""}${e.estimated ? " · estimated date" : ""}${e.fallback ? ` · WIRE fallback list, checked ${esc(C.data.fallbackChecked)}` : ""}</dd>`;
+    kv += `<dt>Country</dt><dd>${e.flag || ""} ${esc(e.code || "")} · ${["", "low", "medium", "high"][e.rel || 1]} importance</dd>`;
+    kv += `<dt>Source</dt><dd>${esc(e.src || rel.agency || "")}${e.nq && e.key !== "nq" ? " · consensus from Nasdaq" : ""}${e.estimated ? " · estimated date" : ""}${e.fallback ? ` · WIRE fallback list, checked ${esc(C.data.fallbackChecked)}` : ""}</dd>`;
     const s = surp(e.actual, e.survey);
     const fig = e.survey || e.actual || e.prior ? `<div class="calfig">
       <div><span>SURVEY</span><b>${esc(e.survey || "—")}</b></div>

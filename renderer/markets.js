@@ -12,11 +12,11 @@
 
   const pct = (v, d = 2) => (v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(d) + "%");
   function color(v) {
-    if (v == null) return "#151517";
+    if (v == null) return "#191c22";
     const k = Math.min(1, Math.abs(v) / SCALE[M.period]) ** 0.8;
-    const [r, g, b] = v >= 0 ? [22, 150, 82] : [196, 46, 40];
+    const [r, g, b] = v >= 0 ? [38, 166, 110] : [214, 74, 80];
     const mix = (c, base) => Math.round(base + (c - base) * k);
-    return `rgb(${mix(r, 30)},${mix(g, 30)},${mix(b, 32)})`;
+    return `rgb(${mix(r, 27)},${mix(g, 30)},${mix(b, 37)})`;
   }
   const ret = (sym) => M.snap?.data?.[sym]?.ret?.[M.period] ?? null;
 
@@ -72,10 +72,10 @@
     const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
     const X = (t) => ((t - x0) / (x1 - x0 || 1)) * W, Y = (v) => H - ((v - lo) / (hi - lo)) * H;
     const pts = h.map((b) => `${X(b[0]).toFixed(1)},${Y(b[1]).toFixed(1)}`).join(" ");
-    const up = ys[ys.length - 1] >= ys[0], c = up ? "#169652" : "#c42e28";
+    const up = ys[ys.length - 1] >= ys[0], c = up ? "#3ecf8e" : "#f2706b";
     return `<div class="mch"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Price history">
       <polygon points="0,${H} ${pts} ${W},${H}" fill="${c}" opacity=".13"/>
-      ${high ? `<line x1="0" x2="${W}" y1="${Y(high).toFixed(1)}" y2="${Y(high).toFixed(1)}" stroke="#ff9a1f" stroke-width="1" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>` : ""}
+      ${high ? `<line x1="0" x2="${W}" y1="${Y(high).toFixed(1)}" y2="${Y(high).toFixed(1)}" stroke="#8b93ff" stroke-width="1" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>` : ""}
       <polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
       <span class="mchy t">${num(hi - pad)}</span><span class="mchy b">${num(lo + pad)}</span></div>
       <div class="mchx"><span>${day(x0)}</span><span>${day(x1)}</span></div>`;
