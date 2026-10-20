@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { summarize, barsFromChart, usMarketOpen, symbols } = require("../src/markets");
+const { summarize, chartBars, annualize, PERIODS, barsFromChart, usMarketOpen, symbols } = require("../src/markets");
 
 // one weekday bar per day from `from` to `to` (UTC), close = f(date)
 function bars(from, to, f) {
@@ -77,4 +77,61 @@ test("symbol list covers all three sections without duplicates", () => {
   const s = symbols();
   assert.equal(new Set(s).size, s.length);
   for (const x of ["XLK", "XLRE", "^GSPC", "^BSESN", "EEM", "IWF", "RSP", "SPY"]) assert.ok(s.includes(x), x);
+});
+
+// weekly bars (Mondays) from `from` to `to`, close = f(date)
+function weekly(from, to, f) {
+  const out = [];
+  for (let t = Date.parse(from); t <= Date.parse(to); t += 7 * 86400000) out.push({ t, close: f(new Date(t)) });
+  return out;
+}
+
+function effective(rate, years) { return ((1 + rate) ** years - 1) * 100; }
+
+test("annualize inverts compounding; bad input gives null", () => {
+  assert.ok(Math.abs(annualize(effective(0.1, 5), 5) - 10) < 1e-9);
+  assert.ok(Math.abs(annualize(effective(-0.05, 3), 3) + 5) < 1e-9);
+  assert.equal(annualize(null, 3), null);
+  assert.equal(annualize(-100, 3), null);
+});
+
+test("long periods use weekly history; per-year matches compounding", () => {
+  const f = (d) => 100 * 1.1 ** ((d - Date.parse("2015-01-05")) / (365.25 * 86400000)); // 10%/yr
+  const w = weekly("2015-01-05", "2026-10-12", f);
+  const d = bars("2025-10-15", "2026-10-15", f);
+  const s = summarize(d, w);
+  assert.equal(PERIODS.length, 9);
+  for (const [p, y] of [["3Y", 3], ["5Y", 5], ["10Y", 10]]) {
+    assert.ok(Math.abs(s.ann[p] - 10) < 0.35, `${p} ${s.ann[p]}`);
+    assert.ok(Math.abs(s.ret[p] - effective(0.1, y)) < 3, `${p} ${s.ret[p]}`);
+  }
+  assert.ok(Math.abs(s.ret["1Y"] - 10) < 0.5);
+  assert.equal(s.historyFrom, Date.parse("2015-01-05"));
+});
+
+test("periods longer than the history are null; 1Y falls back to weekly when daily is short", () => {
+  const f = () => 100;
+  const s = summarize(bars("2025-12-01", "2026-10-15", f), weekly("2024-06-03", "2026-10-12", f));
+  assert.equal(s.ret["5Y"], null);
+  assert.equal(s.ann["5Y"], null);
+  near(s.ret["1Y"], 0);
+  assert.equal(summarize(bars("2025-12-01", "2026-10-15", f)).ret["1Y"], null);
+});
+
+test("52-week high carries its date", () => {
+  const b = bars("2025-10-01", "2026-10-15", (d) => (d.toISOString().startsWith("2026-03-02") ? 200 : 100));
+  assert.equal(new Date(summarize(b).high52At).toISOString().slice(0, 10), "2026-03-02");
+});
+
+test("chart bars: daily for 1Y, weekly beyond, ends at the live price", () => {
+  const d = bars("2025-10-15", "2026-10-15", () => 100);
+  const w = weekly("2015-01-05", "2026-10-12", () => 90);
+  const y1 = chartBars(d, w, "1Y", 123);
+  assert.equal(y1[0][1], 100);
+  assert.ok(y1.length > 240);
+  assert.deepEqual(y1[y1.length - 1], [d[d.length - 1].t, 123]);
+  const y5 = chartBars(d, w, "5Y", 123);
+  assert.ok(y5.length > 250 && y5.length < 300);
+  assert.equal(chartBars(d, w, "MAX", 123)[0][0], Date.parse("2015-01-05"));
+  assert.equal(chartBars(d, null, "10Y", 5).length, d.length);
 });
