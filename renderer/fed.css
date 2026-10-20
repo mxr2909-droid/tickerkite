@@ -1,0 +1,2 @@
+/* WIRE Fed path page */
+.app:not([data-page="fed"]) .fed-only{display:none!important}

@@ -11,7 +11,10 @@ const { relevantLive, attributeIntraday, attributeHistory } = instruments;
 const WL = require("./watchlist");
 const company = require("./company");
 const EventEmitter = require("events");
-const PAGE_MODULES = { calendar: require("./calendar"), markets: require("./markets"), alerts: require("./alerts") };
+const PAGE_MODULES = {
+  calendar: require("./calendar"), markets: require("./markets"), alerts: require("./alerts"),
+  fed: require("./fed"), graphs: require("./graphs"), recession: require("./recession")
+};
 const bus = new EventEmitter(); // "news" | "quotes" | "scores" after each refresh, for page modules
 const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");
 const { fetchAllSeries } = require("./macro/data");
@@ -449,6 +452,8 @@ function buildMenu() {
         { label: "Calendar", accelerator: "CmdOrCtrl+Alt+3", click: () => { showStory(null); send("page:set", "calendar"); } },
         { label: "Markets", accelerator: "CmdOrCtrl+Alt+4", click: () => { showStory(null); send("page:set", "markets"); } },
         { label: "Alerts", accelerator: "CmdOrCtrl+Alt+5", click: () => { showStory(null); send("page:set", "alerts"); } },
+        { label: "Fed", accelerator: "CmdOrCtrl+Alt+6", click: () => { showStory(null); send("page:set", "fed"); } },
+        { label: "Graphs", accelerator: "CmdOrCtrl+Alt+7", click: () => { showStory(null); send("page:set", "graphs"); } },
         { type: "separator" },
         { label: "Show Main Window", accelerator: "CmdOrCtrl+1", click: () => showStory(null) },
         { label: "Fit Window to Screen", accelerator: "CmdOrCtrl+Alt+F", click: () => { showStory(null); fitToScreen(); } },

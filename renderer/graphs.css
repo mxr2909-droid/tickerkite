@@ -1,0 +1,2 @@
+/* WIRE Graph workspace page */
+.app:not([data-page="graphs"]) .graphs-only{display:none!important}
