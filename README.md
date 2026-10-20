@@ -134,6 +134,21 @@ The Calendar page (⌘⌥3) lists what's coming up: US economic releases, Fed me
 
 Sources, all free and keyless: the Federal Reserve's FOMC calendar page, BEA's release schedule (GDP, PCE), Census's retail sales schedule and BLS's per-release schedule pages (CPI, PPI, jobs, JOLTS). Jobless claims follow the Labor Department's rule (Thursdays, Wednesday in Thanksgiving and Christmas weeks). Schedules are cached in `calendar-cache.json` and refreshed once a day. BLS often blocks apps, so when a source can't be reached WIRE uses a built-in list checked against the official pages (date shown in the bar at the top), and those rows are tagged "fallback".
 
+## Fed
+
+The Fed page (⌘⌥6) shows where markets expect the Fed's policy rate to go, meeting by meeting, against the Fed's own projections.
+
+- **Strip at the top**: effective fed funds, SOFR, prime, 2-year and 10-year Treasury yields with their change over the last month in bp. The target range shown in the bar is read off the prime rate (prime = top of the range + 3 points).
+- **Summary**: what the next meeting is priced for (hold / 25bp / 50bp and the odds), the peak or trough of the implied path, the rate at the end of the path, and how the end of the path moved over a week and a month.
+- **Chart and table**: the implied rate after each FOMC meeting (orange) with the same path as of 1 week (dashed) and 1 month ago (dotted), and the Fed's median dots (blue) at each year's last meeting. The table gives each meeting's implied rate, move, cumulative move from today, odds and change since 1 week / 1 month ago. Meetings with new projections are tagged SEP. ↑/↓ or j/k pick a meeting; r refreshes.
+- **Right pane**: the selected meeting's rate before and after, odds of holding / a 25bp / a 50bp move, how it was priced a week and a month ago, the Fed dot for that year, and WIRE headlines about the Fed.
+- **Market vs Fed dots**: the median fed funds projection for each year and the longer run from the latest Summary of Economic Projections, next to the previous SEP and the market's year-end rate.
+- **Treasury curve**: 1M–30Y par yields today vs about 1 month and 1 year ago, with 1-month changes.
+
+How the path is worked out: each monthly 30-day fed funds future (CBOT ZQ) implies that month's average rate as 100 − price. In a month with a meeting on day d of N, the old rate holds d days and the new one N − d, so post = (N·average − d·pre) / (N − d); when the following month has no meeting, its average is used as the post-meeting rate directly. The first meeting starts from today's effective fed funds rate and each meeting's result feeds the next. The move is split between the two nearest 25bp steps for the odds (a +10bp move = 40% odds of a 25bp hike). If futures can't be loaded, the page says so instead of showing a path.
+
+Sources, all free and keyless: Yahoo Finance for ZQ futures prices (with ~3 months of daily closes, used for the 1-week / 1-month comparison), the Federal Reserve's FOMC calendar and SEP projections table (a checked copy is built in, marked in the page, if the Fed's site can't be reached), the U.S. Treasury's daily par yield curve CSV, FRED's CSV export (DFF, SOFR, DPRIME, DGS2, DGS10), and FOMC dates from the Calendar page. Data is cached in `fed-cache.json` (opens instantly) and refreshed every 4 hours; each day's futures-implied rates are also saved in `fed-history.json` so the comparisons keep working for contracts that have expired.
+
 ## Charts, momentum and "what moved it"
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
