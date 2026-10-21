@@ -1,4 +1,4 @@
-/* WIRE Graph workspace page */
+/* Tickerkite Graph workspace page */
 .app:not([data-page="graphs"]) .graphs-only{display:none!important}
 
 #graphs{display:flex;flex-direction:column;overflow-x:hidden}

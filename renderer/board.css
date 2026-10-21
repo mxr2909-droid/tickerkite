@@ -1,4 +1,4 @@
-/* WIRE decile board (Scorecards › BOARD) */
+/* Tickerkite decile board (Scorecards › BOARD) */
 .tabs .vtog{display:flex;gap:2px;margin-left:auto}
 .tabs .vtog button{font-size:12px;border:1px solid var(--line)}
 .bd-top{display:flex;gap:18px;align-items:center;padding:14px 18px 6px}

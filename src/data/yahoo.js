@@ -1,5 +1,5 @@
 // Yahoo Finance's public chart and search endpoints (no key). They're unofficial and can change or
-// rate-limit without notice; every Yahoo call in WIRE goes through here so a replacement lands in one file.
+// rate-limit without notice; every Yahoo call in Tickerkite goes through here so a replacement lands in one file.
 const { getText } = require("./http");
 
 const BASE = "https://query1.finance.yahoo.com";

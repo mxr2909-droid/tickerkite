@@ -84,7 +84,7 @@ function register(ctx) {
   const saves = () => readJSON(SAVES, { graphs: [] }).graphs || [];
   const downloads = () => require("electron").app.getPath("downloads");
   function freeName(base, ext) {
-    const stem = "WIRE " + (String(base || "graph").replace(/[^\w .()-]+/g, "").trim().slice(0, 60) || "graph");
+    const stem = "Tickerkite " + (String(base || "graph").replace(/[^\w .()-]+/g, "").trim().slice(0, 60) || "graph");
     let f = path.join(downloads(), `${stem}.${ext}`);
     for (let i = 2; fs.existsSync(f); i++) f = path.join(downloads(), `${stem} (${i}).${ext}`);
     return f;

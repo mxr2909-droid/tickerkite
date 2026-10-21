@@ -20,7 +20,7 @@ function register(ctx) {
       if (manual) { manual = false; dialog.showMessageBox({ type: "warning", message: "Couldn't check for updates", detail: String(e?.message || e) }); }
     });
     updater.on("update-not-available", () => {
-      if (manual) { manual = false; dialog.showMessageBox({ type: "info", message: "WIRE is up to date", detail: `You have version ${ctx.version}.` }); }
+      if (manual) { manual = false; dialog.showMessageBox({ type: "info", message: "Tickerkite is up to date", detail: `You have version ${ctx.version}.` }); }
     });
     updater.on("update-downloaded", async (info) => {
       manual = false;
@@ -28,7 +28,7 @@ function register(ctx) {
       asked = true;
       const { response } = await dialog.showMessageBox({
         type: "info", buttons: ["Restart Now", "Later"], defaultId: 0, cancelId: 1,
-        message: `WIRE ${info.version} is ready`, detail: "Restart WIRE to finish updating. If you choose Later, it updates the next time you quit."
+        message: `Tickerkite ${info.version} is ready`, detail: "Restart Tickerkite to finish updating. If you choose Later, it updates the next time you quit."
       });
       if (response === 0) updater.quitAndInstall();
     });
@@ -41,7 +41,7 @@ function register(ctx) {
   return {
     checkNow() {
       if (!updater) {
-        dialog.showMessageBox({ type: "info", message: "Updates are off in development", detail: "Only the packaged, signed WIRE.app updates itself." });
+        dialog.showMessageBox({ type: "info", message: "Updates are off in development", detail: "Only the packaged, signed Tickerkite.app updates itself." });
         return;
       }
       manual = true;

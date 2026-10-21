@@ -1,5 +1,5 @@
 // Finnhub (finnhub.io), used only when you paste your own API key in Settings. The free plan covers
-// real-time quotes for US stocks and ETFs; WIRE uses it for watchlist prices and falls back to Yahoo
+// real-time quotes for US stocks and ETFs; Tickerkite uses it for watchlist prices and falls back to Yahoo
 // for anything Finnhub doesn't answer (indices, futures, FX, non-US listings).
 const { getJSON } = require("./http");
 

@@ -1,4 +1,4 @@
-/* WIRE Market heatmap page */
+/* Tickerkite Market heatmap page */
 .app:not([data-page="markets"]) .markets-only{display:none!important}
 #markets{padding:0 0 24px}
 .mbar{display:flex;align-items:center;gap:12px;padding:10px 14px;position:sticky;top:0;background:var(--list);z-index:1;border-bottom:1px solid var(--line)}

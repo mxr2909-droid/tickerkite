@@ -3,7 +3,7 @@
 //  - IPC channels start with "company:" (company:get / company:contact belong to the watchlist panel in main.js)
 // For any US-listed stock: profile and filing list (SEC submissions), full statements and valuation (SEC company
 // facts + Yahoo price), insider trades (Form 4 XML), institutional holders (Nasdaq, built from 13F filings) and
-// WIRE's own headlines about it. www.sec.gov wants a contact email in the User-Agent; without one the page asks.
+// Tickerkite's own headlines about it. www.sec.gov wants a contact email in the User-Agent; without one the page asks.
 const company = require("./company");
 const SEC = require("./sec");
 const WL = require("./watchlist");

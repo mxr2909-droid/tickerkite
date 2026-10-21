@@ -1,6 +1,6 @@
 // What news is relevant to each instrument.
 //  q  = Google News search used to find headlines on a past move day
-//  re = regex used to match live WIRE stories to the instrument
+//  re = regex used to match live Tickerkite stories to the instrument
 //  macro = live story desks that also move this instrument (e.g. Fed news moves yields)
 const { fetchText } = require("./news/fetcher");
 const { searchUrl } = require("./data/googlenews");
@@ -40,7 +40,7 @@ const instr = (sym, label = sym) => INSTR[sym] || WATCH.get(sym) || fallback(lab
 
 const storyText = (s) => `${s.title} ${s.summary} ${s.assets.join(" ")}`;
 
-/** Live WIRE stories relevant to an instrument since a timestamp. Direct topic matches first. */
+/** Live Tickerkite stories relevant to an instrument since a timestamp. Direct topic matches first. */
 function relevantLive(stories, sym, since, limit = 8) {
   const I = instr(sym);
   const out = [];

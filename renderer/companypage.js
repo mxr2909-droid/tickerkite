@@ -1,6 +1,6 @@
-/* WIRE Company page. Registers with app.js through window.WirePages (see the "pages" section there).
+/* Tickerkite Company page. Registers with app.js through window.WirePages (see the "pages" section there).
    Any US-listed stock: overview, financial statements, institutional holders, insider trades, SEC filings and
-   WIRE's headlines about it. Open it from the command bar (⌘K, "AAPL FA") or WireCompanyPage.open(sym, tab).
+   Tickerkite's headlines about it. Open it from the command bar (⌘K, "AAPL FA") or WireCompanyPage.open(sym, tab).
    src/companypage.js does the fetching (SEC EDGAR, Nasdaq for holders, Yahoo for the price). */
 (() => {
   const api = window.wire;
@@ -84,10 +84,10 @@
   }
   function newsList(items, max = 25) {
     if (!items) return `<p class="none">Loading headlines…</p>`;
-    if (!items.length) return `<p class="none">No headlines about ${esc(C.sym)} in WIRE's current news (the last 3 days).</p>`;
+    if (!items.length) return `<p class="none">No headlines about ${esc(C.sym)} in Tickerkite's current news (the last 3 days).</p>`;
     return items.slice(0, max).map((s) => `<button type="button" class="co-story" data-sid="${esc(s.id)}" data-url="${esc(s.link || "")}"><span class="h">${s.sev === "h" ? '<span class="badge hi">HI</span>' : ""}${esc(s.title)}</span><span class="dim">${esc(s.code)} · ${new Date(s.updated).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span></button>`).join("");
   }
-  const contactForm = () => `<div class="co-contact"><h3>One-time setup</h3><p>The SEC asks apps that read its filings to include a contact email in each request. WIRE sends it only to sec.gov, in the request header.</p>
+  const contactForm = () => `<div class="co-contact"><h3>One-time setup</h3><p>The SEC asks apps that read its filings to include a contact email in each request. Tickerkite sends it only to sec.gov, in the request header.</p>
     <form class="cform" id="cocontact"><input type="email" placeholder="you@example.com" aria-label="Contact email for SEC requests" required><button type="submit">Save</button><span class="dim"></span></form></div>`;
 
   // ---------- tabs ----------

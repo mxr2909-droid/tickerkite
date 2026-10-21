@@ -1,4 +1,4 @@
-/* WIRE settings (⌘,), the first-launch terms screen and the license lock. Main-process side: src/settings.js and src/license.js.
+/* Tickerkite settings (⌘,), the first-launch terms screen and the license lock. Main-process side: src/settings.js and src/license.js.
    Order at launch: terms not yet accepted → the terms screen; trial over and no license → the lock screen; otherwise nothing. */
 (() => {
   const api = window.wire;
@@ -55,7 +55,7 @@
     return `<p class="wset-state">${state}</p>${l.message && l.mode === "trial" ? `<p class="wset-note">${esc(l.message)}</p>` : ""}
       ${has ? `<div class="wset-row"><button type="button" data-act="check">Check again</button><button type="button" data-act="deactivate" class="ghost">Move to another Mac…</button></div>`
         : `<form class="wset-row" data-form="license"><input name="key" placeholder="License key" aria-label="License key" spellcheck="false" autocomplete="off"><button type="submit">Activate</button>
-          ${l.checkoutUrl ? `<button type="button" data-act="buy" class="${lock ? "" : "ghost"}">Buy WIRE</button>` : ""}</form>`}`;
+          ${l.checkoutUrl ? `<button type="button" data-act="buy" class="${lock ? "" : "ghost"}">Buy Tickerkite</button>` : ""}</form>`}`;
   }
 
   function render() {
@@ -66,30 +66,30 @@
     if (S.view === "gate-terms") {
       closable = false;
       body = `<h2>Before you start</h2>
-        <div class="wset-warn"><b>WIRE is not investment advice.</b> Prices and data are delayed, come from third-party sources, and can be wrong or missing.
-        Headlines link to their publishers, who own them. Don't make trading decisions on WIRE alone.</div>
+        <div class="wset-warn"><b>Tickerkite is not investment advice.</b> Prices and data are delayed, come from third-party sources, and can be wrong or missing.
+        Headlines link to their publishers, who own them. Don't make trading decisions on Tickerkite alone.</div>
         <div class="wset-doc" data-doc="terms">Loading…</div>
         <form class="wset-row" data-form="terms"><label class="wset-check"><input type="checkbox" name="ok" required> I've read and agree to the License Agreement and Privacy Policy</label>
         <button type="submit">Continue</button><button type="button" class="ghost" data-act="privacy">Privacy Policy</button></form>`;
     } else if (S.view === "gate-lock") {
       closable = false;
-      body = `<h2>${l.mode === "expired" ? "Your free trial has ended" : "WIRE needs a license"}</h2>
-        <p>Buy a license to keep using WIRE, or enter the key you received by email.</p>${licenseBlock(l, { lock: true })}`;
+      body = `<h2>${l.mode === "expired" ? "Your free trial has ended" : "Tickerkite needs a license"}</h2>
+        <p>Buy a license to keep using Tickerkite, or enter the key you received by email.</p>${licenseBlock(l, { lock: true })}`;
     } else if (S.view === "settings") {
       body = `<h2>Settings</h2>
         <section><h3>License</h3>${licenseBlock(l)}</section>
         <section><h3>Stock quotes</h3>
-          <p>WIRE gets prices from Yahoo Finance's public pages by default. Add your own free <b>Finnhub</b> key (finnhub.io › Get free API key) and prices for US stocks and ETFs on your watchlist and portfolio come from Finnhub instead. Indices, futures, FX and charts still use Yahoo.</p>
+          <p>Tickerkite gets prices from Yahoo Finance's public pages by default. Add your own free <b>Finnhub</b> key (finnhub.io › Get free API key) and prices for US stocks and ETFs on your watchlist and portfolio come from Finnhub instead. Indices, futures, FX and charts still use Yahoo.</p>
           ${st.finnhub.set ? `<div class="wset-row"><span class="wset-state">Finnhub key ${esc(st.finnhub.masked)} · in use</span><button type="button" class="ghost" data-act="rmkey">Remove</button></div>`
             : `<form class="wset-row" data-form="finnhub"><input name="key" placeholder="Finnhub API key" aria-label="Finnhub API key" spellcheck="false" autocomplete="off"><button type="submit">Save</button></form>`}
           <p class="wset-note">The key is stored in your macOS Keychain and sent only to finnhub.io.</p></section>
-        <section><h3>About</h3><p>WIRE ${esc(st.version)}</p>
+        <section><h3>About</h3><p>Tickerkite ${esc(st.version)}</p>
           <div class="wset-row"><button type="button" class="ghost" data-act="updates">Check for updates</button><button type="button" class="ghost" data-act="terms">License Agreement</button>
           <button type="button" class="ghost" data-act="privacy">Privacy Policy</button><button type="button" class="ghost" data-act="sources">Data Sources</button></div></section>`;
     } else {
       body = `<div class="wset-doc" data-doc="${S.view}">Loading…</div>`;
     }
-    el.innerHTML = `<div class="wset-back"${closable ? ' data-act="close"' : ""}></div><div class="wset-box" role="dialog" aria-modal="true" aria-label="WIRE">
+    el.innerHTML = `<div class="wset-back"${closable ? ' data-act="close"' : ""}></div><div class="wset-box" role="dialog" aria-modal="true" aria-label="Tickerkite">
       ${closable ? '<button type="button" class="wset-x" data-act="close" aria-label="Close">×</button>' : ""}${body}
       <p class="wset-msg" role="status" aria-live="polite">${esc(S.msg)}</p></div>`;
     el.querySelectorAll("[data-doc]").forEach(async (d) => { d.innerHTML = md(await call("settings:legal", d.dataset.doc)); });

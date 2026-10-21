@@ -1,7 +1,7 @@
-/* WIRE Brief page. Registers with app.js through window.WirePages (see the "pages" section there).
+/* Tickerkite Brief page. Registers with app.js through window.WirePages (see the "pages" section there).
    One screen to start the day: overnight markets, the biggest stories since you last looked, your portfolio,
    the Scorecards outlooks and what changed, and today's releases (with their market reaction once measured).
-   It opens by itself the first time you look at WIRE each day, or after 4+ hours away. src/brief.js assembles it. */
+   It opens by itself the first time you look at Tickerkite each day, or after 4+ hours away. src/brief.js assembles it. */
 (() => {
   const api = window.wire;
   const $ = (s) => document.querySelector(s);
@@ -10,7 +10,7 @@
   const AWAY_MS = 4 * 3600e3;
 
   // ---------- when to open by itself ----------
-  // "last seen" is the last minute WIRE was the focused window; the brief covers everything after it
+  // "last seen" is the last minute Tickerkite was the focused window; the brief covers everything after it
   const get = (k) => { try { return +localStorage.getItem(k) || 0; } catch { return 0; } };
   const set = (k, v) => { try { localStorage.setItem(k, String(v)); } catch {} };
   const seen = () => { if (document.hasFocus()) set("wire.lastSeen", Date.now()); };

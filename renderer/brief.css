@@ -1,4 +1,4 @@
-/* WIRE Brief page */
+/* Tickerkite Brief page */
 .app:not([data-page="brief"]) .brief-only{display:none!important}
 
 .bf{padding:18px 20px 28px 28px;display:flex;flex-direction:column;gap:14px;max-width:1100px}

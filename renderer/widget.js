@@ -1,4 +1,4 @@
-/* WIRE floating widget: top-ranked or latest headlines plus four key quotes. */
+/* Tickerkite floating widget: top-ranked or latest headlines plus four key quotes. */
 (() => {
   const api = window.wire;
   const $ = (s) => document.querySelector(s);
@@ -38,7 +38,7 @@
     } else {
       $("#list").innerHTML = list.map((s, i) => {
         const isNew = now - s.ts < 30 * 60e3 && !read.has(s.id);
-        return `<li class="it" data-id="${esc(s.id)}" title="Click: open in WIRE · ⌥-click: open article">
+        return `<li class="it" data-id="${esc(s.id)}" title="Click: open in Tickerkite · ⌥-click: open article">
           <span class="sev ${s.sev}"></span><span class="n">${i + 1}</span>
           <span class="h">${s.sev === "h" ? '<span class="badge hi">HI</span>' : ""}${isNew ? '<span class="badge nw">NEW</span>' : ""}${esc(s.title)}</span>
           <span class="meta"><span class="s">${esc(s.code)}</span><span>${esc(s.signal)}</span><span class="x">${s.sources.length > 1 ? "+" + (s.sources.length - 1) + " · " : ""}${fmtTime(s.updated)}</span></span></li>`;
@@ -62,11 +62,11 @@
     const by = new Map((W.quotes || []).map((q) => [q.sym, q]));
     $("#quotes").innerHTML = QUOTE_SYMS.map((sym) => {
       const q = by.get(sym);
-      if (!q || q.last == null) return `<div class="qt" data-sym="${sym}" title="Open chart in WIRE"><span class="lb">${SHORT[sym]}</span><span class="px">—</span><span class="pc"></span></div>`;
+      if (!q || q.last == null) return `<div class="qt" data-sym="${sym}" title="Open chart in Tickerkite"><span class="lb">${SHORT[sym]}</span><span class="px">—</span><span class="pc"></span></div>`;
       const up = q.chg >= 0;
       const px = q.type === "yld" ? q.last.toFixed(3) + "%" : q.last >= 1000 ? q.last.toLocaleString("en-US", { maximumFractionDigits: 0 }) : q.last.toFixed(2);
       const pc = q.type === "yld" ? `${up ? "+" : ""}${(q.chg * 100).toFixed(1)}bp` : `${up ? "+" : ""}${q.pct.toFixed(2)}%`;
-      return `<div class="qt" data-sym="${sym}" title="Open chart in WIRE"><span class="lb">${SHORT[sym]}</span><span class="px">${px}</span><span class="pc ${up ? "up" : "dn"}">${pc}</span></div>`;
+      return `<div class="qt" data-sym="${sym}" title="Open chart in Tickerkite"><span class="lb">${SHORT[sym]}</span><span class="px">${px}</span><span class="pc ${up ? "up" : "dn"}">${pc}</span></div>`;
     }).join("");
   }
 
@@ -98,7 +98,7 @@
   const applyQuotes = (q) => { W.quotes = q || []; renderQuotes(); };
 
   renderQuotes();
-  if (!api) { $("#list").innerHTML = `<li class="empty">Open this inside the WIRE app.</li>`; return; }
+  if (!api) { $("#list").innerHTML = `<li class="empty">Open this inside the Tickerkite app.</li>`; return; }
   api.onNews(applyNews);
   api.onQuotes(applyQuotes);
   api.widget.onOnTop(setPin);

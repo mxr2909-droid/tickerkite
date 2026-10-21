@@ -1,5 +1,5 @@
 // Default news sources. On first launch these are copied to
-// ~/Library/Application Support/WIRE/feeds.json, which you can edit
+// ~/Library/Application Support/Tickerkite/feeds.json, which you can edit
 // (View > Edit Feeds…). Changes apply on the next refresh.
 //
 // kind: "news" = headlines, "ctx" = background, analysis and opinion

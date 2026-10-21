@@ -1,10 +1,10 @@
-// Every request WIRE makes goes through here, so each one says honestly what it is: "WIRE/<version>",
+// Every request Tickerkite makes goes through here, so each one says honestly what it is: "Tickerkite/<version>",
 // never a browser's User-Agent. Set "homepage" in package.json and it's added as a contact URL.
 // `net: true` uses Electron's network stack (Chromium's), which some government sites need
 // (federalreserve.gov and bls.gov drop Node's own fetch); outside Electron it falls back to fetch.
 const pkg = require("../../package.json");
 
-const UA = `WIRE/${pkg.version} (macOS market news app${pkg.homepage ? "; +" + pkg.homepage : ""})`;
+const UA = `Tickerkite/${pkg.version} (macOS market news app${pkg.homepage ? "; +" + pkg.homepage : ""})`;
 
 function fetcher(net) {
   if (net) {

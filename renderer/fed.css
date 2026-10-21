@@ -1,4 +1,4 @@
-/* WIRE Fed path page */
+/* Tickerkite Fed path page */
 .app:not([data-page="fed"]) .fed-only{display:none!important}
 
 .fedbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:14px;padding:8px 10px 8px 52px;background:var(--list);border-bottom:1px solid var(--line);font-size:13px}

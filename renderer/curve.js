@@ -1,4 +1,4 @@
-/* WIRE Yield curve page. Registers with app.js through window.WirePages (see the "pages" section there).
+/* Tickerkite Yield curve page. Registers with app.js through window.WirePages (see the "pages" section there).
    Today's Treasury curve against a day, week, month, quarter and year ago; every tenor's moves in basis points;
    the 2s10s / 3m10y / 5s30s spreads with their history; and real yields with breakeven inflation on the right.
    src/curve.js fetches and caches the Treasury files. */

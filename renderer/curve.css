@@ -1,4 +1,4 @@
-/* WIRE Yield curve page */
+/* Tickerkite Yield curve page */
 .app:not([data-page="curve"]) .curve-only{display:none!important}
 
 .yc{padding:16px 20px 28px 28px;display:flex;flex-direction:column;gap:14px;max-width:1100px}

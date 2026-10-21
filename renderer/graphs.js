@@ -1,4 +1,4 @@
-/* WIRE Graph workspace page. Registers with app.js through window.WirePages (see the "pages" section there).
+/* Tickerkite Graph workspace page. Registers with app.js through window.WirePages (see the "pages" section there).
    Chart any FRED series or Yahoo symbol: several series on shared or dual axes or rebased to 100,
    per-series transforms and moving averages, recession shading, percentile clipping, a hover
    crosshair, trend/horizontal-line annotations, saved charts and CSV/PNG/Excel export.

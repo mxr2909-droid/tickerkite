@@ -1,6 +1,6 @@
 # Data Sources
 
-WIRE downloads all of its data directly to your Mac from the sources below. We don't own or control any of them, and none of them endorses WIRE. Data can be delayed, wrong or missing, and any source can change or stop working without notice.
+Tickerkite downloads all of its data directly to your Mac from the sources below. We don't own or control any of them, and none of them endorses Tickerkite. Data can be delayed, wrong or missing, and any source can change or stop working without notice.
 
 ## Prices and charts
 
@@ -9,7 +9,7 @@ WIRE downloads all of its data directly to your Mac from the sources below. We d
 
 ## News
 
-- **Publisher RSS feeds**: CNBC, MarketWatch, Yahoo Finance, BBC, Nikkei Asia, Financial Times, the Federal Reserve and the ECB. Each publisher owns its headlines. WIRE shows what the publisher's public feed includes and links to the full article.
+- **Publisher RSS feeds**: CNBC, MarketWatch, Yahoo Finance, BBC, Nikkei Asia, Financial Times, the Federal Reserve and the ECB. Each publisher owns its headlines. Tickerkite shows what the publisher's public feed includes and links to the full article.
 - **Google News** (news.google.com): public RSS searches that find stories from other outlets. Each story links to its original publisher.
 - You can add, remove or turn off feeds under View › Edit Feeds….
 

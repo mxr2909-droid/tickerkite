@@ -39,6 +39,16 @@ let upd = null; // updater.register() result: { checkNow() }
 const locked = () => !!lic?.status().locked;
 let prefs = { alerts: true, watchAlerts: true, releaseAlerts: true, widget: { open: false, onTop: false, bounds: null } };
 const userDir = () => app.getPath("userData");
+
+// The app was called WIRE before 1.0. On the first Tickerkite launch, copy the old data folder
+// (watchlist, portfolio, settings, caches, saved view state) so nothing is lost. The old folder stays.
+(function migrateFromWire() {
+  try {
+    const appData = app.getPath("appData");
+    const from = path.join(appData, "WIRE"), to = path.join(appData, "Tickerkite");
+    if (fs.existsSync(from) && !fs.existsSync(to)) fs.cpSync(from, to, { recursive: true });
+  } catch (e) { console.error("couldn't copy the WIRE data folder", e); }
+})();
 const file = (n) => path.join(userDir(), n);
 
 const state = {
@@ -314,7 +324,7 @@ function createWindow() {
     ...mainBounds(),
     minWidth: 900,
     minHeight: 560,
-    title: "WIRE",
+    title: "Tickerkite",
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 18, y: 18 },
     vibrancy: "sidebar",
@@ -394,7 +404,7 @@ function createWidget() {
     visualEffectState: "active",
     backgroundColor: "#00000000",
     show: false,
-    title: "WIRE Widget",
+    title: "Tickerkite Widget",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -602,7 +612,7 @@ app.whenReady().then(() => {
     state.seen = new Set(cache.seen || []);
   }
   watchFile();
-  app.setAboutPanelOptions({ applicationName: "WIRE", applicationVersion: require("../package.json").version, copyright: "Market data is delayed and for information only. Not investment advice." });
+  app.setAboutPanelOptions({ applicationName: "Tickerkite", applicationVersion: require("../package.json").version, copyright: "Market data is delayed and for information only. Not investment advice." });
   const ctx = {
     ipcMain, send, file, readJSON, writeJSON, bus, Notification, showStory, openExternal, savePrefs,
     packaged: app.isPackaged, version: require("../package.json").version,

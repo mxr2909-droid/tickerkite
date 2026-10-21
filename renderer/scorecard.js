@@ -1,4 +1,4 @@
-/* WIRE scorecards: one 0–100 outlook per asset class, built from ~50 economic and market indicators. */
+/* Tickerkite scorecards: one 0–100 outlook per asset class, built from ~50 economic and market indicators. */
 (() => {
   const api = window.wire;
   const $ = (s) => document.querySelector(s);

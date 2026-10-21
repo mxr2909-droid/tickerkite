@@ -5,7 +5,7 @@
 //
 // Lemon Squeezy's license API needs no secret: activate once per Mac (one "instance"), validate at launch and
 // every 12 hours, deactivate to move the license to another Mac. If the check can't reach Lemon Squeezy, the
-// last good answer holds for GRACE_DAYS, so WIRE keeps working offline.
+// last good answer holds for GRACE_DAYS, so Tickerkite keeps working offline.
 //
 // Before selling: create the product in Lemon Squeezy, turn on "Generate license keys", and fill in STORE below.
 // Development runs (npm start, not a packaged .app) are never locked.
@@ -14,8 +14,8 @@ const http = require("./data/http");
 
 const STORE = {
   storeId: null,      // your Lemon Squeezy store ID (number), e.g. 12345
-  productId: null,    // the WIRE product ID (number)
-  checkoutUrl: ""     // the product's checkout link, opened by "Buy WIRE"
+  productId: null,    // the Tickerkite product ID (number)
+  checkoutUrl: ""     // the product's checkout link, opened by "Buy Tickerkite"
 };
 const API = "https://api.lemonsqueezy.com/v1/licenses";
 const DAY = 864e5;
@@ -32,10 +32,10 @@ function status(st, { now = Date.now(), enforce = true } = {}) {
     const stale = now - (st.validatedAt || 0) > GRACE_DAYS * DAY;
     if (!stale) return { ...base, mode: "licensed", locked: false, key: mask(st.key), customer: st.customer || "", validatedAt: st.validatedAt };
     return { ...base, mode: "offline", locked: enforce && trialLeft === 0, key: mask(st.key), customer: st.customer || "",
-      message: `WIRE hasn't been able to check your license for ${GRACE_DAYS} days. Connect to the internet and press Check again.` };
+      message: `Tickerkite hasn't been able to check your license for ${GRACE_DAYS} days. Connect to the internet and press Check again.` };
   }
   if (st?.key && st.status) {
-    const message = { expired: "Your WIRE license has expired. Renew it to keep using WIRE.", disabled: "This license key has been disabled.",
+    const message = { expired: "Your Tickerkite license has expired. Renew it to keep using Tickerkite.", disabled: "This license key has been disabled.",
       inactive: "This license isn't active on this Mac. Enter it again to activate it." }[st.status] || `License status: ${st.status}.`;
     if (trialLeft > 0) return { ...base, mode: "trial", locked: false, key: mask(st.key), message };
     return { ...base, mode: "invalid", locked: enforce, key: mask(st.key), message };
@@ -79,7 +79,7 @@ function register(ctx) {
     const key = String(raw || "").trim();
     if (!/^[A-Za-z0-9-]{8,80}$/.test(key)) return { ok: false, error: "That doesn't look like a license key." };
     let j;
-    try { j = await call("activate", { license_key: key, instance_name: `${os.hostname()} (WIRE)` }); }
+    try { j = await call("activate", { license_key: key, instance_name: `${os.hostname()} (Tickerkite)` }); }
     catch (e) { return { ok: false, error: e.message }; }
     if (!j?.activated) return { ok: false, error: j?.error || "That key couldn't be activated." };
     if (!ours(j.meta)) return { ok: false, error: "That key is for a different product." };

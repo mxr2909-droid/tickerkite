@@ -1,4 +1,4 @@
-/* WIRE Economic calendar page. Registers with app.js through window.WirePages (see the "pages" section there).
+/* Tickerkite Economic calendar page. Registers with app.js through window.WirePages (see the "pages" section there).
    One week at a time: official US releases, Fed meetings and watchlist earnings, plus global events from
    Nasdaq's calendar, with survey (consensus), actual, prior and revised. After a release the surprise
    (actual − survey) is colored; the right pane charts actual vs survey for past releases. */
@@ -89,7 +89,7 @@
   function row(e, now) {
     const fb = scoreVals(e) || {};
     const s = surp(e.actual, e.survey);
-    const tag = e.estimated ? `<span class="x">estimated</span>` : e.fallback ? `<span class="x" title="Schedule from WIRE's checked list (source unreachable)">fallback</span>` : "";
+    const tag = e.estimated ? `<span class="x">estimated</span>` : e.fallback ? `<span class="x" title="Schedule from Tickerkite's checked list (source unreachable)">fallback</span>` : "";
     const actual = e.actual ? `<b class="${cls(s)}">${esc(e.actual)}</b>` : fb.actual ? `<span class="dim">${esc(fb.actual)}</span>` : "";
     return `<button type="button" class="row calrow c-${e.cat}${e.t <= now ? " done" : ""}" data-id="${esc(e.id)}" aria-selected="${e.id === C.sel}" title="${esc(countdown(e, now))}">
       <span class="n">${e.timed ? esc(clock(e.t)) : ""}</span>
@@ -188,7 +188,7 @@
     </svg><div class="calleg"><span class="ac">— actual</span><span class="sv">- - survey</span><span class="dim">dot: above / below / on survey</span></div>`;
   }
   function summary(st) {
-    if (!st) return `<p class="none">No releases with a survey on record yet. WIRE keeps each release as it prints and fills in the past in the background.</p>`;
+    if (!st) return `<p class="none">No releases with a survey on record yet. Tickerkite keeps each release as it prints and fills in the past in the background.</p>`;
     return `<p class="calsum">Last ${st.n} with a survey: <b class="up">${st.above} above</b>, <b class="dn">${st.below} below</b>, ${st.on} on it · typical miss ${esc(fmtN(st.miss))} · SD ${esc(fmtN(st.sd))}</p>`;
   }
   function histTable(list) {
@@ -212,7 +212,7 @@
     if (e.cat !== "earnings") kv += `<dt>Next</dt><dd class="calnext">${e.t > Date.now() ? esc(countdown(e)) : "…"}</dd>`;
     if (e.ref) kv += `<dt>${e.cat === "earnings" ? "COMPANY" : e.cat === "fed" && e.key === "fomc" ? "MEETING" : "PERIOD"}</dt><dd>${esc(e.ref)}</dd>`;
     kv += `<dt>Country</dt><dd>${e.flag || ""} ${esc(e.code || "")} · ${["", "low", "medium", "high"][e.rel || 1]} importance</dd>`;
-    kv += `<dt>Source</dt><dd>${esc(e.src || rel.agency || "")}${e.nq && e.key !== "nq" ? " · consensus from Nasdaq" : ""}${e.estimated ? " · estimated date" : ""}${e.fallback ? ` · WIRE fallback list, checked ${esc(C.data.fallbackChecked)}` : ""}</dd>`;
+    kv += `<dt>Source</dt><dd>${esc(e.src || rel.agency || "")}${e.nq && e.key !== "nq" ? " · consensus from Nasdaq" : ""}${e.estimated ? " · estimated date" : ""}${e.fallback ? ` · Tickerkite fallback list, checked ${esc(C.data.fallbackChecked)}` : ""}</dd>`;
     const s = surp(e.actual, e.survey);
     const fig = e.survey || e.actual || e.prior ? `<div class="calfig">
       <div><span>SURVEY</span><b>${esc(e.survey || "—")}</b></div>
@@ -241,7 +241,7 @@
       ${e.desc ? `<p class="caldesc">${esc(e.desc)}</p>` : ""}
       ${vals ? `<div class="isec">${e.t <= Date.now() ? "LATEST READING VS PREVIOUS" : "LAST READING VS PREVIOUS"} (SCORECARD)</div><dl class="kv calvals">${vals}</dl>` : ""}
       ${e.sym ? `<p><button type="button" class="calopen" data-sym="${esc(e.sym)}">Open ${esc(e.sym)} chart</button></p>` : ""}
-      <div class="isec">RELATED WIRE HEADLINES</div><div class="calhl"><p class="none">Searching…</p></div>`;
+      <div class="isec">RELATED TICKERKITE HEADLINES</div><div class="calhl"><p class="none">Searching…</p></div>`;
     if (e.hkey) {
       const tok = ++hToken;
       api.page.invoke("calendar:history", e.hkey).then((hs) => {
@@ -260,7 +260,7 @@
       const box = el.querySelector(".calhl");
       if (!box) return;
       box.innerHTML = hs.length ? hs.map((s) => `<button type="button" class="calstory" data-sid="${esc(s.id)}" data-url="${esc(s.url || "")}"><span class="h">${esc(s.title)}</span><span class="dim">${esc(s.publisher || "")}${s.ts ? " · " + esc(new Date(s.ts).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })) : ""}</span></button>`).join("")
-        : `<p class="none">No matching headlines in WIRE's current news.</p>`;
+        : `<p class="none">No matching headlines in Tickerkite's current news.</p>`;
     });
   }
 

@@ -1,4 +1,4 @@
-/* WIRE company panel: fundamentals (SEC EDGAR), valuation and next earnings for watchlist stocks.
+/* Tickerkite company panel: fundamentals (SEC EDGAR), valuation and next earnings for watchlist stocks.
    instrument.js calls WireCompany.mount(el, sym) on every render; data is kept here per symbol. */
 (() => {
   const api = window.wire;
@@ -48,7 +48,7 @@
     const d = r.data;
     if (!d.sec) { el.innerHTML = `<p class="cnote">${esc(d.reason)}.</p>`; return; }
     if (d.needContact) {
-      el.innerHTML = `${head}<p class="cnote">${esc(d.error)} Add one to load filings; WIRE sends it only to sec.gov, in the request header.</p>
+      el.innerHTML = `${head}<p class="cnote">${esc(d.error)} Add one to load filings; Tickerkite sends it only to sec.gov, in the request header.</p>
         <form class="cform"><input type="email" placeholder="you@example.com" aria-label="Contact email for SEC requests" required><button type="submit">SAVE</button><span class="dim"></span></form>`;
       const f = el.querySelector("form");
       f.addEventListener("submit", async (e) => {

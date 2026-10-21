@@ -1,4 +1,4 @@
-/* WIRE Fed path page. Registers with app.js through window.WirePages (see the "pages" section there).
+/* Tickerkite Fed path page. Registers with app.js through window.WirePages (see the "pages" section there).
    Where fed funds futures say the Fed's rate is going, meeting by meeting, against the Fed's own dots;
    how that path moved over the last week and month; the Treasury curve and a money-market strip. */
 (() => {
@@ -126,13 +126,13 @@
   function moved(d) {
     const p = d.path, ch = (o) => (o?.rows.length ? bp((p.end - o.end) * 100) : null);
     const w = ch(d.w1), m = ch(d.m1);
-    const cap = w || m ? `End-of-path rate ${[w && `${w} vs. a week ago`, m && `${m} vs. a month ago`].filter(Boolean).join(", ")}.` : "Builds up as WIRE saves daily prices.";
+    const cap = w || m ? `End-of-path rate ${[w && `${w} vs. a week ago`, m && `${m} vs. a month ago`].filter(Boolean).join(", ")}.` : "Builds up as Tickerkite saves daily prices.";
     return `<div class="isec fsec">HOW THE PATH MOVED <span class="flegend"><i class="now"></i>today <i class="w1"></i>1 week ago <i class="m1"></i>1 month ago <i class="dot"></i>Fed median dot</span></div>
       ${pathChart(d)}<p class="fcap">${esc(cap)}</p>`;
   }
 
   function dotsTable(d) {
-    return `<div class="isec fsec">MARKET VS FED DOTS <span class="dim">median fed funds projection, SEP of ${esc(day(d.sep.asOf))}${d.sep.live ? "" : ` · WIRE's checked copy (${esc(d.sepChecked)})`}</span></div>
+    return `<div class="isec fsec">MARKET VS FED DOTS <span class="dim">median fed funds projection, SEP of ${esc(day(d.sep.asOf))}${d.sep.live ? "" : ` · Tickerkite's checked copy (${esc(d.sepChecked)})`}</span></div>
       <div class="frow fdots fhead"><span>YEAR-END</span><span>FED DOT</span><span>PRIOR SEP</span><span>MARKET</span><span>MKT − DOT</span></div>
       ${d.dots.map((x) => `<div class="frow fdots"><span>${esc(x.year)}</span><span>${pct(x.dot)}</span><span class="dim">${pct(x.prior)}</span><span>${x.market == null ? `<span class="dim">${x.year === "Longer run" ? "—" : "past futures"}</span>` : pct(x.market)}</span><span class="${hikeCls(x.gap, 2)}">${x.gap == null ? "—" : bp(x.gap)}</span></div>`).join("")}`;
   }
@@ -160,11 +160,11 @@
     if (!d || d.loading) { el.innerHTML = `<div class="empty">Loading fed funds futures, Fed projections and Treasury yields…</div>`; return; }
     const errs = Object.keys(d.errors || {});
     const right = [d.effr != null ? `EFFR <b>${pct(d.effr)}</b>` : "", d.quoteAt ? `futures ${esc(new Date(d.quoteAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}` : "",
-      d.fetchedAt ? `data ${age(d.fetchedAt)}` : "", errs.length ? `unavailable: ${esc(errs.join(", "))}` : "", d.meetingsLive ? "" : "FOMC dates from WIRE's checked list"].filter(Boolean).join(" · ");
+      d.fetchedAt ? `data ${age(d.fetchedAt)}` : "", errs.length ? `unavailable: ${esc(errs.join(", "))}` : "", d.meetingsLive ? "" : "FOMC dates from Tickerkite's checked list"].filter(Boolean).join(" · ");
     let h = `<div class="fedbar"><span class="ftitle">FED FUNDS PATH, MARKET-IMPLIED</span>${d.target ? `<span class="dim">target ${d.target[0].toFixed(2)}–${d.target[1].toFixed(2)}%</span>` : ""}
       <span class="fnote">${right}</span><button type="button" class="frefresh" title="Refresh (r)">↻</button></div>`;
     let main = "";
-    if (!d.path) main = `<div class="empty">Fed funds futures aren't available right now${d.errors?.futures ? ` (${esc(d.errors.futures)})` : ""}, so there's no market-implied path. WIRE won't guess one; press r to try again.</div>`;
+    if (!d.path) main = `<div class="empty">Fed funds futures aren't available right now${d.errors?.futures ? ` (${esc(d.errors.futures)})` : ""}, so there's no market-implied path. Tickerkite won't guess one; press r to try again.</div>`;
     else main = tiles(d) + table(d) + moved(d);
     main += dotsTable(d);
     h += `<div class="fcols"><div class="fmain">${main}</div>${side(d)}</div>
@@ -217,13 +217,13 @@
         ${dot?.dot != null ? `<dt>${esc(dot.year)} DOT</dt><dd>${pct(dot.dot)} <span class="dim">Fed median for year-end</span></dd>` : ""}
       </dl>
       <p class="fnote2">Odds use the usual simplification: the expected move is split between the two nearest 25bp steps.</p>
-      <div class="isec">RELATED WIRE HEADLINES</div><div class="fhl"><p class="none">Searching…</p></div>`;
+      <div class="isec">RELATED TICKERKITE HEADLINES</div><div class="fhl"><p class="none">Searching…</p></div>`;
     const tok = ++hlToken;
     api.page.invoke("fed:headlines").then((hs) => {
       const box = el.querySelector(".fhl");
       if (tok !== hlToken || !box) return;
       box.innerHTML = hs.length ? hs.map((s) => `<button type="button" class="fstory" data-sid="${esc(s.id)}" data-url="${esc(s.url || "")}"><span class="h">${esc(s.title)}</span><span class="dim">${esc(s.publisher || "")}${s.ts ? " · " + esc(new Date(s.ts).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })) : ""}</span></button>`).join("")
-        : `<p class="none">No Fed headlines in WIRE's current news.</p>`;
+        : `<p class="none">No Fed headlines in Tickerkite's current news.</p>`;
     });
   }
 

@@ -1,4 +1,4 @@
-/* WIRE instrument view: price chart over a chosen range, 1st/2nd derivative momentum, stats,
+/* Tickerkite instrument view: price chart over a chosen range, 1st/2nd derivative momentum, stats,
    and the headlines behind the biggest moves. Renders into the right-hand detail pane. */
 (() => {
   const api = window.wire;
@@ -105,7 +105,7 @@
       <div class="rtabs" role="tablist">${RANGES.map((r) => `<button type="button" role="tab" data-range="${r}" aria-selected="${r === I.range}">${r}</button>`).join("")}
         <span class="upd num">${d ? "Updated " + new Date(d.fetchedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}</span></div>`;
     if (I.loading || (!d && !I.err)) { el.innerHTML = `<div class="inst">${head}<div class="iload">Loading ${esc(I.range)} history…</div></div>`; return; }
-    if (!d) { el.innerHTML = `<div class="inst">${head}<div class="iload">Couldn't load prices: ${esc(I.err)}. WIRE will try again; check your connection.</div></div>`; schedule(); return; }
+    if (!d) { el.innerHTML = `<div class="inst">${head}<div class="iload">Couldn't load prices: ${esc(I.err)}. Tickerkite will try again; check your connection.</div></div>`; schedule(); return; }
 
     el.innerHTML = `<div class="inst">${head}
       <div class="chart" id="ichart"><div class="tip" id="itip" hidden></div></div>
@@ -180,7 +180,7 @@
       let hl;
       if (!n) hl = I.newsLoading ? `<div class="hnone">Searching headlines…</div>` : `<div class="hnone">—</div>`;
       else if (n.error) hl = `<div class="hnone">Couldn't search news for this ${d.cfg.kind === "weekly" ? "week" : "day"} (${esc(n.error)}).</div>`;
-      else if (!n.headlines.length) hl = `<div class="hnone">${d.cfg.kind === "intra" ? "No matching headline in the WIRE feed around this time." : "No matching headlines found."}</div>`;
+      else if (!n.headlines.length) hl = `<div class="hnone">${d.cfg.kind === "intra" ? "No matching headline in the Tickerkite feed around this time." : "No matching headlines found."}</div>`;
       else hl = n.headlines.map((h) => `<button type="button" class="hl" data-url="${esc(h.link)}"><span class="c">${esc(h.code)}</span><span class="t">${esc(h.title)}</span></button>`).join("");
       return `<div class="mv" data-n="${m.n}"><div class="mvh num"><button type="button" class="mk" data-act="chart" title="Back up to the chart">${m.n}</button><span class="md">${esc(moveLabel(m))}</span>
         <span class="mr ${m.ret >= 0 ? "up" : "dn"}">${fmtRet(m.ret, type)}</span><span class="mz" title="Size versus a typical ${barWord()} in this range">${Math.abs(m.z).toFixed(1)}σ</span></div>${hl}</div>`;
@@ -189,7 +189,7 @@
     const live = I.news?.live || [];
     const liveHtml = live.length
       ? live.map((s) => `<button type="button" class="hl" data-story="${esc(s.id)}" data-url="${esc(s.link)}"><span class="c">${esc(s.code)}</span><span class="t">${s.sev === "h" ? '<span class="badge hi">HI</span>' : ""}${esc(s.title)}</span><span class="w num">${new Date(s.ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span></button>`).join("")
-      : `<div class="hnone">${I.newsLoading ? "Checking the feed…" : "Nothing in the current WIRE feed mentions this market."}</div>`;
+      : `<div class="hnone">${I.newsLoading ? "Checking the feed…" : "Nothing in the current Tickerkite feed mentions this market."}</div>`;
 
     box.innerHTML = `
       <div class="isec">WHAT MOVED IT · ${moves.length} BIGGEST ${moveWord().toUpperCase()}</div>

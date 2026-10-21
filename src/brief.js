@@ -3,7 +3,7 @@
 //  - IPC channels must start with "brief:" (the preload only forwards those)
 // Everything here is assembled from what other modules already hold (stories, quotes, scorecards, the calendar,
 // release reactions, the portfolio), plus index futures, so the brief opens instantly. The renderer decides when to
-// show it (first look of the day, or after 4+ hours away) and passes `since`, the time you last had WIRE in front of you.
+// show it (first look of the day, or after 4+ hours away) and passes `since`, the time you last had Tickerkite in front of you.
 const quotes = require("./quotes");
 
 const MARKETS = ["^GSPC", "^IXIC", "^TNX", "DX-Y.NYB", "BZ=F", "GC=F", "BTC-USD", "^VIX", "^STOXX50E", "^N225"];

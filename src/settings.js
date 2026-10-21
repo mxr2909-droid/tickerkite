@@ -46,7 +46,7 @@ function register(ctx) {
     const key = String(raw || "").trim();
     if (!key) { delete prefs().finnhubKey; ctx.savePrefs(); applyKeys(); ctx.refreshQuotes(); return { ok: true, settings: snapshot() }; }
     if (!/^[A-Za-z0-9_-]{10,80}$/.test(key)) return { ok: false, error: "That doesn't look like a Finnhub key." };
-    if (!canEncrypt()) return { ok: false, error: "macOS Keychain isn't available, so WIRE can't store the key safely." };
+    if (!canEncrypt()) return { ok: false, error: "macOS Keychain isn't available, so Tickerkite can't store the key safely." };
     const t = await finnhub.testKey(key);
     if (!t.ok) return t;
     prefs().finnhubKey = safeStorage.encryptString(key).toString("base64");

@@ -1,4 +1,4 @@
-/* WIRE Portfolio page. Registers with app.js through window.WirePages (see the "pages" section there).
+/* Tickerkite Portfolio page. Registers with app.js through window.WirePages (see the "pages" section there).
    Your holdings with today's gain/loss, total gain against what you paid, the asset mix, and how the Scorecards
    outlooks add up for your mix. src/portfolio.js keeps the holdings (portfolio.json) and prices them. */
 (() => {
@@ -92,7 +92,7 @@
       const scored = d.mix.filter((m) => m.score != null);
       el.innerHTML = `<h1>Your outlook</h1>
         ${d.outlook == null ? `<p class="none">${d.rows.length ? "The outlook appears once the Scorecards data has loaded." : "Add holdings to get an outlook for your mix."}</p>` : `
-        <p>Your holdings score <b class="${grade(d.outlook)}">${d.outlook}/100</b> (${word(d.outlook).toLowerCase()}) on WIRE's 6–12 month Scorecards. That's each asset class's outlook, weighted by how much of your money is in it${d.cash ? `; the ${d.cash.toFixed(0)}% in cash isn't scored` : ""}.</p>
+        <p>Your holdings score <b class="${grade(d.outlook)}">${d.outlook}/100</b> (${word(d.outlook).toLowerCase()}) on Tickerkite's 6–12 month Scorecards. That's each asset class's outlook, weighted by how much of your money is in it${d.cash ? `; the ${d.cash.toFixed(0)}% in cash isn't scored` : ""}.</p>
         <dl class="kv">${scored.map((m) => `<dt>${esc(m.label)}</dt><dd><b class="${grade(m.score)}">${m.score}</b> <span class="dim">· ${m.weight.toFixed(0)}% of your money</span></dd>`).join("")}</dl>
         <p class="pf-hint">Click a holding to change its shares, cost or asset class. Wrong class? Changing it changes the outlook.</p>`}
         <div class="isec">NEWS ABOUT YOUR HOLDINGS</div>${newsList(d.news)}`;

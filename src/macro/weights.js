@@ -1,5 +1,5 @@
 // Default scorecard weights. On first launch these are copied to
-// ~/Library/Application Support/WIRE/scorecard-weights.json (View › Edit Scorecard Weights…).
+// ~/Library/Application Support/Tickerkite/scorecard-weights.json (View › Edit Scorecard Weights…).
 //
 // Each asset gives every factor a weight from -2 to +2: how much "more of this factor"
 // helps (+) or hurts (-) that asset over the next 6–12 months. 0 or missing = ignored.

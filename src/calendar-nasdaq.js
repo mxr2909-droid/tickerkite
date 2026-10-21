@@ -5,7 +5,7 @@
 // (October CPI shows 08:30, a November 8:30 EST release shows 09:30 while it's still EDT).
 // And ?date=D answers with the events of the day before D (Wednesday's MBA and Beige Book come
 // back for Thursday's date), so fetchDay asks for the next day.
-// No period, importance or revisions come with it, so WIRE adds importance from the table below
+// No period, importance or revisions come with it, so Tickerkite adds importance from the table below
 // and works out revisions from the release history it keeps (calendar-history.json).
 
 const DAY = 864e5;

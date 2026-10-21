@@ -1,4 +1,4 @@
-# WIRE — Market News Terminal for Mac
+# Tickerkite — Market News Terminal for Mac
 
 A desktop news terminal that pulls headlines from about 17 live sources every 2 minutes, merges the same story reported by different outlets, and ranks what is most likely to move markets. Delayed quotes for indices, yields, FX, oil, gold and bitcoin sit in the sidebar. Free sources only, no API keys.
 
@@ -20,7 +20,7 @@ The first pull takes about 10 seconds. After that the app opens instantly from i
 npm run dist
 ```
 
-The installer lands in `dist/`. Without an Apple Developer ID certificate the build is unsigned, so the first time you open it, right-click **WIRE.app → Open → Open**. See *Selling WIRE* below to sign and notarize it.
+The installer lands in `dist/`. Without an Apple Developer ID certificate the build is unsigned, so the first time you open it, right-click **Tickerkite.app → Open → Open**. See *Selling Tickerkite* below to sign and notarize it.
 
 ## Using it
 
@@ -42,23 +42,23 @@ The installer lands in `dist/`. Without an Apple Developer ID certificate the bu
 
 ## Watchlist
 
-Type a ticker into **+ add ticker** in the sidebar and press Enter. Any Yahoo Finance symbol works: `NVDA`, `BRK-B`, `7203.T`, `ASML.AS`. WIRE checks the symbol exists and looks up the company name.
+Type a ticker into **+ add ticker** in the sidebar and press Enter. Any Yahoo Finance symbol works: `NVDA`, `BRK-B`, `7203.T`, `ASML.AS`. Tickerkite checks the symbol exists and looks up the company name.
 
 - Each ticker shows its price, day change and sparkline. Click it for the full chart, momentum and "what moved it", the same as the markets below it. Hover and click **×**, or select it and press Delete, to remove it.
 - Stories that mention your tickers get a green **★ NVDA** tag. **Watchlist** in the sidebar shows only those stories.
 - A story counts as a mention when it uses the ticker in capitals (`NVDA`, `$NVDA`) or the company's short name ("Nvidia"). One- and two-letter tickers only count as `$F` or `(F)`, so "F-35" isn't a Ford story.
 - A new story about one of your tickers sends a notification whatever its impact score. Turn this off under **View › Alerts for Watchlist Headlines**.
 - For US stocks, the ticker's view also shows a **Company** section under the key numbers:
-  - **Next earnings date**, from Nasdaq. The label says whether the date is confirmed or a Zacks estimate. When Nasdaq has no future date, WIRE estimates it from the company's past filing dates and labels it **ESTIMATED**.
+  - **Next earnings date**, from Nasdaq. The label says whether the date is confirmed or a Zacks estimate. When Nasdaq has no future date, Tickerkite estimates it from the company's past filing dates and labels it **ESTIMATED**.
   - **Valuation**: market cap, P/E (delayed price ÷ trailing-twelve-month diluted EPS) and price/sales, plus where today's P/E sits in its 5-year range.
   - **Fundamentals**: TTM revenue, net income, EPS, gross and operating margin, cash, total debt and shares outstanding.
   - **The last 8 quarters**.
-- Fundamentals come from SEC EDGAR 10-Q/10-K filings (free, no key). WIRE caches them for 24 hours in `company-cache.json`.
+- Fundamentals come from SEC EDGAR 10-Q/10-K filings (free, no key). Tickerkite caches them for 24 hours in `company-cache.json`.
   - The fourth quarter only appears inside the annual report, so it's worked out as the annual figure minus the first nine months, marked `*`.
   - Per-share figures are adjusted for stock splits.
-- The SEC asks apps to send a contact email with each request. The first time you open a stock, the section asks for one. WIRE sends it only to sec.gov and saves it in `prefs.json` (`secContact`).
+- The SEC asks apps to send a contact email with each request. The first time you open a stock, the section asks for one. Tickerkite sends it only to sec.gov and saves it in `prefs.json` (`secContact`).
 - ETFs, crypto, futures and non-US stocks show "No SEC filings for this symbol" instead of the Company section.
-- **View › Edit Watchlist…** opens `watchlist.json`. Edit `terms` to change which words count as a mention, for example `["Nvidia", "Jensen Huang"]` or, for Target, `["Target Corp"]` so "inflation target" doesn't match. WIRE picks up the change as soon as you save.
+- **View › Edit Watchlist…** opens `watchlist.json`. Edit `terms` to change which words count as a mention, for example `["Nvidia", "Jensen Huang"]` or, for Target, `["Target Corp"]` so "inflation target" doesn't match. Tickerkite picks up the change as soon as you save.
 
 ## Scorecards
 
@@ -79,9 +79,9 @@ Click **Scorecards** at the top (or ⌘⌥2; ⌘⌥1 goes back to News). Each ta
 2. Every indicator feeds one **factor**: growth, inflation, labor, yields, Fed policy, credit, financial conditions, dollar, market stress, consumer, global, or the asset's own price trend.
 3. Each asset weights each factor from −2 to +2. Rising inflation is −1 for stocks, −2 for bonds and +2 for commodities, for example. A factor's weight is split across its indicators, so inflation having 7 indicators doesn't make it count 7 times.
 4. The weighted average is stretched (×1.5) and mapped to 0–100.
-5. **Inflation mode.** Stocks and bonds usually move apart: bad news means rate cuts, so bonds rally. When inflation is the main worry (the 1970s, 2022), bad news means higher rates and both fall together. WIRE measures inflation pressure from the inflation indicators and blends toward a second set of weights, `inflationary`, as it rises. In that set, bonds lose their credit as a hedge and inflation and rising yields hurt stocks and bonds more. `inflationMode.center` and `width` set where the switch happens. To turn it off, set `"inflationary": {}`.
+5. **Inflation mode.** Stocks and bonds usually move apart: bad news means rate cuts, so bonds rally. When inflation is the main worry (the 1970s, 2022), bad news means higher rates and both fall together. Tickerkite measures inflation pressure from the inflation indicators and blends toward a second set of weights, `inflationary`, as it rises. In that set, bonds lose their credit as a hedge and inflation and rising yields hurt stocks and bonds more. `inflationMode.center` and `width` set where the switch happens. To turn it off, set `"inflationary": {}`.
 
-Tune everything in **View › Edit Scorecard Weights…** (`scorecard-weights.json`). WIRE recalculates as soon as you save. **Reset Scorecard Weights to Defaults** undoes your changes. The math is in `src/macro/score.js` and the indicator list in `src/macro/indicators.js`.
+Tune everything in **View › Edit Scorecard Weights…** (`scorecard-weights.json`). Tickerkite recalculates as soon as you save. **Reset Scorecard Weights to Defaults** undoes your changes. The math is in `src/macro/score.js` and the indicator list in `src/macro/indicators.js`.
 
 ### Backtest
 
@@ -99,7 +99,7 @@ It uses today's revised data and overlapping 12-month windows, so treat it as a 
 
 ### Recession odds
 
-Under the regime box, **RECESSION ODDS · 12 MONTHS** shows the chance of a US recession 12 months from now from the classic yield-curve probit: P = Φ(a + b × spread), where spread = 10-year minus 3-month Treasury yield (FRED `GS10` − `TB3MS`, monthly since 1953) and the outcome is the NBER recession flag (`USREC`) 12 months later. WIRE fits a and b itself by maximum likelihood on every month whose outcome is known, and refits on each daily refresh (cached in `recession-cache.json`). The latest reading uses the daily `T10Y3M` (30-day average) when it is fresher than the monthly data; the detail pane says which. The Sahm rule (`SAHMREALTIME`, triggered at 0.50) is shown alongside as a second signal.
+Under the regime box, **RECESSION ODDS · 12 MONTHS** shows the chance of a US recession 12 months from now from the classic yield-curve probit: P = Φ(a + b × spread), where spread = 10-year minus 3-month Treasury yield (FRED `GS10` − `TB3MS`, monthly since 1953) and the outcome is the NBER recession flag (`USREC`) 12 months later. Tickerkite fits a and b itself by maximum likelihood on every month whose outcome is known, and refits on each daily refresh (cached in `recession-cache.json`). The latest reading uses the daily `T10Y3M` (30-day average) when it is fresher than the monthly data; the detail pane says which. The Sahm rule (`SAHMREALTIME`, triggered at 0.50) is shown alongside as a second signal.
 
 Click the box for the right-pane detail: probability history with recessions shaded and the 30% threshold, the spread history, the fitted parameters and range, the base rate, and the track record. A warning is a run of months at or above 30%; it catches a recession that starts 0–24 months after the run begins (lead = months between them). A run with no recession within 24 months is a false alarm; one that started less than 24 months ago is pending. As of October 2026 it caught 7 of the 10 recessions since 1957 (missing 1957, 1960 and 1990), with a 9-month average lead, and gave 2 false alarms (1966, 2022–24).
 
@@ -129,7 +129,7 @@ The Markets page (⌘⌥4) is a heatmap of what's leading and lagging, in three 
 
 Tiles are green or red by return, darker the bigger the move relative to the period. Switch periods with the buttons or keys 1–9 (1D, 1W, 1M, 3M, YTD, 1Y, 3Y, 5Y, 10Y); each period has its own color scale. Click a tile for the right pane: a RETURNS table (TOTAL, plus PER YEAR annualized for 3Y/5Y/10Y), how far back the history goes, the 52-week high with its date and your distance from it, and a PRICE HISTORY chart (1Y/3Y/5Y/10Y/MAX, daily closes for 1Y, weekly beyond, last point at the live price, dashed line at the 52-week high). Click the tile again, press Enter, or use "Open chart" for the full price chart. A period longer than a symbol's history shows —.
 
-WIRE downloads one year of daily prices per symbol from Yahoo Finance and computes every period locally; the full weekly history (for 3Y+ and the long chart) is downloaded once a day and kept in `markets-history-cache.json` (long returns are measured from the last weekly close before the start date). It refreshes every 5 minutes while the US market is open and every 30 minutes otherwise (only after you first open the page), and keeps the last result in `markets-cache.json` in the app's data folder so the page opens instantly. Returns are price returns in each market's own currency, ignoring dividends.
+Tickerkite downloads one year of daily prices per symbol from Yahoo Finance and computes every period locally; the full weekly history (for 3Y+ and the long chart) is downloaded once a day and kept in `markets-history-cache.json` (long returns are measured from the last weekly close before the start date). It refreshes every 5 minutes while the US market is open and every 30 minutes otherwise (only after you first open the page), and keeps the last result in `markets-cache.json` in the app's data folder so the page opens instantly. Returns are price returns in each market's own currency, ignoring dividends.
 
 ## Calendar
 
@@ -138,12 +138,12 @@ The Calendar page (⌘⌥3) shows one week at a time: US economic releases, Fed 
 - **Columns**: time (ET), country flag and code, importance (●●● high, ●●○ medium, ●○○ low), event, period, survey (consensus), actual, surprise (actual − survey; green above, red below the survey), prior and revised (when the previous reading changed since it first printed).
 - **Filters**: G10 / Americas / Europe/MEA / Asia/Pacific / World (keys 1–5) and All / Macro / Fed / Earnings. ‹ › or ←/→ change week, "This week" or t goes back to now (and to the next event), / searches event names and countries (Esc clears). ↑/↓ or j/k move, r re-downloads everything. Hovering a row shows its countdown.
 - **Official backbone**: CPI, PPI, jobs report, JOLTS, weekly jobless claims, GDP, PCE, retail sales and FOMC decisions come from the agencies' own schedules (below) and take their survey/actual/prior from the matching Nasdaq row, so the time and period are the official ones. If Nasdaq has no row (or is down) they still show, with the last reading from the scorecard data instead.
-- **Right pane**: when, a countdown to this release and to the next one, the survey/actual/surprise/prior figures, then *actual vs survey* for up to the last 24 releases: a line chart (actual solid, survey dashed, dots green/red/grey for above/below/on), a summary like "Last 23 with a survey: 6 above, 12 below, 5 on it · typical miss 0.3% · SD 0.6%" (typical miss = average absolute surprise, SD = standard deviation of the surprises) and a table of release date, period, actual, survey, prior (→ revised) and surprise. Below that, Nasdaq's description of the indicator, the scorecard readings and WIRE headlines that mention it. Earnings rows open the stock's chart with Enter.
+- **Right pane**: when, a countdown to this release and to the next one, the survey/actual/surprise/prior figures, then *actual vs survey* for up to the last 24 releases: a line chart (actual solid, survey dashed, dots green/red/grey for above/below/on), a summary like "Last 23 with a survey: 6 above, 12 below, 5 on it · typical miss 0.3% · SD 0.6%" (typical miss = average absolute surprise, SD = standard deviation of the surprises) and a table of release date, period, actual, survey, prior (→ revised) and surprise. Below that, Nasdaq's description of the indicator, the scorecard readings and Tickerkite headlines that mention it. Earnings rows open the stock's chart with Enter.
 
 Sources, all free and keyless:
-- Schedules: the Federal Reserve's FOMC calendar page, BEA's release schedule (GDP, PCE), Census's retail sales schedule and BLS's per-release schedule pages (CPI, PPI, jobs, JOLTS). Jobless claims follow the Labor Department's rule (Thursdays, Wednesday in Thanksgiving and Christmas weeks). Cached in `calendar-cache.json` and refreshed once a day. BLS often blocks apps, so when a source can't be reached WIRE uses a built-in list checked against the official pages, and those rows are tagged "fallback".
-- Consensus and global events: `api.nasdaq.com/api/calendar/economicevents`, one request per day shown. Cached in `calendar-nasdaq.json` (60 days): today is re-read every 15 minutes while the app is open (and on opening the page if it is 10+ minutes old), so actuals appear soon after they print, past days settle after two days, future days every 6 hours. Two quirks WIRE corrects for: the reply for a date holds the previous day's events, and its times are Eastern at today's offset. Nasdaq gives no importance, period or revisions, so importance comes from WIRE's own list (headline releases and central-bank heads are high, anything with a forecast medium, the rest low), periods only for the official releases, and revisions from the history below. When Nasdaq is unreachable the bar says "consensus unavailable" and the official schedule carries on.
-- History: every release WIRE sees (survey, actual, prior) goes into `calendar-history.json` in the app's data folder, keyed by country and event, last 36 per event, so it builds up over time. On first run WIRE also walks back two years of past days in the background, one day every 4 seconds (about 50 minutes of the app being open, resumed where it left off), so the charts have depth early. Events Nasdaq lists twice under one name (CPI y/y and m/m, building permits level and %) are kept apart by matching each to the series its prior continues.
+- Schedules: the Federal Reserve's FOMC calendar page, BEA's release schedule (GDP, PCE), Census's retail sales schedule and BLS's per-release schedule pages (CPI, PPI, jobs, JOLTS). Jobless claims follow the Labor Department's rule (Thursdays, Wednesday in Thanksgiving and Christmas weeks). Cached in `calendar-cache.json` and refreshed once a day. BLS often blocks apps, so when a source can't be reached Tickerkite uses a built-in list checked against the official pages, and those rows are tagged "fallback".
+- Consensus and global events: `api.nasdaq.com/api/calendar/economicevents`, one request per day shown. Cached in `calendar-nasdaq.json` (60 days): today is re-read every 15 minutes while the app is open (and on opening the page if it is 10+ minutes old), so actuals appear soon after they print, past days settle after two days, future days every 6 hours. Two quirks Tickerkite corrects for: the reply for a date holds the previous day's events, and its times are Eastern at today's offset. Nasdaq gives no importance, period or revisions, so importance comes from Tickerkite's own list (headline releases and central-bank heads are high, anything with a forecast medium, the rest low), periods only for the official releases, and revisions from the history below. When Nasdaq is unreachable the bar says "consensus unavailable" and the official schedule carries on.
+- History: every release Tickerkite sees (survey, actual, prior) goes into `calendar-history.json` in the app's data folder, keyed by country and event, last 36 per event, so it builds up over time. On first run Tickerkite also walks back two years of past days in the background, one day every 4 seconds (about 50 minutes of the app being open, resumed where it left off), so the charts have depth early. Events Nasdaq lists twice under one name (CPI y/y and m/m, building permits level and %) are kept apart by matching each to the series its prior continues.
 
 ## Fed
 
@@ -153,7 +153,7 @@ The Fed page (⌘⌥5) shows where markets expect the Fed's policy rate to go, m
 - **Four tiles**: the next FOMC meeting's odds of a 25bp move and its direction; the cumulative move priced by the last meeting with futures ("+75bp ≈ 3.0 hikes"); the peak (or trough) implied rate and the meeting it comes after; and the gap between the market and the Fed's latest median dot.
 - **Meeting by meeting**: a "Today" row (EFFR), then each meeting's implied rate, move in bp, odds of a 25bp move as a bar (red for hikes, blue for cuts), cumulative bp, cumulative number of hikes, and the prime rate that implies (fed funds + 3.12%). Meetings with new projections are tagged SEP. ↑/↓ or j/k pick a meeting; r refreshes.
 - **How the path moved**: a stepped chart of today's path, with the path as of 1 week ago (dashed) and 1 month ago (dotted) and the Fed's median dots as diamonds, plus how much the end-of-path rate moved.
-- **Right pane**: the selected meeting's rate before and after, odds of holding / a 25bp / a 50bp move, how it was priced a week and a month ago, the Fed dot for that year, and WIRE headlines about the Fed.
+- **Right pane**: the selected meeting's rate before and after, odds of holding / a 25bp / a 50bp move, how it was priced a week and a month ago, the Fed dot for that year, and Tickerkite headlines about the Fed.
 - **Market vs Fed dots**: the median fed funds projection for each year and the longer run from the latest Summary of Economic Projections, next to the previous SEP and the market's year-end rate.
 - **Treasury curve and money markets** (right column, or below on narrow windows): 1M–30Y par yields today, about 1 month ago (dashed) and 1 year ago (dotted), with 3M/2Y/10Y/30Y levels and 1-month / 1-year changes; then effective fed funds, SOFR, prime, 2Y and 10Y with 1-month changes.
 
@@ -172,7 +172,7 @@ The Graphs page (⌘⌥6) is a charting workspace for any FRED series or market 
 - **Reading it**: legend chips show each series' latest value and date ("UNRATE 4.3% 09/26"), and the latest value sits as a colored tag on its axis. Under the chart, for the selected series (click its name): frequency, where the latest reading ranks in its full history ("30th percentile of 314 readings since 1948"), the transform, the prior print, the value a year ago, the source ID and OPEN ON FRED.
 - **Lines**: TREND LINE then drag; H-LINE then click. Click a line (with no tool selected) to remove it, or CLEAR LINES. In DUAL mode lines attach to the selected series' axis.
 - **Save**: SAVE names the chart (series, transforms, range, lines) into `graphs.json`; reopen or delete it from **MY GRAPHS** in the right pane. NEW starts over. The current chart is also kept between launches.
-- **Export**: CSV and PNG go to ~/Downloads ("WIRE <name>.csv/.png"); COPY FOR EXCEL puts tab-separated rows on the clipboard. Exports hold what's on the chart (transformed, in range, MA columns included).
+- **Export**: CSV and PNG go to ~/Downloads ("Tickerkite <name>.csv/.png"); COPY FOR EXCEL puts tab-separated rows on the clipboard. Exports hold what's on the chart (transformed, in range, MA columns included).
 
 Data: FRED's public CSV export and series page (title, units, frequency), and Yahoo daily closes, full history, cached per series in `graphs-cache/` for a day (the last copy is used offline).
 
@@ -180,7 +180,7 @@ Data: FRED's public CSV export and series page (title, units, frequency), and Ya
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
 
-- **Ranges:** 1D, 5D, 1M, 3M, 6M, YTD, 1Y, 5Y. Press `[` and `]` to step through them, and `Esc` to go back to the story. WIRE remembers the last range you used.
+- **Ranges:** 1D, 5D, 1M, 3M, 6M, YTD, 1Y, 5Y. Press `[` and `]` to step through them, and `Esc` to go back to the story. Tickerkite remembers the last range you used.
 - **Live updates:** 1D refreshes every minute, 5D every 3 minutes, and longer ranges every 5–30 minutes.
 - **Chart:** price over the range. Orange numbered circles mark the biggest moves. Hover anywhere to read the price, the change and the momentum at that point.
 - **Velocity (1st derivative):** how fast the smoothed price is moving, in %/hr on 1D, %/day on 5D through 1Y, and %/week on 5Y. Treasury yields use basis points.
@@ -188,9 +188,9 @@ Click any price in the sidebar (or in the widget) to open its chart in the right
 - **Momentum readout:** a plain-English summary such as "Falling, but losing steam", plus where today's velocity ranks within the range and when momentum last flipped.
 - **Key numbers:** change, high/low, position in the range, annualized volatility, max drawdown, best and worst day, share of up days, distance from the 52-week high and low, and volume versus average.
 - **What moved it:** the biggest moves in the range, each with the headlines published around it.
-  - On **1D**, these are the largest half-hour swings (plus the opening gap), matched to stories in WIRE's own feed from up to an hour before each swing.
-  - On longer ranges, WIRE searches Google News for that market on each big-move day and caches the results.
-- **Latest in the feed:** current WIRE stories about that market.
+  - On **1D**, these are the largest half-hour swings (plus the opening gap), matched to stories in Tickerkite's own feed from up to an hour before each swing.
+  - On longer ranges, Tickerkite searches Google News for that market on each big-move day and caches the results.
+- **Latest in the feed:** current Tickerkite stories about that market.
 
 Headlines are matched by time and topic. They show what the market was reacting to, not proof of cause. The topic lists for each market live in `src/instruments.js`, and the math in `src/analytics.js`.
 
@@ -200,9 +200,9 @@ Press **⌘⇧W**, click **▣ WIDGET** in the status bar, or choose **View › 
 
 - **TOP / LATEST** switches between ranked by impact and newest first.
 - **Click** a headline to open it in the main window. **⌥-click** opens the article in your browser.
-- Drag the red bar to move the panel, and drag an edge to resize it. WIRE remembers its position and reopens it at launch.
+- Drag the red bar to move the panel, and drag an edge to resize it. Tickerkite remembers its position and reopens it at launch.
 - By default the widget sits on your desktop in the top-left corner, and other windows can cover it like any app. **PIN** (orange when on) floats it above every app and Space instead. **↗** opens the main window and **×** closes the panel.
-- You can close the main window and keep only the widget running. Click WIRE in the Dock to get the main window back.
+- You can close the main window and keep only the widget running. Click Tickerkite in the Dock to get the main window back.
 
 ## How stories are ranked
 
@@ -219,7 +219,7 @@ Each story gets a 0–100 impact score in `src/news/rank.js`:
 
 ## Changing sources
 
-Use **View › Edit Feeds…** to open `~/Library/Application Support/WIRE/feeds.json`. Each entry looks like this:
+Use **View › Edit Feeds…** to open `~/Library/Application Support/Tickerkite/feeds.json`. Each entry looks like this:
 
 ```json
 { "id": "my-feed", "name": "Display Name", "url": "https://…/rss", "weight": 6, "kind": "news" }
@@ -270,22 +270,22 @@ test/                parser and ranking tests (npm test)
 
 ## Settings, trial and license
 
-- **WIRE › Settings…** (`⌘,`) shows your license, an optional Finnhub key and links to the License Agreement, Privacy Policy and Data Sources.
+- **Tickerkite › Settings…** (`⌘,`) shows your license, an optional Finnhub key and links to the License Agreement, Privacy Policy and Data Sources.
 - The first launch asks you to accept the License Agreement (`legal/EULA.md`). Raising `TERMS_VERSION` in `src/settings.js` asks everyone again.
-- A packaged WIRE.app runs a 14-day trial, then needs a Lemon Squeezy license key. `npm start` is a development run and is never locked.
+- A packaged Tickerkite.app runs a 14-day trial, then needs a Lemon Squeezy license key. `npm start` is a development run and is never locked.
 - **Finnhub key (optional):** with your own free key from finnhub.io, prices for US stocks and ETFs on your watchlist and portfolio come from Finnhub. Indices, futures, FX and charts still come from Yahoo. The key is encrypted with the macOS Keychain.
 
 ## Where the data comes from
 
 Every outside request goes through `src/data/`:
 
-- `http.js` sends every request as `WIRE/<version>`, never as a browser. Set `"homepage"` in package.json and the URL is added to the User-Agent.
+- `http.js` sends every request as `Tickerkite/<version>`, never as a browser. Set `"homepage"` in package.json and the URL is added to the User-Agent.
 - `yahoo.js`, `nasdaq.js` and `googlenews.js` are the unofficial sources. Replacing one means editing one file.
 - `finnhub.js` is the optional keyed quote source.
 
 `legal/DATA-SOURCES.md` lists every source, including the FRED series that are copyrighted by their original publishers.
 
-## Selling WIRE
+## Selling Tickerkite
 
 Here's what you need to fill in before the first sale:
 
@@ -298,5 +298,5 @@ Here's what you need to fill in before the first sale:
    export APPLE_TEAM_ID="ABCDE12345"
    npm run dist
    ```
-4. **Auto-updates.** Set `build.publish[0].owner` in package.json to your GitHub username, and create the `wire-terminal` repository. To ship an update, bump `version`, then run `GH_TOKEN=<token with repo scope> npm run release`. That uploads the .dmg, the .zip and `latest-mac.yml` to a GitHub release. Installed copies pick the update up within 6 hours, or straight away from **WIRE › Check for Updates…**. Only signed builds can update themselves.
+4. **Auto-updates.** Set `build.publish[0].owner` in package.json to your GitHub username, and create the `tickerkite` repository. To ship an update, bump `version`, then run `GH_TOKEN=<token with repo scope> npm run release`. That uploads the .dmg, the .zip and `latest-mac.yml` to a GitHub release. Installed copies pick the update up within 6 hours, or straight away from **Tickerkite › Check for Updates…**. Only signed builds can update themselves.
 5. **Optional:** add an app icon at `build/icon.icns`, an `"author"` field, and a `"homepage"` field in package.json.

@@ -6,8 +6,8 @@ const { searchUrl } = require("../src/data/googlenews");
 const { chartUrl } = require("../src/data/yahoo");
 const pkg = require("../package.json");
 
-test("requests say they come from WIRE, not a browser", () => {
-  assert.match(UA, new RegExp(`^WIRE/${pkg.version.replace(/\./g, "\\.")} `));
+test("requests say they come from Tickerkite, not a browser", () => {
+  assert.match(UA, new RegExp(`^Tickerkite/${pkg.version.replace(/\./g, "\\.")} `));
   assert.doesNotMatch(UA, /Mozilla|Chrome|Safari/);
 });
 

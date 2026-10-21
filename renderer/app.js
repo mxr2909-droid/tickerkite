@@ -1,4 +1,4 @@
-/* WIRE renderer: draws the terminal from ranked stories sent by the main process. */
+/* Tickerkite renderer: draws the terminal from ranked stories sent by the main process. */
 (() => {
   const api = window.wire;
   const $ = (s) => document.querySelector(s);
@@ -319,7 +319,7 @@
   }
 
   if (!api) {
-    $("#list").innerHTML = `<div class="empty">Run this page inside the WIRE app (npm start) to load live feeds.</div>`;
+    $("#list").innerHTML = `<div class="empty">Run this page inside the Tickerkite app (npm start) to load live feeds.</div>`;
     return;
   }
   api.onNews(applyNews);

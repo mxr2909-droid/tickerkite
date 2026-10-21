@@ -1,4 +1,4 @@
-/* WIRE decile board: the Scorecards page's second view. Every indicator ranked D1–D10 against its own
+/* Tickerkite decile board: the Scorecards page's second view. Every indicator ranked D1–D10 against its own
    full history (src/macro/board.js does the math), grouped by section, with a timeline to pick the
    ranking window and the as-of date. scorecard.js owns the page and hands over render/detail/keys. */
 (() => {

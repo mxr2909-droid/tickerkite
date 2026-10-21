@@ -1,4 +1,4 @@
-/* WIRE command bar (⌘K, or View › Go To…). Type a page, a ticker or company name, a headline, or a
+/* Tickerkite command bar (⌘K, or View › Go To…). Type a page, a ticker or company name, a headline, or a
    Bloomberg-style mnemonic after a ticker ("AAPL FA", "NVDA HDS", "GC"). Pages, commands, your tickers and
    headlines match instantly here; every other symbol comes from src/command.js (Yahoo search). */
 (() => {

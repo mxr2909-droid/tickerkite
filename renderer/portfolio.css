@@ -1,4 +1,4 @@
-/* WIRE Portfolio page */
+/* Tickerkite Portfolio page */
 .app:not([data-page="portfolio"]) .portfolio-only{display:none!important}
 
 .pf{padding:16px 20px 28px 28px;display:flex;flex-direction:column;gap:14px}

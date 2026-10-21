@@ -1,4 +1,4 @@
-/* WIRE Market heatmap page. Registers with app.js through window.WirePages (see the "pages" section there). */
+/* Tickerkite Market heatmap page. Registers with app.js through window.WirePages (see the "pages" section there). */
 (() => {
   const api = window.wire;
   const $ = (s) => document.querySelector(s);

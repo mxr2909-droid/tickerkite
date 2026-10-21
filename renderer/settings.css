@@ -1,4 +1,4 @@
-/* WIRE settings, terms screen and license lock (renderer/settings.js) */
+/* Tickerkite settings, terms screen and license lock (renderer/settings.js) */
 .wset{position:fixed;inset:0;z-index:60;display:flex;justify-content:center;align-items:flex-start;padding-top:9vh}
 .wset[hidden]{display:none}
 .wset-back{position:absolute;inset:0;background:rgba(5,6,9,.62);backdrop-filter:blur(3px)}

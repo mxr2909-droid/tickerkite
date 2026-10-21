@@ -1,4 +1,4 @@
-/* WIRE Economic calendar page */
+/* Tickerkite Economic calendar page */
 .app:not([data-page="calendar"]) .calendar-only{display:none!important}
 
 .calhead{position:sticky;top:0;z-index:2;background:var(--list)}

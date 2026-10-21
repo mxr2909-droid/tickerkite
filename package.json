@@ -1,6 +1,6 @@
 {
-  "name": "wire-terminal",
-  "productName": "WIRE",
+  "name": "tickerkite",
+  "productName": "Tickerkite",
   "version": "1.0.0",
   "description": "Desktop market news terminal for Mac: ranks the biggest US and global market-moving headlines from live feeds.",
   "main": "src/main.js",
@@ -18,8 +18,8 @@
     "electron-builder": "26.0.12"
   },
   "build": {
-    "appId": "com.wire.terminal",
-    "productName": "WIRE",
+    "appId": "com.tickerkite.app",
+    "productName": "Tickerkite",
     "mac": {
       "category": "public.app-category.finance",
       "target": [
@@ -51,12 +51,12 @@
       "legal/**",
       "package.json"
     ],
-    "copyright": "Copyright © 2026 WIRE",
+    "copyright": "Copyright © 2026 Tickerkite",
     "publish": [
       {
         "provider": "github",
         "owner": "YOUR-GITHUB-USERNAME",
-        "repo": "wire-terminal",
+        "repo": "tickerkite",
         "releaseType": "release"
       }
     ]
