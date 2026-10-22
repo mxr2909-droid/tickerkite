@@ -81,7 +81,7 @@ button{transition:background-color .12s,color .12s,border-color .12s}
 .toggle button[aria-pressed="true"]{background:var(--surface-3);color:var(--fg-strong)}
 .list{flex:1;overflow:auto;min-height:0}
 .subhead{padding:16px 0 6px 44px;font-size:12px;font-weight:600;color:var(--dim)}
-.row{display:grid;grid-template-columns:44px minmax(0,1fr) 64px 62px;align-items:center;width:100%;text-align:left;padding:7px 16px 7px 0;font-size:13.5px;line-height:1.4;border-bottom:1px solid rgba(255,255,255,.03)}
+.row{position:relative;display:grid;grid-template-columns:44px 30px minmax(0,1fr) 64px 62px;align-items:center;width:100%;text-align:left;padding:7px 16px 7px 0;font-size:13.5px;line-height:1.4;border-bottom:1px solid rgba(255,255,255,.03)}
 .row.top .h{font-weight:600}
 .row:hover{background:var(--surface)}
 .row[aria-selected="true"]{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
@@ -93,6 +93,14 @@ button{transition:background-color .12s,color .12s,border-color .12s}
 .badge{display:inline-block;color:var(--fg-strong);padding:1px 6px;margin-right:7px;font-size:10px;font-weight:600;letter-spacing:.03em;border-radius:4px;vertical-align:1px;line-height:1.5}
 .badge.hi{background:rgba(229,72,77,.18);color:#ff9592} .badge.nw{background:var(--accent-soft);color:var(--sel-ink)}
 .row .x{color:var(--dim);font-size:11px;margin-left:6px}
+/* impact: a thin severity bar on the left edge and the 0–100 score before the headline */
+.row::before{content:"";position:absolute;left:0;top:5px;bottom:5px;width:3px;border-radius:0 2px 2px 0;background:transparent}
+.row.sev-h::before{background:var(--red)} .row.sev-m::before{background:var(--warn);opacity:.75}
+.row[aria-selected="true"]::before{display:none}
+.row .imp{font-size:11.5px;font-weight:600;text-align:right;padding-right:9px;color:var(--dimmer)}
+.row.sev-h .imp{color:#ff9592} .row.sev-m .imp{color:var(--warn)}
+.fold{display:block;width:100%;text-align:left;padding:5px 16px 7px 74px;font-size:12px;color:var(--dim);border-bottom:1px solid rgba(255,255,255,.03)}
+.fold:hover{color:var(--accent);background:var(--surface)}
 .empty{padding:32px 44px;color:var(--dim);line-height:1.6}
 .status{display:flex;gap:14px;align-items:center;padding:7px 16px;white-space:nowrap;overflow:hidden;background:var(--panel);border-top:1px solid var(--line);font-size:12px;color:var(--dim)}
 .status .fn{display:none}
@@ -117,7 +125,11 @@ button{transition:background-color .12s,color .12s,border-color .12s}
 .meter i{display:block;height:100%;background:var(--accent);border-radius:3px}
 .open{display:inline-flex;align-items:center;gap:10px;margin-top:20px;background:var(--accent);color:var(--accent-ink);font-weight:600;padding:8px 16px;border-radius:var(--r)}
 .open:hover{filter:brightness(1.1)}
-.url{margin-top:12px;color:var(--dimmer);font-size:11.5px;word-break:break-all;line-height:1.4}
+.openrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:20px}
+.openrow .open{margin-top:0}
+.url{color:var(--dim);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.copy{color:var(--dim);font-size:11.5px;padding:3px 9px;border:1px solid var(--line);border-radius:var(--r)}
+.copy:hover{color:var(--fg);background:var(--surface-2)}
 .cov{margin-top:26px}
 .cov .lbl{color:var(--dim);font-size:12px;font-weight:600;margin-bottom:6px}
 .cov button{display:grid;grid-template-columns:56px minmax(0,1fr);gap:8px;width:100%;text-align:left;padding:7px 8px;font-size:12.5px;border-radius:var(--r)}
@@ -225,10 +237,25 @@ button.mk:hover{background:var(--fg-strong)}
 /* each page hides its own elements on other pages; new pages add the same rule in their own CSS file */
 .app:not([data-page="news"]) .news-only,.app:not([data-page="score"]) .score-only{display:none!important}
 .pages::-webkit-scrollbar{display:none}
-.pages{display:flex;gap:2px;-webkit-app-region:no-drag;width:fit-content;max-width:100%;overflow-x:auto;scrollbar-width:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
+.pages{display:flex;gap:2px;-webkit-app-region:no-drag;width:fit-content;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
 .pages button{font-weight:500;font-size:13px;color:var(--dim);padding:5px 12px;border-radius:6px;white-space:nowrap;flex:none}
 .pages button:hover{color:var(--fg);background:var(--surface-2)}
 .pages button[aria-selected="true"]{color:var(--fg-strong);background:var(--surface-3);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+/* grouped pages: Markets ▾ and Macro ▾ open a small menu */
+.pgrp{position:relative;display:flex}
+.pages .gbtn{display:inline-flex;align-items:center;gap:5px}
+.pages .gbtn i{font-style:normal;font-size:9px;opacity:.7}
+.pages .gbtn[aria-current="true"]{color:var(--fg-strong);background:var(--surface-3);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.pages .gbtn[aria-expanded="true"]{background:var(--surface-2);color:var(--fg)}
+.gmenu{position:absolute;top:calc(100% + 6px);left:0;z-index:20;min-width:180px;display:flex;flex-direction:column;gap:1px;padding:4px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.45);-webkit-app-region:no-drag}
+.gmenu[hidden]{display:none}
+.pages .gmenu button{display:flex;align-items:center;justify-content:space-between;gap:16px;text-align:left;color:var(--fg);padding:6px 10px}
+.pages .gmenu button:hover{background:var(--surface-3)}
+.pages .gmenu button[aria-selected="true"]{background:var(--sel);color:var(--sel-ink);box-shadow:none}
+.gmenu kbd{font:inherit;font-size:11px;color:var(--dimmer)}
+.gmenu button[aria-selected="true"] kbd{color:var(--sel-ink);opacity:.7}
+@media (max-width:1180px){.pages button{padding:5px 10px}.tabs .pg{display:none}}
+.smon{display:flex;flex-direction:column;gap:1px}
 .tabs button em{font-style:normal;font-size:11.5px;margin-left:6px;padding:0 5px;border-radius:4px;background:var(--surface-3);color:var(--dim)}
 .tabs button[aria-pressed="true"] em{background:rgba(255,255,255,.1);color:var(--sel-ink)}
 .sinfo{flex:1;min-width:0;color:var(--dim);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -332,3 +359,32 @@ button.mk:hover{background:var(--fg-strong)}
 .rtrack th{color:var(--dim);font-weight:400;text-align:left;font-size:10.5px;letter-spacing:.05em;padding:4px 0}
 .rtrack td{padding:3px 0;border-top:1px solid var(--line)}
 .ind.rec .ichart{min-height:0}
+
+/* ---------- loading / empty / error states (renderer/ui.js) ---------- */
+.skw{padding:14px 20px 14px 0}
+.skw-detail,.skw-chart,.skw-tiles{padding:16px 20px 16px 44px;display:flex;flex-direction:column;gap:12px}
+.detail .skw-detail{padding:0}
+.sk{display:block;background:linear-gradient(90deg,var(--surface) 0%,var(--surface-2) 50%,var(--surface) 100%);background-size:200% 100%;animation:skpulse 1.4s ease-in-out infinite;border-radius:4px}
+@keyframes skpulse{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+.sk-cap{color:var(--dim);font-size:12px;padding:0 0 10px 44px}
+.skw-detail .sk-cap,.skw-chart .sk-cap,.skw-tiles .sk-cap{padding:0}
+.sk-row{display:grid;grid-template-columns:44px minmax(0,1fr) 62px;align-items:center;gap:0;height:33px;border-bottom:1px solid rgba(255,255,255,.03)}
+.sk-row .sk{height:10px}
+.sk-row .sk-n{width:18px;justify-self:end;margin-right:12px}
+.sk-row .sk-t{width:34px;justify-self:end}
+.sk-line{height:10px}
+.sk-h1{height:20px;width:90%}
+.sk-box{height:160px;border-radius:var(--r-lg)}
+.skw-chart .sk-chart{height:260px;border-radius:var(--r-lg)}
+.sk-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
+.sk-tile{height:58px;border-radius:var(--r)}
+.es{padding:48px 32px;text-align:center;color:var(--dim);line-height:1.6;max-width:460px;margin:0 auto}
+.es-t{color:var(--fg);font-size:14px;font-weight:600;margin-bottom:4px}
+.es-x{font-size:12.5px}
+.es-x b{color:var(--fg)}
+.es-a{margin-top:14px}
+.es-btn{color:var(--fg);font-size:12px;font-weight:500;padding:5px 12px;border-radius:var(--r);background:var(--surface-2);border:1px solid var(--line)}
+.es-btn:hover{background:var(--surface-3)}
+.es-err .es-t{color:#ff9592}
+.detail .es{padding-top:32px}

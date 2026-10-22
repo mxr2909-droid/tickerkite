@@ -228,9 +228,11 @@ function rank(items, opts = {}) {
       summary: c.items.map((i) => i.summary).find(Boolean) || "",
       link: lead.link,
       publisher: lead.publisher,
+      site: lead.site || "",
       code: lead.pub.code,
       ts: firstTs,
       updated: latestTs,
+      undated: c.items.every((i) => i.undated),
       score, sev, kind,
       desks,
       region,
@@ -238,7 +240,7 @@ function rank(items, opts = {}) {
       why: matched[0]?.why || "No macro trigger detected; ranked on source coverage and recency.",
       assets,
       conf: Number(conf.toFixed(2)),
-      sources: publishers.map((i) => ({ code: i.pub.code, name: i.publisher, link: i.link, title: i.title }))
+      sources: publishers.map((i) => ({ code: i.pub.code, name: i.publisher, site: i.site || "", link: i.link, title: i.title }))
     };
   });
 

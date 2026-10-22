@@ -86,3 +86,20 @@ test("publisher codes", () => {
 });
 
 for (const s of rank(all(), { now: S.now })) console.log(String(s.score).padStart(3), s.sev, s.code.padEnd(5), s.desks.join("/").padEnd(10), s.title);
+
+test("publisher site comes from Google News <source url>, not the redirect link", () => {
+  const xml = `<rss><channel><item><title>Yen slides - Nikkei Asia</title><link>https://news.google.com/rss/articles/CBMiabc?oc=5</link>
+    <pubDate>Tue, 21 Oct 2026 02:00:00 GMT</pubDate><source url="https://asia.nikkei.com">Nikkei Asia</source></item></channel></rss>`;
+  const [it] = parseFeed(xml, gnFeed);
+  assert.equal(it.site, "asia.nikkei.com");
+  assert.equal(it.undated, false);
+});
+
+test("undated items keep the time they were first seen across pulls", () => {
+  const { stampUndated } = require("../src/news/fetcher");
+  const mk = () => [{ link: "https://x.test/undated-1", ts: 0, undated: true }, { link: "https://x.test/dated", ts: 5, undated: false }];
+  const a = stampUndated(mk(), 1000), b = stampUndated(mk(), 9000);
+  assert.equal(a[0].ts, 1000);
+  assert.equal(b[0].ts, 1000);
+  assert.equal(b[1].ts, 5);
+});

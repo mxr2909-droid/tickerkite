@@ -33,7 +33,7 @@
       `<button type="button" data-per="${p}" aria-pressed="${p === M.period}" title="Key ${i + 1}">${p}</button>`).join("")}</span>
       <span class="dim">${s?.fetchedAt ? "Updated " + new Date(s.fetchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + (s.open ? " · market open" : " · market closed") : "Loading…"}</span>
       <button type="button" class="mref" data-ref title="Refresh now">↻</button></div>`;
-    if (!s) { $("#markets").innerHTML = bar; return; }
+    if (!s) { $("#markets").innerHTML = bar + window.WireUI.skeleton("tiles", { n: 30 }); return; }
     const sections = s.groups.map((g) => {
       let body;
       if (g.pairs) {

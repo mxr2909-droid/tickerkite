@@ -117,7 +117,8 @@
     if (!B.asked) { B.asked = true; api?.page.invoke("board:get").then(apply).catch(() => {}); }
     const d = B.data;
     if (!d?.series || !Object.keys(d.series).length) {
-      el.innerHTML = `<div class="sc-empty">${d?.error && !d.refreshing ? `<b>No history yet.</b> ${H.esc(d.error)}` : "Downloading full histories: every FRED series from its first reading and Yahoo prices back to 1928. This takes a few seconds the first time."}</div>`;
+      el.innerHTML = d?.error && !d.refreshing ? window.WireUI.error(d.error, "data-sref")
+        : window.WireUI.skeleton("tiles", { n: 24, label: "Downloading full histories: every FRED series from its first reading and Yahoo prices back to 1928. This takes a few seconds the first time." });
       renderDetail();
       return;
     }
@@ -141,7 +142,7 @@
     const el = $("#sdetail");
     if (window.WireInstrument?.isOpen()) { if (!byUser) return; window.WireInstrument.close(); }
     const x = B.sel && H.defs().find((d) => d.id === B.sel), r = B.res?.tiles[B.sel];
-    if (!x || !B.data?.series) { el.innerHTML = ""; return; }
+    if (!x || !B.data?.series) { el.innerHTML = B.data?.series ? window.WireUI.empty("Nothing selected", "Pick a tile to see its history and decile.") : window.WireUI.skeleton("detail"); return; }
     const [kind, sym] = x.src.split(":");
     const fredIds = kind === "fred" ? [sym] : kind === "derived" && !sym.includes("/") ? sym.split("-") : null;
     const ysym = kind === "yahoo" ? sym : kind === "derived" && sym.includes("/") ? sym.split("/")[0] : null;

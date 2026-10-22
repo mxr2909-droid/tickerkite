@@ -235,7 +235,7 @@
     const c = computed();
     G.view = null;
     if (!c) {
-      box.innerHTML = G.spec.series.length ? `<div class="empty">Loading…</div>` : `<div class="empty">Add a FRED series ID or a market symbol above, or pick from the scorecard indicators and your watchlist.<br>Try
+      box.innerHTML = G.spec.series.length ? window.WireUI.skeleton("chart", { label: "Loading series…" }) : `<div class="empty">Add a FRED series ID or a market symbol above, or pick from the scorecard indicators and your watchlist.<br>Try
         ${["UNRATE", "T10Y2Y", "CPIAUCSL", "^GSPC", "CL=F"].map((x) => `<button type="button" class="gtry" data-try="${x}">${x}</button>`).join(" ")}</div>`;
       return;
     }

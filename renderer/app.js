@@ -46,30 +46,55 @@
     );
   }
 
+  // one outlet often posts a batch at once (a dozen NKA stories at 11:24): show the first few of a run
+  // in time order and fold the rest under a "+N more from NKA" row you can open
+  const RUN_MAX = 3;
+  const expanded = new Set(); // run keys (code + first story id) the user opened
+  function foldRuns(timed) {
+    const out = [];
+    for (let i = 0; i < timed.length; ) {
+      let j = i;
+      while (j < timed.length && timed[j].code === timed[i].code) j++;
+      const run = timed.slice(i, j), key = run[0].code + ":" + run[0].id;
+      if (run.length > RUN_MAX + 1 && !expanded.has(key)) {
+        out.push(...run.slice(0, RUN_MAX).map((s) => ({ s })));
+        out.push({ fold: { key, code: run[0].code, hidden: run.length - RUN_MAX } });
+      } else out.push(...run.map((s) => ({ s })));
+      i = j;
+    }
+    return out;
+  }
+  // NEW: published in the last 30 minutes and not opened yet. Undated feed items never count,
+  // since their time is only when Tickerkite first saw them.
+  const isNew = (s) => !s.undated && Date.now() - s.ts < 30 * 60e3 && !read.has(s.id);
+
   function render() {
     const p = pool();
     const ranked = [...p].sort((a, b) => b.score - a.score).slice(0, S.topN);
-    const timed = [...p].sort((a, b) => b.updated - a.updated);
-    S.list = [...ranked, ...timed];
+    const timed = foldRuns([...p].sort((a, b) => b.updated - a.updated));
+    S.list = [...ranked, ...timed.filter((x) => x.s).map((x) => x.s)];
     let i = 0;
     const row = (s, top) => {
       i++;
-      const isNew = Date.now() - s.ts < 30 * 60e3 && !read.has(s.id);
       const extra = s.sources.length > 1 ? `<span class="x">+${s.sources.length - 1}</span>` : "";
-      return `<button type="button" role="option" class="row${top ? " top" : ""}" data-i="${i - 1}" data-id="${s.id}" aria-selected="false">
-        <span class="n">${i})</span><span class="h">${s.watch?.length ? `<span class="badge wl">★ ${esc(s.watch.join(" "))}</span>` : ""}${s.sev === "h" ? '<span class="badge hi">HI</span>' : ""}${isNew ? '<span class="badge nw">NEW</span>' : ""}${esc(s.title)}${extra}</span>
+      const sev = { h: "High", m: "Medium", l: "Low" }[s.sev];
+      return `<button type="button" role="option" class="row sev-${s.sev}${top ? " top" : ""}" data-i="${i - 1}" data-id="${s.id}" aria-selected="false">
+        <span class="n">${i})</span><span class="imp" title="Impact: ${sev} · ${s.score} of 100">${s.score}</span><span class="h">${s.watch?.length ? `<span class="badge wl">★ ${esc(s.watch.join(" "))}</span>` : ""}${isNew(s) ? '<span class="badge nw">NEW</span>' : ""}${esc(s.title)}${extra}</span>
         <span class="s">${esc(s.code)}</span><span class="t">${fmtTime(s.updated)}</span></button>`;
     };
+    const fold = (f) => `<button type="button" class="fold" data-fold="${esc(f.key)}">+${f.hidden} more from ${esc(f.code)}</button>`;
+    const UI = window.WireUI;
     if (!S.stories.length) {
-      $("#list").innerHTML = `<div class="empty">${S.refreshing ? "Pulling feeds…" : "No stories yet. Check your connection, then press ⌘R."}</div>`;
+      $("#list").innerHTML = S.refreshing || !S.pulledAt ? UI.skeleton("rows", { n: 14, label: "Pulling feeds…" })
+        : UI.empty("No stories yet", "Check your connection, then press ⌘R.", `<button type="button" class="es-btn" data-refresh>Refresh</button>`);
     } else if (!p.length && S.view === "watch" && !S.watch.length) {
-      $("#list").innerHTML = `<div class="empty">Your watchlist is empty. Type a ticker like NVDA into <b>+ add ticker</b> in the sidebar, and stories that mention it show up here.</div>`;
+      $("#list").innerHTML = UI.empty("Your watchlist is empty", "Type a ticker like NVDA into <b>+ Add ticker</b> in the sidebar, and stories that mention it show up here.");
     } else if (!p.length && S.view === "watch") {
-      $("#list").innerHTML = `<div class="empty">No stories in the last ${S.hours} hours mention ${esc(S.watch.map((w) => w.sym).join(", "))}. Widen the time window or clear the search.</div>`;
+      $("#list").innerHTML = UI.empty("No watchlist stories", `Nothing in the last ${S.hours} hours mentions ${esc(S.watch.map((w) => w.sym).join(", "))}. Widen the time window or clear the search.`);
     } else if (!p.length) {
-      $("#list").innerHTML = `<div class="empty">Nothing matches these filters. Widen the time window, clear the search (Esc) or pick another tab.</div>`;
+      $("#list").innerHTML = UI.empty("Nothing matches these filters", "Widen the time window, clear the search (Esc) or pick another tab.");
     } else {
-      $("#list").innerHTML = ranked.map((s) => row(s, true)).join("") + `<div class="subhead">Time Ordered News</div>` + timed.map((s) => row(s, false)).join("");
+      $("#list").innerHTML = ranked.map((s) => row(s, true)).join("") + `<div class="subhead">Time Ordered News</div>` + timed.map((x) => x.s ? row(x.s, false) : fold(x.fold)).join("");
     }
 
     $("#sHigh").textContent = p.filter((s) => s.sev === "h").length;
@@ -113,6 +138,11 @@
   }
 
   // ---------- detail ----------
+  // the publisher's domain ("nikkei.com"), never a Google News redirect; the publisher's name when there's no domain
+  function siteName(s) {
+    const host = s.site || (() => { try { return new URL(s.link).hostname.replace(/^www\./, ""); } catch { return ""; } })();
+    return host && !/(^|\.)news\.google\.com$/.test(host) ? host : s.publisher;
+  }
   // byUser: true when you clicked or arrowed to it (marks it read); false for automatic selection on load/refresh
   function select(i, scroll = true, byUser = true) {
     const s = S.list[i];
@@ -124,7 +154,11 @@
       if (!byUser) { if (s) { S.sel = s.id; S.idx = i; } return; }
       Inst.close();
     }
-    if (!s) { $("#detail").innerHTML = ""; S.sel = null; return; }
+    if (!s) {
+      $("#detail").innerHTML = !S.stories.length && (S.refreshing || !S.pulledAt) ? window.WireUI.skeleton("detail")
+        : window.WireUI.empty("No story selected", "Pick a headline on the left. ↑ ↓ move, Enter opens it.");
+      S.sel = null; return;
+    }
     S.sel = s.id; S.idx = i;
     if (byUser) markRead(s);
     const others = s.sources.slice(1);
@@ -143,16 +177,26 @@
         <dt>Coverage</dt><dd>${s.sources.length} outlet${s.sources.length > 1 ? "s" : ""}</dd>
         <dt>Confidence</dt><dd>${s.conf.toFixed(2)}</dd>
       </dl>
-      <button type="button" class="open" data-url="${esc(s.link)}">Open story <span>›</span></button>
-      <div class="url">${esc(s.link)}</div>
+      <div class="openrow"><button type="button" class="open" data-url="${esc(s.link)}" title="${esc(s.link)}">Open story <span>›</span></button>
+        <span class="url" title="${esc(s.link)}">${esc(siteName(s))}</span><button type="button" class="copy" data-copy="${esc(s.link)}" title="Copy link">Copy link</button></div>
       ${others.length ? `<div class="cov"><div class="lbl">Also reported by</div>${others.map((x) => `<button type="button" data-url="${esc(x.link)}"><span class="c">${esc(x.code)}</span><span class="t">${esc(x.title)}</span></button>`).join("")}</div>` : ""}`;
   }
 
   // ---------- events ----------
-  $("#list").addEventListener("click", (e) => { const r = e.target.closest(".row"); if (r) select(+r.dataset.i, false); });
+  $("#list").addEventListener("click", (e) => {
+    const f = e.target.closest("[data-fold]");
+    if (f) { expanded.add(f.dataset.fold); render(); return; }
+    if (e.target.closest("[data-refresh]")) { api?.refresh(); return; }
+    const r = e.target.closest(".row"); if (r) select(+r.dataset.i, false);
+  });
   $("#list").addEventListener("dblclick", (e) => { const r = e.target.closest(".row"); if (r) openSel(); });
   $("#detail").addEventListener("click", (e) => {
     if (window.WireInstrument?.isOpen()) return; // the instrument view handles its own clicks
+    const c = e.target.closest("[data-copy]");
+    if (c) {
+      navigator.clipboard?.writeText(c.dataset.copy).then(() => { c.textContent = "Copied"; setTimeout(() => { c.textContent = "Copy link"; }, 1500); }, () => {});
+      return;
+    }
     const b = e.target.closest("[data-url]"); if (b) api?.open(b.dataset.url);
   });
 
@@ -169,13 +213,52 @@
     PAGES[S.page]?.hide?.();
     S.page = p;
     $("#app").dataset.page = p;
-    document.querySelectorAll("#pages button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.p === p)));
+    document.querySelectorAll("#pages button[data-p]").forEach((b) => { b.setAttribute("aria-selected", String(b.dataset.p === p)); if (b.getAttribute("role") === "menuitemradio") b.setAttribute("aria-checked", String(b.dataset.p === p)); });
+    // a group shows the page you're on ("Curve ▾") and lights up; otherwise its own name
+    document.querySelectorAll("#pages .pgrp").forEach((g) => {
+      const on = g.querySelector(`[data-p="${p}"]`);
+      g.querySelector(".gbtn").setAttribute("aria-current", String(!!on));
+      g.querySelector(".gbtn span").textContent = on ? on.firstChild.textContent : g.dataset.g;
+    });
+    closeMenus();
     try { localStorage.setItem("wire.page", p); } catch {}
     if (PAGES[p]) PAGES[p].show?.();
     else select(S.idx, false, false);
   }
   window.WireApp = { setPage, openInstrument: (sym) => openInstrument(sym), page: () => S.page, stories: () => S.stories, quotes: () => S.quotes, watch: () => S.watch };
-  $("#pages").addEventListener("click", (e) => { const b = e.target.closest("button[data-p]"); if (b) setPage(b.dataset.p); });
+  // grouped pages open a small menu; ↑ ↓ move inside it, Esc or a click elsewhere closes it
+  function closeMenus(except) {
+    document.querySelectorAll("#pages .pgrp").forEach((g) => {
+      if (g === except) return;
+      g.querySelector(".gmenu").hidden = true; g.querySelector(".gbtn").setAttribute("aria-expanded", "false");
+    });
+  }
+  function toggleMenu(g, focusFirst) {
+    const m = g.querySelector(".gmenu"), open = m.hidden;
+    closeMenus(g);
+    m.hidden = !open; g.querySelector(".gbtn").setAttribute("aria-expanded", String(open));
+    if (open && focusFirst) (m.querySelector('[aria-selected="true"]') || m.querySelector("button")).focus();
+  }
+  $("#pages").addEventListener("click", (e) => {
+    const gb = e.target.closest(".gbtn");
+    if (gb) { toggleMenu(gb.parentElement, e.detail === 0); return; } // keyboard activation focuses the menu
+    const b = e.target.closest("button[data-p]"); if (b) setPage(b.dataset.p);
+  });
+  $("#pages").addEventListener("keydown", (e) => {
+    const g = e.target.closest(".pgrp");
+    if (!g || e.metaKey) return; // keys inside a group stay there, so Enter doesn't also open a story
+    e.stopPropagation();
+    const m = g.querySelector(".gmenu"), items = [...m.querySelectorAll("button")];
+    if (e.key === "Escape") { closeMenus(); g.querySelector(".gbtn").focus(); }
+    else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (m.hidden) { toggleMenu(g, true); return; }
+      const k = items.indexOf(e.target);
+      items[k < 0 ? 0 : (k + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+    }
+  });
+  document.addEventListener("mousedown", (e) => { if (!e.target.closest("#pages .pgrp")) closeMenus(); });
+  window.addEventListener("blur", () => closeMenus());
 
   // ---------- instrument view ----------
   const detailEl = () => PAGES[S.page]?.detail?.() || $("#detail");

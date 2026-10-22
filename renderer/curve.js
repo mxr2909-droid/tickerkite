@@ -67,8 +67,8 @@
   function render() {
     if (!Y.active) return;
     const el = $("#curve"), d = Y.data;
-    if (!d) { el.innerHTML = `<div class="empty">Loading the Treasury curve…</div>`; return; }
-    if (d.empty) { el.innerHTML = `<div class="empty">${d.error ? `Couldn't load Treasury data (${esc(d.error)}).` : "Loading the Treasury curve…"} <button type="button" class="yc-btn" data-ref>Try again</button></div>`; return; }
+    if (!d) { el.innerHTML = window.WireUI.skeleton("chart", { label: "Loading the Treasury curve…" }); return; }
+    if (d.empty) { el.innerHTML = d.error ? window.WireUI.error(`Treasury data didn't download (${d.error}).`, "data-ref") : window.WireUI.skeleton("chart", { label: "Loading the Treasury curve…" }); return; }
     const cmpKeys = ["1D", "1W", "1M", "3M", "1Y"];
     const toggles = Object.keys(CMP_STYLE).map((k) => `<button type="button" class="yc-tog" data-cmp="${k}" aria-pressed="${!!Y.show[k]}"><i style="border-color:${CMP_STYLE[k][0]}"></i>${k} ago</button>`).join("");
     const table = `<table class="yc-tab num"><thead><tr><th>Tenor</th><th>Yield</th>${cmpKeys.map((k) => `<th>${k}</th>`).join("")}</tr></thead><tbody>${d.tenors.map((t) => {
@@ -108,7 +108,7 @@
   function renderDetail() {
     if (!Y.active || window.WireInstrument?.isOpen()) return;
     const el = $("#ydetail"), d = Y.data;
-    if (!d || d.empty) { el.innerHTML = ""; return; }
+    if (!d || d.empty) { el.innerHTML = d?.error ? "" : window.WireUI.skeleton("detail"); return; }
     const r = d.real, be = d.breakevens;
     const realRows = d.realTenors.map((t) => {
       const v = r.now?.y[t], m = r["1M"]?.y[t], y1 = r["1Y"]?.y[t];

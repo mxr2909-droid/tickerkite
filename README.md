@@ -24,6 +24,8 @@ The installer lands in `dist/`. Without an Apple Developer ID certificate the bu
 
 ## Using it
 
+The top bar has six entries: **Brief · News · Portfolio · Markets ▾ · Macro ▾ · Company**. **Markets ▾** opens Markets, Yield curve, Fed path and Graphs; **Macro ▾** opens Scorecards and Calendar. A group shows the page you're on. The ⌘⌥0–9 shortcuts, the ⌘K command bar and reopening on your last page work as before. While a page loads it shows placeholder rows, and a failed download says so with a **Try again** button.
+
 | Key | Action |
 |---|---|
 | `↑` `↓` or `j` `k` | Move through headlines |
@@ -34,10 +36,11 @@ The installer lands in `dist/`. Without an Apple Developer ID certificate the bu
 | `⌘R` | Refresh now |
 
 - **Top Ranked News** shows the 3 highest-impact stories in the current filter. Click *More »* to show 10.
-- **Time Ordered News** lists everything newest first. `+2` means two more outlets carry the same story; the story pane lists them under *Also reported by*.
+- **Time Ordered News** lists everything newest first. `+2` means two more outlets carry the same story; the story pane lists them under *Also reported by*. When one outlet posts a batch back to back, the list shows its first 3 and folds the rest under **+N more from NKA**; click it to show them.
 - **Background & Opinion** switches to analysis, previews and columns.
-- **HI** marks high-impact stories. **NEW** marks stories from the last 30 minutes.
-- The sidebar filters to High Impact or Last Hour and shows which feeds are live.
+- Each row shows its **impact score** (0–100) before the headline, red for high and amber for medium, with a matching bar on the row's left edge. **NEW** marks stories published in the last 30 minutes that you haven't opened. Feed items with no publish time are dated when Tickerkite first sees them and never get NEW.
+- The story pane shows the publisher's site (e.g. `nikkei.com`) instead of the raw link; **Open story** opens it, and **Copy link** copies the full URL (hover either to see it).
+- On the News page the sidebar's **Monitor** block filters to High Impact, Last Hour or Watchlist stories; it's hidden on other pages. The watchlist and markets lists stay on every page.
 - High-impact headlines trigger a macOS notification. Turn this off under **View › Alerts for High-Impact Headlines**.
 
 ## Watchlist
@@ -62,7 +65,7 @@ Type a ticker into **+ add ticker** in the sidebar and press Enter. Any Yahoo Fi
 
 ## Scorecards
 
-Click **Scorecards** at the top (or ⌘⌥2; ⌘⌥1 goes back to News). Each tab scores one asset class from 0 to 100 for the next 6–12 months: **Stocks, Bonds, Commodities, Real Estate, Crypto, Alts** (gold and precious metals). 50 is neutral; higher means conditions are more supportive of that asset. Keys `1`–`6` switch tabs, `↑` `↓` move through indicators.
+Choose **Macro › Scorecards** at the top (or ⌘⌥2; ⌘⌥1 goes back to News). Each tab scores one asset class from 0 to 100 for the next 6–12 months: **Stocks, Bonds, Commodities, Real Estate, Crypto, Alts** (gold and precious metals). 50 is neutral; higher means conditions are more supportive of that asset. Keys `1`–`6` switch tabs, `↑` `↓` move through indicators.
 
 - **53 indicators in 8 sections:** Growth, Inflation, Labor, Rates & Fed, Credit & Conditions, Consumer & Housing, Markets and Global. Data comes from the St. Louis Fed (FRED, no key needed) and Yahoo Finance, refreshed every 6 hours or with **UPDATE DATA**.
 - **Each row** shows the latest reading, where it was 6 months ago, its trend, where it sits in its own history, and how many points it adds to or takes from the selected score.

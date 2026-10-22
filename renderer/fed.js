@@ -157,7 +157,7 @@
   function render() {
     const el = $("#fed");
     const d = F.data;
-    if (!d || d.loading) { el.innerHTML = `<div class="empty">Loading fed funds futures, Fed projections and Treasury yields…</div>`; return; }
+    if (!d || d.loading) { el.innerHTML = window.WireUI.skeleton("chart", { label: "Loading fed funds futures, Fed projections and Treasury yields…" }); return; }
     const errs = Object.keys(d.errors || {});
     const right = [d.effr != null ? `EFFR <b>${pct(d.effr)}</b>` : "", d.quoteAt ? `futures ${esc(new Date(d.quoteAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}` : "",
       d.fetchedAt ? `data ${age(d.fetchedAt)}` : "", errs.length ? `unavailable: ${esc(errs.join(", "))}` : "", d.meetingsLive ? "" : "FOMC dates from Tickerkite's checked list"].filter(Boolean).join(" · ");

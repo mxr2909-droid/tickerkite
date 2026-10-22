@@ -106,7 +106,7 @@
   }
   function render() {
     const el = $("#calendar");
-    if (!C.data) { el.innerHTML = `<div class="empty">Loading the calendar…</div>`; return; }
+    if (!C.data) { el.innerHTML = window.WireUI.skeleton("rows", { n: 12, label: "Loading the calendar…" }); return; }
     const now = Date.now();
     const focused = document.activeElement?.id === "calq";
     C.list = visible();
@@ -205,7 +205,7 @@
     if (!C.active || window.WireInstrument?.isOpen()) return;
     const el = $("#cdetail");
     const e = C.data?.events.find((x) => x.id === C.sel);
-    if (!e) { el.innerHTML = `<div class="empty">Pick an event.</div>`; return; }
+    if (!e) { el.innerHTML = C.data ? window.WireUI.empty("No event selected", "Pick a release on the left to see the survey, prior and how markets reacted last time.") : window.WireUI.skeleton("detail"); return; }
     const rel = C.data.releases[e.key] || {};
     const when = e.timed ? `${dayLabel(e.t)} · ${clock(e.t)} ET` : dayLabel(e.t);
     let kv = `<dt>When</dt><dd>${esc(when)}</dd><dt>Countdown</dt><dd>${esc(countdown(e))}</dd>`;

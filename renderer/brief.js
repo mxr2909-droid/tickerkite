@@ -59,7 +59,7 @@
   function render() {
     if (!B.active) return;
     const el = $("#brief"), d = B.data;
-    if (!d) { el.innerHTML = `<div class="empty">Putting your brief together…</div>`; return; }
+    if (!d) { el.innerHTML = window.WireUI.skeleton("rows", { n: 8, label: "Putting your brief together…" }); return; }
     const date = new Date(d.now).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
     const hero = `<header class="bf-hero"><div><h2>${greeting()}</h2><p>${esc(date)}${d.since ? " · " + esc(sinceText(d.since)) : ""}</p></div>
       <button type="button" class="bf-btn" data-reload title="Rebuild the brief">↻ Refresh</button></header>`;
@@ -96,7 +96,7 @@
   function renderDetail() {
     if (!B.active || window.WireInstrument?.isOpen()) return;
     const el = $("#bdetail"), d = B.data;
-    if (!d) { el.innerHTML = ""; return; }
+    if (!d) { el.innerHTML = window.WireUI.skeleton("detail"); return; }
     const now = Date.now();
     const ev = d.today.map((e) => {
       const out = e.actual || (e.t <= now && e.cat !== "earnings");

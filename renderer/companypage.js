@@ -208,7 +208,7 @@
       <div class="co-px">${q?.price != null ? `<b>${num(q.price)}</b> <span class="dim">${esc(q.currency || "")}</span> ${dayPct != null ? `<span class="${cls(dayPct)}">${pct(dayPct, 2)}</span>` : ""}` : ""}</div></div>
       <nav class="co-tabs">${TABS.map(([k, l]) => `<button type="button" data-tab="${k}" aria-selected="${k === C.tab}">${l}</button>`).join("")}</nav>`;
     let body;
-    if (C.loading && !d) body = `<p class="none">Loading ${esc(C.sym)} from SEC EDGAR…</p>`;
+    if (C.loading && !d) body = window.WireUI.skeleton("rows", { n: 8, label: `Loading ${C.sym} from SEC EDGAR…` });
     else if (C.err) body = `<p class="co-note">${esc(C.err)}</p>`;
     else if (d?.needContact) body = contactForm();
     else if (d?.error) body = `<p class="co-note">${esc(d.error)}</p>`;

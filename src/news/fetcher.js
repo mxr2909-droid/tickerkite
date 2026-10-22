@@ -5,6 +5,19 @@ const { getText } = require("../data/http");
 const fetchText = (url, timeoutMs = 12000) =>
   getText(url, { timeoutMs, headers: { Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*" } });
 
+// Items with no date in the feed are stamped with the time we first saw them, not the time of
+// each pull: otherwise a whole undated batch looks brand new (and NEW) after every refresh.
+const firstSeen = new Map();
+function stampUndated(items, now = Date.now()) {
+  for (const it of items) {
+    if (!it.undated) continue;
+    if (!firstSeen.has(it.link)) firstSeen.set(it.link, now);
+    it.ts = firstSeen.get(it.link);
+  }
+  if (firstSeen.size > 20000) for (const k of [...firstSeen.keys()].slice(0, 5000)) firstSeen.delete(k);
+  return items;
+}
+
 /** Fetch every feed in parallel. A failing feed never breaks the others. */
 async function fetchAll(feeds) {
   const results = await Promise.allSettled(
@@ -24,7 +37,7 @@ async function fetchAll(feeds) {
     }
     return { id: f.id, name: f.name, ok: false, error: String(r.reason?.message || r.reason) };
   });
-  return { items, status };
+  return { items: stampUndated(items), status };
 }
 
-module.exports = { fetchAll, fetchText };
+module.exports = { fetchAll, fetchText, stampUndated };

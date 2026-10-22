@@ -40,6 +40,11 @@ function atomLink(block) {
   return alt ? attr(alt, "href") : "";
 }
 
+/** "https://www.nikkei.com/x" -> "nikkei.com"; "" when it isn't a URL */
+function siteOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
+}
+
 function parseFeed(xml, feed = {}) {
   if (typeof xml !== "string" || !xml) return [];
   const isAtom = /<feed[\s>]/i.test(xml) && !/<rss[\s>]/i.test(xml);
@@ -69,6 +74,8 @@ function parseFeed(xml, feed = {}) {
     if (src) publisher = clean(src.text);
     if (publisher && title.endsWith(` - ${publisher}`)) title = title.slice(0, -(publisher.length + 3)).trim();
     if (!publisher) publisher = feed.name || "Unknown";
+    // the publisher's own site: Google News gives it as <source url>, otherwise the link's host
+    const site = siteOf((src && attr(src.attrs, "url")) || link);
 
     let summary = desc;
     // Google News descriptions just repeat the headline and publisher
@@ -79,6 +86,8 @@ function parseFeed(xml, feed = {}) {
       title,
       link,
       ts: Number.isFinite(ts) ? ts : Date.now(),
+      undated: !Number.isFinite(ts),
+      site,
       summary,
       publisher,
       feedId: feed.id || "",
@@ -89,4 +98,4 @@ function parseFeed(xml, feed = {}) {
   return out;
 }
 
-module.exports = { parseFeed, clean };
+module.exports = { parseFeed, clean, siteOf };

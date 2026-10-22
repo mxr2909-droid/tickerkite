@@ -21,11 +21,13 @@
 <div class="app" id="app" data-page="news">
   <nav class="side" aria-label="App sections">
     <div class="drag"></div>
+    <div class="smon news-only">
     <div class="sgroup">Monitor</div>
     <button class="sitem" type="button" data-view="high"><span class="ic">◉</span>High Impact<span class="c" id="cHigh">0</span></button>
     <button class="sitem" type="button" data-view="all" aria-current="true"><span class="ic">▤</span>All News<span class="c" id="cAll">0</span></button>
     <button class="sitem" type="button" data-view="new"><span class="ic">✦</span>Last Hour<span class="c" id="cNew">0</span></button>
     <button class="sitem" type="button" data-view="watch"><span class="ic">★</span>Watchlist<span class="c" id="cWatch">0</span></button>
+    </div>
     <div class="sgroup">Watchlist </div>
     <div class="quotes num" id="watchq"></div>
     <form class="wadd" id="wform" autocomplete="off">
@@ -44,12 +46,22 @@
         <button type="button" role="tab" data-p="brief" aria-selected="false" title="Brief (⌘⌥0)">Brief</button>
         <button type="button" role="tab" data-p="news" aria-selected="true" title="News (⌘⌥1)">News</button>
         <button type="button" role="tab" data-p="portfolio" aria-selected="false" title="Portfolio (⌘⌥7)">Portfolio</button>
-        <button type="button" role="tab" data-p="score" aria-selected="false" title="Scorecards (⌘⌥2)">Scorecards</button>
-        <button type="button" role="tab" data-p="calendar" aria-selected="false" title="Calendar (⌘⌥3)">Calendar</button>
-        <button type="button" role="tab" data-p="markets" aria-selected="false" title="Markets (⌘⌥4)">Markets</button>
-        <button type="button" role="tab" data-p="fed" aria-selected="false" title="Fed (⌘⌥5)">Fed</button>
-        <button type="button" role="tab" data-p="curve" aria-selected="false" title="Yield curve (⌘⌥8)">Curve</button>
-        <button type="button" role="tab" data-p="graphs" aria-selected="false" title="Graphs (⌘⌥6)">Graphs</button>
+        <div class="pgrp" data-g="Markets">
+          <button type="button" class="gbtn" aria-haspopup="menu" aria-expanded="false"><span>Markets</span><i>▾</i></button>
+          <div class="gmenu" role="menu" hidden>
+            <button type="button" role="menuitemradio" data-p="markets" aria-selected="false">Markets<kbd>⌘⌥4</kbd></button>
+            <button type="button" role="menuitemradio" data-p="curve" aria-selected="false">Yield curve<kbd>⌘⌥8</kbd></button>
+            <button type="button" role="menuitemradio" data-p="fed" aria-selected="false">Fed path<kbd>⌘⌥5</kbd></button>
+            <button type="button" role="menuitemradio" data-p="graphs" aria-selected="false">Graphs<kbd>⌘⌥6</kbd></button>
+          </div>
+        </div>
+        <div class="pgrp" data-g="Macro">
+          <button type="button" class="gbtn" aria-haspopup="menu" aria-expanded="false"><span>Macro</span><i>▾</i></button>
+          <div class="gmenu" role="menu" hidden>
+            <button type="button" role="menuitemradio" data-p="score" aria-selected="false">Scorecards<kbd>⌘⌥2</kbd></button>
+            <button type="button" role="menuitemradio" data-p="calendar" aria-selected="false">Calendar<kbd>⌘⌥3</kbd></button>
+          </div>
+        </div>
         <button type="button" role="tab" data-p="company" aria-selected="false" title="Company (⌘⌥9) · ⌘K to look one up">Company</button>
       </div>
       <div class="tabs news-only" id="tabs"><span class="pg"><span id="pgView">All</span><b>News</b></span></div>
@@ -102,6 +114,7 @@
   <aside class="detail curve-only" id="ydetail" aria-label="Yield curve detail"></aside>
   <aside class="detail company-only" id="codetail" aria-label="Company detail"></aside>
 </div>
+<script src="ui.js"></script>
 <script src="company.js"></script>
 <script src="instrument.js"></script>
 <script src="../src/macro/board.js"></script>

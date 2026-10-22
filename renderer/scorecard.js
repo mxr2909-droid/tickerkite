@@ -122,7 +122,8 @@
     const d = K.data, el = $("#score");
     if (BOARD() && d?.defs) { window.WireBoard.render(); return; }
     if (!d || !Object.keys(d.scores || {}).length) {
-      el.innerHTML = `<div class="sc-empty">${d?.refreshing || !d ? "Downloading economic data: about 50 series from the St. Louis Fed (FRED) and Yahoo Finance. This takes 5–10 seconds the first time." : `<b>No economic data yet.</b> ${esc(d.error || "Check your connection, then click UPDATE DATA.")}`}</div>`;
+      el.innerHTML = d?.refreshing || !d ? window.WireUI.skeleton("rows", { n: 12, label: "Downloading economic data: about 50 series from the St. Louis Fed (FRED) and Yahoo Finance. This takes 5–10 seconds the first time." })
+        : window.WireUI.error(d.error || "No economic data yet. Check your connection, then try again.", "data-sref");
       renderDetail();
       return;
     }
@@ -178,7 +179,7 @@
     const el = $("#sdetail");
     if (window.WireInstrument?.isOpen()) { if (!byUser) return; window.WireInstrument.close(); }
     const d = K.data;
-    if (!d || !K.sel || !d.scores[K.asset]) { el.innerHTML = ""; return; }
+    if (!d || !K.sel || !d.scores[K.asset]) { el.innerHTML = !d || d.refreshing ? window.WireUI.skeleton("detail") : window.WireUI.empty("Nothing selected", "Pick an indicator on the left to see its history and what it means for each asset."); return; }
     if (K.sel === REC) { el.innerHTML = recDetail(); drawRecCharts(); return; }
     const x = def(K.sel), r = d.ind[K.sel];
     if (!x) { el.innerHTML = ""; return; }
@@ -395,6 +396,7 @@
   });
   $("#sdetail").addEventListener("click", (e) => { if (e.target.closest("[data-act=recref]")) api?.page.invoke("recession:refresh"); });
   $("#sref").addEventListener("click", () => { api?.refreshScores(); if (BOARD()) window.WireBoard.refresh(); });
+  $("#score").addEventListener("click", (e) => { if (e.target.closest("[data-sref]")) $("#sref").click(); }); // "Try again" on a failed load
   $("#sdetail").addEventListener("click", (e) => {
     if (window.WireInstrument?.isOpen()) return; // the price chart handles its own clicks
     const b = e.target.closest("[data-act=inst]"); if (b) hooks.openInstrument?.(b.dataset.sym);

@@ -39,7 +39,7 @@
   function render() { if (P.active) keep($("#portfolio"), draw); }
   function draw() {
     const el = $("#portfolio"), d = P.data;
-    if (!d) { el.innerHTML = `<div class="empty">Loading…</div>`; return; }
+    if (!d) { el.innerHTML = window.WireUI.skeleton("rows", { n: 6, label: "Loading your holdings…" }); return; }
     if (!d.rows.length) {
       el.innerHTML = `<div class="pf"><div class="pf-hello"><h2>Track what you own</h2>
         <p>Add your holdings to see today's gain or loss, how your money is split across stocks, bonds, gold, crypto and cash,
@@ -86,7 +86,7 @@
   }
   function drawDetail() {
     const el = $("#pdetail"), d = P.data;
-    if (!d) { el.innerHTML = ""; return; }
+    if (!d) { el.innerHTML = window.WireUI.skeleton("detail"); return; }
     const r = d.rows.find((x) => x.sym === P.sel);
     if (!r) {
       const scored = d.mix.filter((m) => m.score != null);
