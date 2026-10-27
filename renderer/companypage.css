@@ -109,3 +109,16 @@
   .co-ins th:nth-child(7),.co-ins td:nth-child(7),.co-hds th:nth-child(5),.co-hds td:nth-child(5),.co-fil th:nth-child(4),.co-fil td:nth-child(4){display:none}
   .co-px b{font-size:20px}
 }
+
+/* search bar above the company page */
+.co-search{position:relative;padding:8px 20px 8px 28px;border-bottom:1px solid var(--line)}
+.co-search form{display:flex;gap:8px;max-width:640px}
+.co-search input{flex:1;min-width:0;background:var(--bg-2,rgba(255,255,255,.04));border:1px solid var(--line);color:var(--fg-strong,#fff);font:inherit;padding:6px 10px;outline:none}
+.co-search input:focus{border-color:var(--accent)}
+.co-search button[type=submit]{padding:6px 14px;border:1px solid var(--line);color:var(--fg)}
+.co-search button[type=submit]:hover{border-color:var(--accent);color:var(--accent)}
+.co-results{position:absolute;left:28px;top:100%;z-index:20;width:min(640px,calc(100% - 48px));background:var(--bg,#0a0c10);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.co-results button{display:grid;grid-template-columns:90px minmax(0,1fr) auto;gap:10px;width:100%;text-align:left;padding:6px 10px;align-items:baseline}
+.co-results button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.co-results button em{font-style:normal;color:var(--dim);font-size:11px}
+.co-results button[aria-selected="true"],.co-results button:hover{background:var(--row-hi,rgba(255,255,255,.08))}

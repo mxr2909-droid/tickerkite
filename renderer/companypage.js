@@ -194,7 +194,7 @@
     const el = $("#company");
     if (!C.sym) {
       const rs = recent();
-      el.innerHTML = `<div class="co"><div class="co-hello"><h2>Look up a company</h2><p>Press <kbd>⌘K</kbd> and type a ticker or name. Add a code after the ticker to jump straight in:
+      el.innerHTML = `<div class="co"><div class="co-hello"><h2>Look up a company</h2><p>Type a ticker or name in the search bar above (or press <kbd>/</kbd>), or use <kbd>⌘K</kbd>. Add a code after the ticker to jump straight in:
         <b>FA</b> financials, <b>HDS</b> holders, <b>INSD</b> insiders, <b>CF</b> filings, for example <span class="co-ex">AAPL FA</span>.</p>
         <button type="button" class="open" data-cmdk>Search companies</button>
         ${rs.length ? `<div class="co-sec">Recently viewed</div><div class="co-recent">${rs.map((r) => `<button type="button" data-open="${esc(r.sym)}"><b>${esc(r.sym)}</b><span>${esc(r.name || "")}</span></button>`).join("")}</div>` : ""}</div></div>`;
@@ -252,6 +252,45 @@
     const s = e.target.closest("[data-sid]"); if (s) { if (!window.WireInstrument.onStory?.(s.dataset.sid) && s.dataset.url) api.open(s.dataset.url); return; }
     const u = e.target.closest("[data-url]"); if (u && u.dataset.url) api.open(u.dataset.url);
   };
+  // ---------- search bar (stays above the page, so typing survives re-renders) ----------
+  const bar = document.createElement("div");
+  bar.className = "co-search company-only";
+  bar.innerHTML = `<form autocomplete="off"><input id="cosearch" type="search" spellcheck="false" placeholder="Search any company: ticker or name, e.g. NVDA or Microsoft  ( / )" aria-label="Search companies" aria-autocomplete="list" aria-controls="coresults"><button type="submit">Go</button></form><div class="co-results" id="coresults" role="listbox" hidden></div>`;
+  $("#company").before(bar);
+  const sIn = bar.querySelector("input"), sOut = bar.querySelector("#coresults");
+  const S = { list: [], idx: 0, seq: 0, t: null };
+  function drawResults() {
+    sOut.hidden = !S.list.length;
+    sOut.innerHTML = S.list.map((r, i) => `<button type="button" role="option" data-pick="${esc(r.sym)}" aria-selected="${i === S.idx}"><b>${esc(r.sym)}</b><span>${esc(r.name)}</span><em>${esc([r.kind, r.exch].filter(Boolean).join(" · "))}</em></button>`).join("");
+  }
+  function pick(sym) {
+    S.list = []; drawResults(); sIn.value = ""; sIn.blur();
+    if (sym) open(sym, C.tab);
+  }
+  sIn.addEventListener("input", () => {
+    clearTimeout(S.t);
+    const q = sIn.value.trim();
+    if (!q) { S.list = []; drawResults(); return; }
+    S.t = setTimeout(async () => {
+      const seq = ++S.seq;
+      const list = await api.page.invoke("cmd:search", q).catch(() => []);
+      if (seq !== S.seq) return;
+      S.list = (list || []).slice(0, 8); S.idx = 0; drawResults();
+    }, 180);
+  });
+  sIn.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (S.list.length) { S.idx = (S.idx + (e.key === "ArrowDown" ? 1 : S.list.length - 1)) % S.list.length; drawResults(); } }
+    else if (e.key === "Escape") { e.preventDefault(); sIn.value = ""; S.list = []; drawResults(); sIn.blur(); }
+    e.stopPropagation(); // keep page shortcuts (1–6, arrows) out of the search box
+  });
+  bar.querySelector("form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    // a highlighted suggestion wins; otherwise treat what was typed as a ticker
+    pick(S.list[S.idx]?.sym || sIn.value.trim().split(/\s+/)[0]);
+  });
+  sOut.addEventListener("mousedown", (e) => { const b = e.target.closest("[data-pick]"); if (b) { e.preventDefault(); pick(b.dataset.pick); } });
+  sIn.addEventListener("blur", () => setTimeout(() => { S.list = []; drawResults(); }, 120));
+
   $("#company").addEventListener("click", onClick);
   $("#codetail").addEventListener("click", onClick);
   $("#company").addEventListener("change", (e) => { if (e.target.id === "coonly") { C.onlyTrades = e.target.checked; render(); } });
@@ -271,7 +310,7 @@
       const i = TABS.findIndex(([k]) => k === C.tab);
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); C.tab = TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length][0]; render(); loadTab(); }
       else if (/^[1-6]$/.test(e.key) && !e.metaKey) { C.tab = TABS[+e.key - 1][0]; render(); loadTab(); }
-      else if (e.key === "/" ) { e.preventDefault(); window.WireCommand?.open(); }
+      else if (e.key === "/" ) { e.preventDefault(); sIn.focus(); }
       else if ((e.key === "Enter" || e.key === "o") && C.sym) window.WireApp.openInstrument(C.sym);
     },
     restore() { renderDetail(); },
