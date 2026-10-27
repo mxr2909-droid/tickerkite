@@ -26,7 +26,7 @@
   // ---------- build ----------
   const bar = document.createElement("header");
   bar.className = "fbar";
-  bar.innerHTML = `<div class="fb-logo" aria-hidden="true"><svg viewBox="0 0 20 20" width="18" height="18"><path d="M10 1 18 9 10 19 2 9Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 9h16M10 1v18" stroke="currentColor" stroke-width="1"/></svg><span>TICKER<br>KITE</span></div>
+  bar.innerHTML = `<div class="fb-logo" aria-hidden="true"><svg viewBox="0 0 148 90" width="26" height="16"><path fill="#F47321" d="M0 0H40V64C40 76 56 81 72 81V90C30 90 0 84 0 70Z"/><path fill="#005030" d="M148 0H108V64C108 76 92 81 76 81V90C118 90 148 84 148 70Z"/></svg><span>TICKER<br>KITE</span></div>
     <nav class="fb-codes" role="tablist" aria-label="Functions">${PAGES.map(([p, code, title, d]) =>
       `<button type="button" role="tab" data-p="${p}" aria-selected="false" title="${esc(title.charAt(0) + title.slice(1).toLowerCase())} (⌘⌥${d})">${code}</button>`).join("")}</nav>
     <span class="fb-clock num" id="fbClock"></span>`;
