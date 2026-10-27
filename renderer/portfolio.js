@@ -118,7 +118,7 @@
       <div class="isec">NEWS ABOUT ${esc(r.sym)}</div>${newsList(own)}`;
   }
 
-  function apply(d) { if (!d) return; P.data = d; if (P.sel && !d.rows.some((r) => r.sym === P.sel)) P.sel = null; render(); renderDetail(); }
+  function apply(d) { if (!d) return; P.data = d; window.WireChrome?.pulled("portfolio", d.fetchedAt); if (P.sel && !d.rows.some((r) => r.sym === P.sel)) P.sel = null; render(); renderDetail(); }
   function select(sym) { P.sel = P.sel === sym ? null : sym; if (window.WireInstrument?.isOpen()) window.WireInstrument.close(); render(); renderDetail(); }
 
   $("#portfolio").addEventListener("submit", (e) => {

@@ -497,6 +497,7 @@ function buildMenu() {
         { type: "separator" },
         { label: "Show Main Window", accelerator: "CmdOrCtrl+1", click: () => showStory(null) },
         { label: "Fit Window to Screen", accelerator: "CmdOrCtrl+Alt+F", click: () => { showStory(null); fitToScreen(); } },
+        { label: "Switch Theme (Terminal / Classic)", accelerator: "CmdOrCtrl+Alt+T", click: () => { showStory(null); send("theme:toggle"); } },
         { label: "Floating Widget", type: "checkbox", accelerator: "CmdOrCtrl+Shift+W", checked: !!widget, click: () => toggleWidget() },
         { label: "Pin Widget Above Other Windows", type: "checkbox", checked: prefs.widget.onTop, click: (item) => setOnTop(item.checked) },
         { type: "separator" },

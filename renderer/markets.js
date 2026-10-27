@@ -11,7 +11,15 @@
   try { M.period = localStorage.getItem("wire.markets.period") || "1D"; } catch {}
 
   const pct = (v, d = 2) => (v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(d) + "%");
+  // terminal theme: pale for a small move, deep for a big one, dark text on the pale end (returns [background, ink])
+  function termColor(v) {
+    if (v == null) return ["#0d1117", ""];
+    const k = Math.min(1, Math.abs(v) / SCALE[M.period]) ** 0.7;
+    const [a, b] = v >= 0 ? [[214, 238, 208], [27, 110, 43]] : [[247, 205, 200], [168, 26, 30]];
+    return [`rgb(${a.map((c, i) => Math.round(c + (b[i] - c) * k)).join(",")})`, k < 0.5 ? "#0b0f14" : "#fff"];
+  }
   function color(v) {
+    if (window.TkTheme?.isTerminal()) return termColor(v)[0];
     if (v == null) return "#191c22";
     const k = Math.min(1, Math.abs(v) / SCALE[M.period]) ** 0.8;
     const [r, g, b] = v >= 0 ? [38, 166, 110] : [214, 74, 80];
@@ -21,19 +29,21 @@
   const ret = (sym) => M.snap?.data?.[sym]?.ret?.[M.period] ?? null;
 
   function tile(sym, name, sub) {
-    const v = ret(sym);
-    return `<button type="button" class="mtile${M.sel === sym ? " sel" : ""}" data-sym="${esc(sym)}" style="background:${color(v)}" title="${esc(sym)}">
-      <span class="mn">${esc(name)}</span><span class="mp">${pct(v)}</span>${sub ? `<span class="ms">${esc(sub)}</span>` : ""}</button>`;
+    const v = ret(sym), last = M.snap?.data?.[sym]?.last;
+    const ink = window.TkTheme?.isTerminal() ? termColor(v)[1] : "";
+    return `<button type="button" class="mtile${M.sel === sym ? " sel" : ""}" data-sym="${esc(sym)}" style="background:${color(v)}${ink ? ";color:" + ink : ""}" title="${esc(sym)}">
+      <span class="mn">${esc(name)}</span><span class="mp">${pct(v)}</span><span class="ms"><span>${esc(sub || sym)}</span>${last != null ? `<span>${num(last)}</span>` : ""}</span></button>`;
   }
 
   function render() {
     if (!M.visible) return;
     const s = M.snap;
     const bar = `<div class="mbar"><span class="mperiods">${(s?.periods || Object.keys(SCALE)).map((p, i) =>
-      `<button type="button" data-per="${p}" aria-pressed="${p === M.period}" title="Key ${i + 1}">${p}</button>`).join("")}</span>
+      `<button type="button" data-per="${p}" data-k="${i + 1}" aria-pressed="${p === M.period}" title="Key ${i + 1}">${p}</button>`).join("")}</span>
       <span class="dim">${s?.fetchedAt ? "Updated " + new Date(s.fetchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + (s.open ? " · market open" : " · market closed") : "Loading…"}</span>
       <button type="button" class="mref" data-ref title="Refresh now">↻</button></div>`;
     if (!s) { $("#markets").innerHTML = bar + window.WireUI.skeleton("tiles", { n: 30 }); return; }
+    chrome();
     const sections = s.groups.map((g) => {
       let body;
       if (g.pairs) {
@@ -132,6 +142,8 @@
     const b = e.target.closest("[data-open]"); if (b) window.WireApp.openInstrument(b.dataset.open);
   });
   api.page.on("markets:update", (s) => { M.snap = s; render(); renderDetail(); });
+  // terminal header: "US MARKET OPEN · REFRESH 15 MIN" and the data time
+  function chrome() { const s = M.snap; if (!s) return; window.WireChrome?.pulled("markets", s.fetchedAt); window.WireChrome?.status("markets", `US MARKET ${s.open ? "OPEN" : "CLOSED"}`); }
 
   (window.WirePages ||= {}).markets = {
     show() {

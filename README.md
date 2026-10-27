@@ -24,6 +24,25 @@ The installer lands in `dist/`. Without an Apple Developer ID certificate the bu
 
 ## Using it
 
+### Themes
+
+Tickerkite opens in the **Terminal** theme: near-black background, cyan accents, monospace uppercase labels and square tiles. Across the top is a row of function codes, one per page, with the New York time on the right:
+
+| Code | Page | Shortcut |
+|---|---|---|
+| TOP | News | ⌘⌥1 |
+| BRF | Brief | ⌘⌥0 |
+| ECST | Scorecards (outlook, decile board, recession odds) | ⌘⌥2 |
+| ECO | Calendar | ⌘⌥3 |
+| WEI | Markets heatmap | ⌘⌥4 |
+| FED | Fed path | ⌘⌥5 |
+| GC | Yield curve | ⌘⌥8 |
+| GP | Graphs | ⌘⌥6 |
+| PORT | Portfolio | ⌘⌥7 |
+| DES | Company | ⌘⌥9 |
+
+Each page has a header strip (code, title and status on the left, **PULLED N MINUTES AGO** on the right) and a footer with its keys. The same codes work in the ⌘K bar. The older slate/indigo look is still there as **Classic**: switch with **View › Switch Theme** (⌘⌥T) or **Settings › Appearance**. The choice is remembered on this Mac. In Classic, the top bar works as described next.
+
 The top bar has six entries: **Brief · News · Portfolio · Markets ▾ · Macro ▾ · Company**. **Markets ▾** opens Markets, Yield curve, Fed path and Graphs; **Macro ▾** opens Scorecards and Calendar. A group shows the page you're on. The ⌘⌥0–9 shortcuts, the ⌘K command bar and reopening on your last page work as before. While a page loads it shows placeholder rows, and a failed download says so with a **Try again** button.
 
 | Key | Action |
@@ -261,7 +280,7 @@ src/news/feeds.js    default sources
 src/news/fetcher.js  parallel feed download with timeouts
 src/news/parse.js    RSS/Atom parser (no dependencies)
 src/news/rank.js     clustering, tagging and impact scoring
-renderer/            the terminal UI (HTML/CSS/JS)
+renderer/            the terminal UI (HTML/CSS/JS); theme.js + terminal.css + chrome.js are the Terminal theme
 test/                parser and ranking tests (npm test)
 ```
 

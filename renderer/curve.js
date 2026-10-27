@@ -123,7 +123,7 @@
       <p class="yc-note">For decades of history, open Graphs and add DGS10, T10Y2Y or T10Y3M.</p>`;
   }
 
-  function apply(d) { if (!d) return; Y.data = d; render(); renderDetail(); }
+  function apply(d) { if (!d) return; Y.data = d; window.WireChrome?.pulled("curve", d.now?.date ? `CLOSE OF ${String(d.now.date).slice(0, 10)}` : null); render(); renderDetail(); }
   const save = () => { try { localStorage.setItem("wire.curve.show", JSON.stringify(Y.show)); localStorage.setItem("wire.curve.span", Y.span); } catch {} };
   $("#curve").addEventListener("click", (e) => {
     const c = e.target.closest("[data-cmp]"); if (c) { Y.show[c.dataset.cmp] = !Y.show[c.dataset.cmp]; save(); return render(); }

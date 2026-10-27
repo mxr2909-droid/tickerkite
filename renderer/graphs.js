@@ -268,7 +268,7 @@
       return out.map(([t, v]) => `${X(t).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
     };
     let g = `<svg id="gsvg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Chart"><defs><clipPath id="gclip"><rect x="${padL}" y="${padT}" width="${W - padL - padR}" height="${H - padT - padB}"/></clipPath></defs>
-      <rect width="${W}" height="${H}" fill="#0f1115"/>`;
+      <rect width="${W}" height="${H}" fill="var(--bg)"/>`;
     if (G.spec.rec) for (const [a, b] of G.rec) {
       if (b < t0 || a > t1) continue;
       g += `<rect x="${X(Math.max(a, t0))}" y="${padT}" width="${Math.max(2, X(Math.min(b, t1)) - X(Math.max(a, t0)))}" height="${H - padT - padB}" fill="rgba(255,255,255,.08)"/>`;

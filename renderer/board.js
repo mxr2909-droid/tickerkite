@@ -11,7 +11,10 @@
   let H = {}; // helpers from scorecard.js: esc, fmt, fmtDate, ord, defs(), sections(), openInstrument
 
   // ---------- colors ----------
-  const color = (d) => `hsl(${Math.round(((d - 1) / 9) * 128)},42%,${d === 5 || d === 6 ? 26 : 29}%)`;
+  // terminal theme: deep red → pale → deep green like a heat strip; D4–D8 are pale and take dark text (ink)
+  const TERM = ["#7a1717", "#b3261e", "#e0685d", "#f2b4ab", "#f1e2cf", "#d4ecc6", "#a9da8e", "#6fbf57", "#3c973a", "#1d6b2a"];
+  const ink = (d) => window.TkTheme?.isTerminal() && d >= 4 && d <= 8;
+  const color = (d) => window.TkTheme?.isTerminal() ? TERM[Math.max(1, Math.min(10, d)) - 1] : `hsl(${Math.round(((d - 1) / 9) * 128)},42%,${d === 5 || d === 6 ? 26 : 29}%)`;
   const scoreColor = (s) => color(M.decile(s / 100));
 
   // ---------- time ----------
@@ -64,7 +67,7 @@
   function tile(x, r) {
     if (!r) return `<button type="button" class="bt none${x.id === B.sel ? " sel" : ""}" data-id="${x.id}"><span class="bn">${H.esc(x.name)}</span><span class="bd">no data</span></button>`;
     const up = r.prior && r.v > r.prior[1], dn = r.prior && r.v < r.prior[1];
-    return `<button type="button" class="bt${r.stale ? " stale" : ""}${x.id === B.sel ? " sel" : ""}" data-id="${x.id}" style="background:${color(r.decile)}"
+    return `<button type="button" class="bt${r.stale ? " stale" : ""}${ink(r.decile) ? " ink" : ""}${x.id === B.sel ? " sel" : ""}" data-id="${x.id}" style="background:${color(r.decile)}"
         title="${H.esc(x.name)}: ${H.ord(Math.round(r.pct * 100))} percentile of ${r.n} monthly readings since ${new Date(r.since).getUTCFullYear()}${r.stale ? " · stale" : ""}">
       <span class="bn">${H.esc(x.name)}</span>
       <span class="bv">${H.fmt(r.v, x)}<i>${up ? "▲" : dn ? "▼" : ""}</i></span>
@@ -76,7 +79,7 @@
     const defs = H.defs();
     return H.sections().map(([k, l]) => {
       const g = B.res.groups[k];
-      return `<div class="bcol"><div class="bch"><span>${H.esc(l.replace(" & Conditions", "").toUpperCase())}</span><b style="background:${g == null ? "#20242b" : scoreColor(g)}">${g ?? "—"}</b></div>
+      return `<div class="bcol"><div class="bch"><span>${H.esc(l.replace(" & Conditions", "").toUpperCase())}</span><b style="background:${g == null ? "#20242b" : scoreColor(g)}${g != null && ink(M.decile(g / 100)) ? ";color:#0b0f14" : ""}">${g ?? "—"}</b></div>
         ${defs.filter((x) => x.section === k).map((x) => tile(x, B.res.tiles[x.id])).join("")}</div>`;
     }).join("");
   }
@@ -127,7 +130,7 @@
         <span class="lbl">RANK AGAINST</span>
         <span class="mperiods" id="bdpre">${PRESETS.map(([k, l]) => `<button type="button" data-pre="${k}">${l}</button>`).join("")}</span>
         <span class="bd-rl" id="bdrl"></span>
-        <span class="bd-leg">WORST ${Array.from({ length: 10 }, (_, i) => `<i style="background:${color(i + 1)}">${i + 1}</i>`).join("")} BEST</span>
+        <span class="bd-leg">WORST ${Array.from({ length: 10 }, (_, i) => `<i${ink(i + 1) ? ' class="ink"' : ""} style="background:${color(i + 1)}">${i + 1}</i>`).join("")} BEST</span>
       </div>
       <div class="bd-tl" id="bdtl"></div>
       <div class="bd-tlx"><span>◂ left handle: the history each indicator is ranked against · shaded = recessions</span><span>right handle: the board as of that date ▸</span></div>
@@ -153,7 +156,7 @@
     el.innerHTML = `<div class="ind">
       <div class="dhead"><span class="code">${H.esc(secName.toUpperCase())}</span><span class="nm">${H.esc(fredIds ? "FRED · " + fredIds.join(" − ") : "YAHOO · " + sym)}</span><span class="dt">${r ? "as of " + tdate(r.t, x) : ""}</span></div>
       <h1 style="margin:4px 0 0">${H.esc(x.name)}</h1>
-      ${r ? `<div class="big"><b>${H.fmt(r.v, x)}</b><span class="bdbadge" style="background:${color(r.decile)}">D${r.decile}</span><span class="dim">${r.decile >= 6 ? "better" : "worse"} than ${r.decile >= 6 ? Math.round(r.good * 100) : Math.round((1 - r.good) * 100)}% of its history</span></div>
+      ${r ? `<div class="big"><b>${H.fmt(r.v, x)}</b><span class="bdbadge" style="background:${color(r.decile)}${ink(r.decile) ? ";color:#0b0f14" : ""}">D${r.decile}</span><span class="dim">${r.decile >= 6 ? "better" : "worse"} than ${r.decile >= 6 ? Math.round(r.good * 100) : Math.round((1 - r.good) * 100)}% of its history</span></div>
       <div class="bd-pct">${H.ord(Math.max(1, Math.round(r.pct * 100)))} percentile of ${r.n} readings since ${new Date(r.since).getUTCFullYear()} · ${r.dir > 0 ? "higher" : "lower"} is better</div>` : `<div class="dim">No reading by ${mlabel(asOf)}.</div>`}
       ${r?.stale ? `<div class="stale">Stale: the latest reading is from ${tdate(r.t, x)}${r.dropped ? ", too old to count toward the section score" : ""}.</div>` : ""}
       <div class="isec">FULL HISTORY · RECESSIONS SHADED · RANKED RANGE HIGHLIGHTED</div>

@@ -77,6 +77,9 @@
         <p>Buy a license to keep using Tickerkite, or enter the key you received by email.</p>${licenseBlock(l, { lock: true })}`;
     } else if (S.view === "settings") {
       body = `<h2>Settings</h2>
+        <section><h3>Appearance</h3><div class="wset-row wset-theme">${[["terminal", "Terminal"], ["classic", "Classic (slate)"]].map(([k, n]) =>
+          `<button type="button" class="${window.TkTheme?.get() === k ? "" : "ghost"}" data-act="theme" data-theme="${k}" aria-pressed="${window.TkTheme?.get() === k}">${n}</button>`).join("")}</div>
+          <p class="wset-note">Also View › Switch Theme (⌘⌥T). Remembered on this Mac.</p></section>
         <section><h3>License</h3>${licenseBlock(l)}</section>
         <section><h3>Stock quotes</h3>
           <p>Tickerkite gets prices from Yahoo Finance's public pages by default. Add your own free <b>Finnhub</b> key (finnhub.io › Get free API key) and prices for US stocks and ETFs on your watchlist and portfolio come from Finnhub instead. Indices, futures, FX and charts still use Yahoo.</p>
@@ -142,6 +145,7 @@
     if (!b) return;
     const a = b.dataset.act;
     if (a === "close") { S.view = null; S.msg = ""; render(); }
+    else if (a === "theme") { window.TkTheme?.set(b.dataset.theme); render(); }
     else if (["terms", "privacy", "sources"].includes(a)) {
       if (S.view === "gate-terms") { const d = el.querySelector("[data-doc]"); d.dataset.doc = a; call("settings:legal", a).then((t) => { d.innerHTML = md(t); d.scrollTop = 0; }); }
       else { S.view = a; S.msg = ""; render(); }

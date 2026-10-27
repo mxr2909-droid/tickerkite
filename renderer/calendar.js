@@ -281,6 +281,7 @@
     if (!d) return;
     if (C.week && d.week !== C.week) return; // a push for a week we've navigated away from
     C.data = d;
+    window.WireChrome?.pulled("calendar", d.fetchedAt || Date.now());
     if (C.active) { const y = $("#calendar").scrollTop, keep = !!C.sel; render(); if (keep) $("#calendar").scrollTop = y; }
   }
   // release alerts (src/releases.js) keep the first-5-minute market reaction for each printed release

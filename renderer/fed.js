@@ -237,7 +237,7 @@
     const s = ev.target.closest(".fstory");
     if (s && !window.WireInstrument.onStory?.(s.dataset.sid) && s.dataset.url) api.open?.(s.dataset.url);
   });
-  function apply(d) { if (!d) return; F.data = d; if (F.active) render(); }
+  function apply(d) { if (!d) return; F.data = d; window.WireChrome?.pulled("fed", d.fetchedAt); if (F.active) render(); }
   if (api?.page) {
     api.page.on("fed:update", apply);
     api.page.invoke("fed:get").then(apply);

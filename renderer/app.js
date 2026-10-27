@@ -131,6 +131,7 @@
   function renderPulled() {
     const el = $("#pulled");
     el.classList.toggle("busy", S.refreshing);
+    for (const pg of ["news", "brief"]) window.WireChrome?.pulled(pg, S.refreshing ? "UPDATING…" : S.pulledAt || null);
     if (S.refreshing) { el.textContent = "Updating…"; return; }
     if (!S.pulledAt) { el.textContent = "Not updated yet"; return; }
     const m = Math.round((Date.now() - S.pulledAt) / 60000);
@@ -222,6 +223,7 @@
     });
     closeMenus();
     try { localStorage.setItem("wire.page", p); } catch {}
+    window.dispatchEvent(new CustomEvent("tk:page", { detail: p }));
     if (PAGES[p]) PAGES[p].show?.();
     else select(S.idx, false, false);
   }

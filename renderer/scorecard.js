@@ -408,6 +408,7 @@
     if (!d) return;
     const fresh = d.fetchedAt !== K.data?.fetchedAt;
     K.data = d;
+    window.WireChrome?.pulled("score", d.fetchedAt);
     if (fresh) K.series.clear();
     if (K.active) render(); else renderTabs();
   }
