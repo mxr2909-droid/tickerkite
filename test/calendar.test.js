@@ -95,7 +95,7 @@ test("reference periods", () => {
 
 test("event list: window, order, fallback and estimated flags", () => {
   const sched = C.fallbackSched();
-  const ev = C.buildEvents(sched, [{ sym: "AAPL", name: "Apple Inc.", date: "2026-10-29", estimated: true, source: "filing cadence" }], NOW);
+  const ev = C.buildEvents(sched, [{ id: "earn:AAPL:2026-10-29", cat: "earnings", key: "earn", sym: "AAPL", title: "Apple earnings", t: C.etToMs("2026-10-29", "16:05"), timed: false }], NOW);
   assert.ok(ev.every((e, i) => i === 0 || ev[i - 1].t <= e.t));
   assert.ok(ev.every((e) => e.t >= NOW - 8 * 864e5 && e.t <= NOW + 367 * 864e5));
   const cats = new Set(ev.map((e) => e.cat));
@@ -108,7 +108,7 @@ test("event list: window, order, fallback and estimated flags", () => {
   assert.strictEqual(new Date(fed.t).toISOString(), "2026-10-28T18:00:00.000Z"); // 2:00 PM ET statement
   assert.strictEqual(fed.ref, "Oct 27–28");
   const earn = ev.find((e) => e.cat === "earnings");
-  assert.strictEqual(earn.estimated, true);
+  assert.strictEqual(earn.title, "Apple earnings");
   assert.strictEqual(earn.timed, false);
   assert.ok(ev.some((e) => e.key === "claims" && e.t < NOW)); // last week's claims stay visible
 });
@@ -239,4 +239,43 @@ test("cached Nasdaq days: past settles, today refreshes every 10 min", () => {
   assert.strictEqual(NQ.fresh({ at: now - 5 * 60e3 }, today, today, now), true);
   assert.strictEqual(NQ.fresh({ at: now - 5 * 3600e3 }, "2026-10-20", today, now), true);
   assert.strictEqual(NQ.fresh(null, "2026-10-20", today, now), false);
+});
+
+const EQ = require("../src/calendar-earnings");
+const NQC = require("../src/calendar-nasdaq");
+
+test("top-100 ranking CSV", () => {
+  const csv = `"Rank","Name","Symbol","marketcap","price (USD)","country"
+"1","NVIDIA","NVDA","5262596898816","217.94","United States"
+"2","Alphabet (Google)","GOOG","3874810232832","316.83","United States"
+"3","Toyota","TM","300000000000","200","Japan"
+"4","Roche","RO.SW","250000000000","300","Switzerland"`;
+  const top = EQ.parseTop(csv, 3);
+  assert.deepStrictEqual(top.map((c) => [c.rank, c.sym, c.country]), [[1, "NVDA", "United States"], [2, "GOOG", "United States"], [3, "TM", "Japan"]]);
+  assert.strictEqual(top[0].cap, 5262596898816);
+  assert.strictEqual(EQ.fallbackTop().length, 100);
+});
+
+test("earnings day: top companies only, one per company, timing and EPS", () => {
+  const json = { data: { rows: [
+    { time: "time-after-hours", symbol: "GOOG", name: "Alphabet Inc.", marketCap: "$3,874,463,940,000", fiscalQuarterEnding: "Sep/2026", epsForecast: "$2.94", noOfEsts: "14", lastYearEPS: "$2.87" },
+    { time: "time-after-hours", symbol: "GOOGL", name: "Alphabet Inc.", marketCap: "$3,874,463,940,000", fiscalQuarterEnding: "Sep/2026", epsForecast: "$2.94", noOfEsts: "14" },
+    { time: "time-pre-market", symbol: "TM", name: "Toyota Motor Corp", marketCap: "$300,000,000,000", fiscalQuarterEnding: "Sep/2026", epsForecast: "$4.10", eps: "$4.30", surprise: "4.9" },
+    { time: "time-pre-market", symbol: "RHHBY", name: "Roche Holding", marketCap: "$250,000,000,000", fiscalQuarterEnding: "Sep/2026", epsForecast: "" },
+    { time: "time-not-supplied", symbol: "KLAC", name: "KLA Corporation", marketCap: "$194,720,023,000", epsForecast: "$1.18" },
+    { time: "time-pre-market", symbol: "TINY", name: "Tiny Co", marketCap: "$1,000,000", epsForecast: "$0.01" }
+  ] } };
+  const rows = EQ.parseDay(json);
+  assert.ok(!rows.some((r) => r.sym === "TINY")); // under $20B isn't cached
+  const top = [{ rank: 2, name: "Alphabet (Google)", sym: "GOOG", cap: 3.8e12, country: "United States" }, { rank: 40, name: "Toyota", sym: "TM", cap: 3e11, country: "Japan" }, { rank: 50, name: "Roche", sym: "RO.SW", cap: 2.5e11, country: "Switzerland" }];
+  const ev = EQ.events("2026-10-28", rows, top, C.etToMs, NQC.country);
+  assert.deepStrictEqual(ev.map((e) => e.title), ["Alphabet (Google) earnings", "Toyota earnings", "Roche earnings"]);
+  const [goog, tm, ro] = ev;
+  assert.strictEqual(goog.when, "after close");
+  assert.strictEqual(goog.prior, "$2.87");
+  assert.strictEqual(tm.actual, "$4.30");
+  assert.deepStrictEqual([tm.code, tm.region, tm.g10], ["JP", "as", true]);
+  assert.ok(tm.t < goog.t); // before the open sorts ahead of after the close
+  assert.strictEqual(ro.sym, "RHHBY"); // ADR alias
+  assert.strictEqual(ro.code, "CH");
 });

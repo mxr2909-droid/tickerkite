@@ -180,7 +180,7 @@ function merge(events, rows, hist, etDay) {
   const byDay = {};
   for (const r of rows || []) (byDay[etDay(r.t)] ||= []).push(r);
   const out = events.map((e) => {
-    if (e.cat === "earnings") return { ...e, code: "US", flag: US.flag, region: "am", g10: true, rel: 2 };
+    if (e.cat === "earnings") return { code: "US", flag: US.flag, region: "am", g10: true, ...e, rel: 2 };
     const re = MATCH[e.key];
     const row = re && (byDay[etDay(e.t)] || []).find((r) => r.code === "US" && re.test(r.name) && !used.has(r));
     const base = { ...e, code: "US", flag: US.flag, region: "am", g10: true, rel: 3, hkey: row?.key || DEFAULT_KEY[e.key] || null };

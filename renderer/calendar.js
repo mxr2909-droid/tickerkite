@@ -96,7 +96,7 @@
       <span class="cc"><span class="fl">${e.flag || ""}</span>${esc(e.code || "")}</span>
       ${dots(e.rel || 1)}
       <span class="h">${e.cat === "fed" ? `<span class="ccat">FED</span>` : e.cat === "earnings" ? `<span class="ccat">EARN</span>` : ""}${esc(e.title)}${tag}</span>
-      <span class="cp">${esc(e.ref && e.cat !== "earnings" ? e.ref.replace(/ Quarter /, "Q ").replace(/^Week ending /, "wk ") : "")}</span>
+      <span class="cp">${esc(e.cat === "earnings" ? (e.when === "before open" ? "pre-mkt" : e.when === "after close" ? "post-mkt" : "") : e.ref ? e.ref.replace(/ Quarter /, "Q ").replace(/^Week ending /, "wk ") : "")}</span>
       <span class="cv sv">${esc(e.survey || "")}</span>
       <span class="cv">${actual}</span>
       <span class="cv su ${cls(s)}">${s ? esc(fmtN(s, true)) : ""}</span>
@@ -121,7 +121,7 @@
       <input id="calq" type="search" placeholder="Search events  /" value="${esc(C.q)}" spellcheck="false" autocomplete="off">
       <span class="calnote">${srcNote()}</span></div>
       <div class="calcols"><span>ET</span><span>CTRY</span><span>REL</span><span>EVENT</span><span>PERIOD</span><span class="r">SURVEY</span><span class="r">ACTUAL</span><span class="r">SURP</span><span class="r">PRIOR</span><span class="r">REVISED</span></div></div>`;
-    if (!C.list.length) h += `<div class="empty">${C.q ? "No events match." : C.cat === "earnings" ? "No earnings this week. Add stocks to your watchlist; dates come from the company panel." : C.data.nasdaq?.loading ? "Loading this week…" : "Nothing scheduled this week."}</div>`;
+    if (!C.list.length) h += `<div class="empty">${C.q ? "No events match." : C.cat === "earnings" ? (C.data.nasdaq?.loading ? "Loading this week's earnings…" : "None of the world's 100 largest companies report this week.") : C.data.nasdaq?.loading ? "Loading this week…" : "Nothing scheduled this week."}</div>`;
     let day = null;
     for (const e of C.list) {
       const d = etDay(e.t);
@@ -142,7 +142,8 @@
     const fb = Object.entries(st).filter(([, s]) => !s.live).map(([k]) => ({ fomc: "Fed", bea: "BEA", retail: "Census", cpi: "CPI", ppi: "PPI", jobs: "jobs", jolts: "JOLTS" }[k] || k));
     const sched = fb.length ? `<span title="fallback list checked ${esc(C.data.fallbackChecked)}">fallback: ${esc(fb.join(", "))}</span>` : "schedules live";
     const cons = nq.loading ? "consensus loading…" : nq.error ? `<span class="dn" title="${esc(nq.error)}">consensus unavailable</span>` : nq.at ? "consensus: Nasdaq" : "";
-    return [sched, cons].filter(Boolean).join(" · ");
+    const top = C.data.top && !C.data.top.live ? `<span title="ranking snapshot checked ${esc(C.data.top.checked)}">top 100: snapshot</span>` : "";
+    return [sched, cons, top].filter(Boolean).join(" · ");
   }
   function scrollToSel() { $("#calendar").querySelector(`.calrow[aria-selected="true"]`)?.scrollIntoView({ block: "center" }); }
   function select(id) {
@@ -210,7 +211,11 @@
     const when = e.timed ? `${dayLabel(e.t)} · ${clock(e.t)} ET` : dayLabel(e.t);
     let kv = `<dt>When</dt><dd>${esc(when)}</dd><dt>Countdown</dt><dd>${esc(countdown(e))}</dd>`;
     if (e.cat !== "earnings") kv += `<dt>Next</dt><dd class="calnext">${e.t > Date.now() ? esc(countdown(e)) : "…"}</dd>`;
-    if (e.ref) kv += `<dt>${e.cat === "earnings" ? "COMPANY" : e.cat === "fed" && e.key === "fomc" ? "MEETING" : "PERIOD"}</dt><dd>${esc(e.ref)}</dd>`;
+    if (e.cat === "earnings") {
+      kv += `<dt>Company</dt><dd>${esc(e.company || e.sym)} · ${esc(e.sym)}${e.rank ? ` · #${e.rank} by market cap` : ""}${e.cap ? ` ($${(e.cap / 1e9 >= 1000 ? (e.cap / 1e12).toFixed(2) + "T" : Math.round(e.cap / 1e9) + "B")})` : ""}</dd>`;
+      kv += `<dt>Report</dt><dd>${esc(e.ref || "time not given")}</dd>`;
+      if (e.survey || e.actual) kv += `<dt>EPS</dt><dd>consensus ${esc(e.survey || "—")}${e.ests ? ` (${e.ests} ests)` : ""}${e.actual ? ` · actual ${esc(e.actual)}` : ""}${e.prior ? ` · year ago ${esc(e.prior)}` : ""}</dd>`;
+    } else if (e.ref) kv += `<dt>${e.cat === "earnings" ? "COMPANY" : e.cat === "fed" && e.key === "fomc" ? "MEETING" : "PERIOD"}</dt><dd>${esc(e.ref)}</dd>`;
     kv += `<dt>Country</dt><dd>${e.flag || ""} ${esc(e.code || "")} · ${["", "low", "medium", "high"][e.rel || 1]} importance</dd>`;
     kv += `<dt>Source</dt><dd>${esc(e.src || rel.agency || "")}${e.nq && e.key !== "nq" ? " · consensus from Nasdaq" : ""}${e.estimated ? " · estimated date" : ""}${e.fallback ? ` · Tickerkite fallback list, checked ${esc(C.data.fallbackChecked)}` : ""}</dd>`;
     const s = surp(e.actual, e.survey);
@@ -229,7 +234,7 @@
       const fresh = e.t <= Date.now() && C.latest[e.key] === e.id && landed(e, r);
       vals += `<dt>${esc(r.name.toUpperCase())}</dt><dd><b>${esc(fmtV(r, r.v))}</b> <span class="dim">vs ${esc(fmtV(r, r.pv))} previous · ${esc(new Date(r.t).toLocaleDateString("en-US", { month: "short", year: "numeric", day: e.key === "claims" ? "numeric" : undefined, timeZone: "UTC" }))}${fresh ? " · new" : ""}</span></dd>`;
     }
-    const words = e.cat === "earnings" ? [e.sym, ...(e.ref && e.ref !== e.sym ? [e.ref.replace(/,? (Inc|Corp|Corporation|Co|Ltd|plc|Holdings)\.?$/i, "")] : [])]
+    const words = e.cat === "earnings" ? [e.sym, ...(e.company ? [e.company.replace(/\s*\(.*\)$/, "")] : []), ...(e.ref && e.ref !== e.sym && !e.company ? [e.ref.replace(/,? (Inc|Corp|Corporation|Co|Ltd|plc|Holdings)\.?$/i, "")] : [])]
       : rel.words || [e.title.replace(/\s*\(\d\)$/, "")];
     el.innerHTML = `
       <div class="dhead"><span class="code">${e.cat === "fed" ? "FED" : e.cat === "earnings" ? "EARNINGS" : esc(rel.agency || e.code || "MACRO")}</span><span class="nm">${esc(rel.long || e.country || "")}</span><span class="dt">${esc(countdown(e))}</span></div>

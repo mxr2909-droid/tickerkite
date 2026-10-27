@@ -12,13 +12,14 @@
 //  - BLS:    bls.gov per-release schedule pages (CPI, PPI, jobs, JOLTS). BLS blocks most scripts,
 //            so a failed fetch falls back to the list below, which is marked "fallback" in the UI.
 //  - DOL:    initial jobless claims, every Thursday 8:30 ET (Wednesday in a Thanksgiving/Christmas week)
-//  - Earnings: the company panel's date for each watchlist stock (Nasdaq, else "estimated")
+//  - Earnings: the world's 100 largest companies by market cap, dates and EPS from Nasdaq (calendar-earnings.js)
 //  - Consensus, actuals and global events: Nasdaq's economic calendar, one request per day, cached in
 //    calendar-nasdaq.json; every release's numbers also go into calendar-history.json (see calendar-nasdaq.js)
 
-const company = require("./company");
 const http = require("./data/http");
 const NQ = require("./calendar-nasdaq");
+const EQ = require("./calendar-earnings");
+const nasdaq = require("./data/nasdaq");
 const SC = require("./macro/score");
 const { INDICATORS } = require("./macro/indicators");
 
@@ -216,7 +217,7 @@ function buildEvents(sched, earnings = [], now = Date.now()) {
   for (const r of sched.bea?.items || []) add({ id: `${r.key}:${r.date}`, cat: "macro", key: r.key, title: RELEASES[r.key].name, ref: r.ref, t: etToMs(r.date, r.time), fallback: !sched.bea.live, src: "BEA" });
   for (const r of sched.retail?.items || []) add({ id: `retail:${r.date}`, cat: "macro", key: "retail", title: RELEASES.retail.name, ref: r.ref, t: etToMs(r.date, "08:30"), fallback: !sched.retail.live, src: "Census" });
   for (const d of claimsDates(now - 7 * DAY, 9)) add({ id: `claims:${d}`, cat: "macro", key: "claims", title: RELEASES.claims.name, ref: "Week ending " + isoDay(Date.parse(d) / DAY - 5), t: etToMs(d, "08:30"), src: "Labor Dept (weekly rule)" });
-  for (const e of earnings) add({ id: `earn:${e.sym}`, cat: "earnings", key: "earn", sym: e.sym, title: `${e.sym} earnings`, ref: e.name || e.sym, t: etToMs(e.date, "00:00"), timed: false, estimated: !!e.estimated, src: e.source || "" });
+  for (const e of earnings) add(e); // already built by calendar-earnings.js
   const lo = etDay(now) - 7, hi = etDay(now) + 366;
   const seen = new Set();
   return ev.filter((e) => { const d = etDay(e.t); if (d < lo || d > hi || seen.has(e.id)) return false; seen.add(e.id); return true; }).sort((a, b) => a.t - b.t || a.title.localeCompare(b.title));
@@ -297,42 +298,34 @@ function historyFor(hist, key, events, days, now = Date.now()) {
 function register(ctx) {
   let cache = ctx.readJSON("calendar-cache.json", null);
   let loading = null, vals = null, valsAt = 0;
-  const tried = new Set(); // watchlist symbols already sent to the company panel this session
-  const store = { read: ctx.readJSON, write: ctx.writeJSON };
   // Nasdaq days ({ date: { at, rows } }) and release history ({ cursor, keys })
   const days = ctx.readJSON("calendar-nasdaq.json", {});
   const hstore = ctx.readJSON("calendar-history.json", { cursor: null, keys: {} });
   let week = weekOf(Date.now()), nq = { at: 0, error: null }, nqLoading = null, histDirty = false;
-
-  // watchlist stocks and portfolio holdings (stocks only), once each
-  function tracked() {
-    const seen = new Set(), out = [];
-    for (const w of [...(ctx.get().watch || []), ...(ctx.expose?.holdings?.() || []).filter((h) => h.cls === "stocks")]) if (!seen.has(w.sym)) { seen.add(w.sym); out.push(w); }
-    return out;
+  // earnings: the top-100 ranking ({ at, live, list }) and Nasdaq earnings days ({ date: { at, rows } })
+  let top = ctx.readJSON("calendar-top100.json", null), topLoading = null;
+  const edays = ctx.readJSON("calendar-earnings.json", {});
+  const topList = () => (top?.list?.length ? top.list : EQ.fallbackTop());
+  function loadTop() {
+    if (topLoading || (top && Date.now() - top.at < TTL)) return topLoading;
+    topLoading = http.getText(EQ.TOP_URL, { net: true, timeoutMs: 20000 }).then((csv) => {
+      const list = EQ.parseTop(csv);
+      if (list.length < EQ.TOP_N * 0.9) throw new Error("ranking looks incomplete");
+      top = { at: Date.now(), live: true, list }; ctx.writeJSON("calendar-top100.json", top); push();
+    }).catch((e) => { console.error("calendar top100", e.message || e); if (top) top.at = Date.now() - TTL + 3600e3; })
+      .finally(() => { topLoading = null; });
+    return topLoading;
   }
   function earnings() {
-    const cc = ctx.readJSON("company-cache.json", {});
-    const out = [];
-    for (const w of tracked()) {
-      const d = cc[w.sym]?.data;
-      if (!d?.earnings) continue;
-      let e = d.earnings;
-      if (Date.parse(e.date) < Date.now() - DAY) e = company.estimateNextReport(d.filings || []);
-      if (e?.date) out.push({ sym: w.sym, name: d.name || w.name, ...e });
-    }
+    const tl = topList(), out = [];
+    for (const [d, v] of Object.entries(edays)) out.push(...EQ.events(d, v.rows, tl, etToMs, NQ.country));
     return out;
   }
-  // fill in watchlist stocks the company panel hasn't looked up yet, one at a time
-  async function fillEarnings() {
-    const cc = ctx.readJSON("company-cache.json", {});
-    const contact = ctx.readJSON("prefs.json", {}).secContact;
-    let added = false;
-    for (const w of tracked()) {
-      if (cc[w.sym] || tried.has(w.sym)) continue;
-      tried.add(w.sym);
-      try { const r = await company.fetchCompany(w.sym, { store, contact }); if (r?.earnings) added = true; } catch {}
-    }
-    if (added) push();
+  // a past day is final once fetched after it ended; today goes stale after an hour, later days after 6
+  function earnFresh(entry, iso, today, now = Date.now()) {
+    if (!entry) return false;
+    if (iso < today) return entry.at > Date.parse(iso + "T12:00:00Z") + DAY;
+    return now - entry.at < (iso === today ? 3600e3 : 6 * 3600e3);
   }
   function values() {
     if (!vals || Date.now() - valsAt > 10 * 60e3) {
@@ -347,7 +340,8 @@ function register(ctx) {
     const status = {};
     for (const [k, s] of [["fomc", sched.fomc], ["bea", sched.bea], ["retail", sched.retail], ...Object.entries(sched.bls || {})]) status[k] = { live: !!s?.live, at: s?.at || 0, error: cache?.errors?.[k] || null };
     return { events: weekEvents(allEvents(), days, hstore.keys, week), week: isoDay(week), thisWeek: isoDay(weekOf(Date.now())), nasdaq: { ...nq, loading: !!nqLoading },
-      values: values(), releases: RELEASES, status, fetchedAt: cache?.at || 0, fallbackChecked: FALLBACK_CHECKED, now: Date.now() };
+      values: values(), releases: RELEASES, status, fetchedAt: cache?.at || 0, fallbackChecked: FALLBACK_CHECKED, now: Date.now(),
+      top: { live: !!top?.live, at: top?.at || 0, checked: EQ.TOP_CHECKED, n: topList().length } };
   }
   const push = () => ctx.send("calendar:update", payload());
 
@@ -356,7 +350,7 @@ function register(ctx) {
     if (!force && cache && Date.now() - cache.at < TTL) return;
     loading = fetchSchedules(cache).then((c) => { cache = c; ctx.writeJSON("calendar-cache.json", c); push(); })
       .catch((e) => console.error("calendar", e)).finally(() => { loading = null; });
-    fillEarnings();
+    loadTop();
     return loading;
   }
 
@@ -365,9 +359,13 @@ function register(ctx) {
   async function loadWeek(force) {
     if (nqLoading) return nqLoading;
     const today = isoDay(etDay(Date.now()));
-    const todo = [];
-    for (let d = week; d < week + 7; d++) { const iso = isoDay(d); if (force || !NQ.fresh(days[iso], iso, today)) todo.push(iso); }
-    if (!todo.length) return;
+    const todo = [], etodo = [];
+    for (let d = week; d < week + 7; d++) {
+      const iso = isoDay(d);
+      if (force || !NQ.fresh(days[iso], iso, today)) todo.push(iso);
+      if (force || !earnFresh(edays[iso], iso, today)) etodo.push(iso);
+    }
+    if (!todo.length && !etodo.length) return;
     nqLoading = (async () => {
       let ok = 0, err = null;
       for (const iso of todo) {
@@ -375,7 +373,12 @@ function register(ctx) {
         catch (e) { err = String(e.message || e); }
         await new Promise((r) => setTimeout(r, 250));
       }
-      nq = { at: ok ? Date.now() : nq.at, error: ok ? null : err };
+      if (todo.length) nq = { at: ok ? Date.now() : nq.at, error: ok ? null : err };
+      for (const iso of etodo) { // weekends answer with no rows, which is fine
+        try { edays[iso] = { at: Date.now(), rows: EQ.parseDay(await nasdaq.earnings(iso)) }; }
+        catch (e) { console.error("calendar earnings", iso, e.message || e); }
+        await new Promise((r) => setTimeout(r, 250));
+      }
       // official releases know their period ("September 2026"); keep it with the history entry
       for (const e of weekEvents(allEvents(), days, hstore.keys, week)) {
         const h = e.ref && e.key !== "nq" && hstore.keys[e.hkey]?.list.find((x) => x.date === isoDay(etDay(e.t)));
@@ -384,6 +387,8 @@ function register(ctx) {
       const lo = isoDay(etDay(Date.now()) - 60);
       for (const k of Object.keys(days)) if (k < lo) delete days[k];
       ctx.writeJSON("calendar-nasdaq.json", days);
+      for (const k of Object.keys(edays)) if (k < lo) delete edays[k];
+      ctx.writeJSON("calendar-earnings.json", edays);
       saveHist();
     })().catch((e) => console.error("calendar nasdaq", e)).finally(() => { nqLoading = null; push(); });
     push();
