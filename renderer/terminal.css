@@ -236,3 +236,7 @@
 [data-theme="terminal"] .bf-btn,[data-theme="terminal"] .bf-link{font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.05em}
 [data-theme="terminal"] .bf-story{padding:5px 4px}
 [data-theme="terminal"] .bf-pfn b{font-size:22px;font-weight:800}
+
+/* pop-out button in the page header strip */
+.ph-pop{margin-left:12px;padding:2px 8px;border:1px solid var(--line);color:var(--dim);font-size:11px;letter-spacing:.06em;flex:none}
+.ph-pop:hover{color:var(--accent);border-color:var(--accent)}

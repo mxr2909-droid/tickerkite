@@ -352,6 +352,69 @@ function createWindow() {
   win.on("closed", () => { win = null; });
 }
 
+// ---------- pop-out windows: any page in its own window ----------
+const popouts = new Set(); // BrowserWindows showing one page each (index.html?page=<p>&solo=1)
+const appWindows = () => [win, ...popouts].filter((w) => w && !w.isDestroyed());
+
+function savePopouts() {
+  if (quitting) return;
+  prefs.popouts = [...popouts].filter((w) => !w.isDestroyed()).map((w) => ({ page: w.tkPage, bounds: w.getBounds() }));
+  savePrefs();
+}
+function createPopout(page, bounds) {
+  page = String(page || "news").replace(/[^a-z]/g, "");
+  const wa = screen.getDisplayMatching(win ? win.getBounds() : screen.getPrimaryDisplay().bounds).workArea;
+  const b = bounds && onScreen(bounds) ? bounds : { width: Math.min(1100, wa.width), height: Math.min(760, wa.height), x: wa.x + 60 + popouts.size * 30, y: wa.y + 40 + popouts.size * 30 };
+  const w = new BrowserWindow({
+    ...b, minWidth: MIN_W, minHeight: MIN_H, title: "Tickerkite", titleBarStyle: "hiddenInset", trafficLightPosition: { x: 18, y: 18 },
+    backgroundColor: "#0a0c10", show: false,
+    webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true }
+  });
+  w.tkPage = page;
+  w.loadFile(path.join(__dirname, "..", "renderer", "index.html"), { query: { page, solo: "1" } });
+  w.once("ready-to-show", () => w.show());
+  w.webContents.setWindowOpenHandler(({ url }) => { openExternal(url); return { action: "deny" }; });
+  w.webContents.on("will-navigate", (e, url) => { if (!url.startsWith("file://")) { e.preventDefault(); openExternal(url); } });
+  let t = null;
+  const remember = () => { clearTimeout(t); t = setTimeout(savePopouts, 400); };
+  w.on("move", remember); w.on("resize", remember);
+  w.on("closed", () => { popouts.delete(w); savePopouts(); });
+  popouts.add(w);
+  savePopouts();
+  return w;
+}
+/** Menu page shortcuts act on the window you're in (main or a pop-out), never on all of them. */
+function setPageInFocused(p) {
+  const f = BrowserWindow.getFocusedWindow();
+  if (f && popouts.has(f)) { f.tkPage = p; savePopouts(); f.webContents.send("page:set", p); return; }
+  showStory(null);
+  win?.webContents.send("page:set", p);
+}
+/**
+ * Arrange the main window and every pop-out on the main window's screen: a grid when each window
+ * still gets its minimum size (an external monitor), otherwise a neat cascade (a laptop screen).
+ */
+const MIN_W = 900, MIN_H = 560;
+function tileWindows() {
+  const ws = appWindows();
+  if (!ws.length) return;
+  const wa = screen.getDisplayMatching(ws[0].getBounds()).workArea;
+  for (const w of ws) { if (w.isFullScreen()) w.setFullScreen(false); if (w.isMinimized()) w.restore(); }
+  const cols = Math.max(1, Math.min(ws.length, Math.floor(wa.width / MIN_W)));
+  const rows = Math.ceil(ws.length / cols);
+  if (wa.height / rows < MIN_H) {
+    const step = 34, w0 = Math.max(MIN_W, Math.round(wa.width * 0.72)), h0 = Math.max(MIN_H, Math.round(wa.height * 0.8));
+    ws.forEach((w, i) => w.setBounds({ x: wa.x + Math.min(i * step, wa.width - w0), y: wa.y + Math.min(i * step, wa.height - h0), width: w0, height: h0 }));
+    ws.forEach((w) => w.moveTop());
+    return;
+  }
+  ws.forEach((w, i) => {
+    const r = Math.floor(i / cols), inRow = r === rows - 1 ? ws.length - r * cols : cols;
+    const cw = Math.floor(wa.width / inRow), rh = Math.floor(wa.height / rows);
+    w.setBounds({ x: wa.x + (i % cols) * cw, y: wa.y + r * rh, width: cw, height: rh });
+  });
+}
+
 function openExternal(url) {
   if (/^https?:\/\//i.test(url)) shell.openExternal(url);
 }
@@ -483,16 +546,16 @@ function buildMenu() {
     {
       label: "View",
       submenu: [
-        { label: "Brief", accelerator: "CmdOrCtrl+Alt+0", click: () => { showStory(null); send("page:set", "brief"); } },
-        { label: "News", accelerator: "CmdOrCtrl+Alt+1", click: () => { showStory(null); send("page:set", "news"); } },
-        { label: "Scorecards", accelerator: "CmdOrCtrl+Alt+2", click: () => { showStory(null); send("page:set", "score"); } },
-        { label: "Calendar", accelerator: "CmdOrCtrl+Alt+3", click: () => { showStory(null); send("page:set", "calendar"); } },
-        { label: "Markets", accelerator: "CmdOrCtrl+Alt+4", click: () => { showStory(null); send("page:set", "markets"); } },
-        { label: "Fed", accelerator: "CmdOrCtrl+Alt+5", click: () => { showStory(null); send("page:set", "fed"); } },
-        { label: "Graphs", accelerator: "CmdOrCtrl+Alt+6", click: () => { showStory(null); send("page:set", "graphs"); } },
-        { label: "Portfolio", accelerator: "CmdOrCtrl+Alt+7", click: () => { showStory(null); send("page:set", "portfolio"); } },
-        { label: "Yield Curve", accelerator: "CmdOrCtrl+Alt+8", click: () => { showStory(null); send("page:set", "curve"); } },
-        { label: "Company", accelerator: "CmdOrCtrl+Alt+9", click: () => { showStory(null); send("page:set", "company"); } },
+        { label: "Brief", accelerator: "CmdOrCtrl+Alt+0", click: () => setPageInFocused("brief") },
+        { label: "News", accelerator: "CmdOrCtrl+Alt+1", click: () => setPageInFocused("news") },
+        { label: "Scorecards", accelerator: "CmdOrCtrl+Alt+2", click: () => setPageInFocused("score") },
+        { label: "Calendar", accelerator: "CmdOrCtrl+Alt+3", click: () => setPageInFocused("calendar") },
+        { label: "Markets", accelerator: "CmdOrCtrl+Alt+4", click: () => setPageInFocused("markets") },
+        { label: "Fed", accelerator: "CmdOrCtrl+Alt+5", click: () => setPageInFocused("fed") },
+        { label: "Graphs", accelerator: "CmdOrCtrl+Alt+6", click: () => setPageInFocused("graphs") },
+        { label: "Portfolio", accelerator: "CmdOrCtrl+Alt+7", click: () => setPageInFocused("portfolio") },
+        { label: "Yield Curve", accelerator: "CmdOrCtrl+Alt+8", click: () => setPageInFocused("curve") },
+        { label: "Company", accelerator: "CmdOrCtrl+Alt+9", click: () => setPageInFocused("company") },
         { label: "Go To…", accelerator: "CmdOrCtrl+K", click: () => { showStory(null); send("cmd:open"); } },
         { type: "separator" },
         { label: "Show Main Window", accelerator: "CmdOrCtrl+1", click: () => showStory(null) },
@@ -522,7 +585,17 @@ function buildMenu() {
         { role: "toggleDevTools" }
       ]
     },
-    { role: "windowMenu" }
+    {
+      role: "windowMenu",
+      submenu: [
+        { label: "Pop Out Current Page", accelerator: "CmdOrCtrl+Shift+N", click: () => { const f = BrowserWindow.getFocusedWindow(); (f && appWindows().includes(f) ? f : win)?.webContents.send("popout:current"); } },
+        { label: "Tile Windows", accelerator: "CmdOrCtrl+Alt+T", click: tileWindows },
+        { type: "separator" },
+        { role: "minimize" }, { role: "zoom" },
+        { type: "separator" },
+        { role: "front" }
+      ]
+    }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -541,6 +614,10 @@ ipcMain.handle("watch:remove", (_e, sym) => { removeWatch(String(sym || "")); re
 ipcMain.handle("score:get", () => scoreSnapshot());
 ipcMain.handle("score:series", (_e, id) => scoreSeries(String(id)));
 ipcMain.handle("score:refresh", () => { refreshMacro(true); return true; });
+ipcMain.handle("window:popout", (_e, page) => { createPopout(String(page || "")); return true; });
+// a pop-out that switches page remembers the new one for next launch
+ipcMain.on("window:page", (e, p) => { const w = BrowserWindow.fromWebContents(e.sender); if (w && popouts.has(w)) { w.tkPage = String(p || "news"); savePopouts(); } });
+ipcMain.handle("window:tile", () => { tileWindows(); return true; });
 ipcMain.handle("show-story", (_e, id) => { showStory(id ? String(id) : null); return true; });
 
 // ---------- instrument view ----------
@@ -623,7 +700,7 @@ app.whenReady().then(() => {
     onChange: () => { if (locked() && widget) closeWidget(); },
     expose: {}, // getters modules publish for each other (calendarToday, releases, portfolio, …)
     prefs: () => prefs,
-    showPage: (p) => { showStory(null); send("page:set", p); },
+    showPage: (p) => { showStory(null); win?.webContents.send("page:set", p); },
     get: () => ({ stories: state.stories, quotes: state.quotes, watch: state.watch, scores: macro.result })
   };
   lic = license.register(ctx);
@@ -636,6 +713,7 @@ app.whenReady().then(() => {
   buildMenu();
   createWindow();
   if (prefs.widget.open) createWidget();
+  for (const p of Array.isArray(prefs.popouts) ? prefs.popouts.slice(0, 8) : []) createPopout(p.page, p.bounds);
   refreshNews();
   refreshQuotes();
   setInterval(refreshNews, NEWS_EVERY_MS);

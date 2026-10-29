@@ -208,6 +208,10 @@
   const PAGES = (window.WirePages ||= {});
   PAGES.score = { show: () => window.WireScore.show(), hide: () => window.WireScore.hide(), key: (e) => window.WireScore.key(e), restore: () => window.WireScore.restore(), detail: () => $("#sdetail") };
   S.page = "news";
+  // pop-out windows load index.html?page=<p>&solo=1: they open on that page and don't change
+  // which page the main window remembers
+  const QS = new URLSearchParams(location.search), SOLO = QS.get("solo") === "1";
+  if (SOLO) document.documentElement.classList.add("solo");
   function setPage(p) {
     if (p !== "news" && !PAGES[p]) return;
     if (window.WireInstrument.isOpen()) window.WireInstrument.close();
@@ -222,7 +226,8 @@
       g.querySelector(".gbtn span").textContent = on ? on.firstChild.textContent : g.dataset.g;
     });
     closeMenus();
-    try { localStorage.setItem("wire.page", p); } catch {}
+    if (!SOLO) try { localStorage.setItem("wire.page", p); } catch {}
+    else api?.reportPage?.(p);
     window.dispatchEvent(new CustomEvent("tk:page", { detail: p }));
     if (PAGES[p]) PAGES[p].show?.();
     else select(S.idx, false, false);
@@ -418,7 +423,8 @@
     const i = S.list.findIndex((s) => s.id === id); if (i >= 0) select(i); });
   api.onInstrument?.((sym) => openInstrument(sym));
   api.onPage?.(setPage);
-  try { const p = localStorage.getItem("wire.page"); if (p && PAGES[p]) setPage(p); } catch {}
+  api.onPopoutCurrent?.(() => api.popout(S.page));
+  try { const p = SOLO ? QS.get("page") : localStorage.getItem("wire.page"); if (p && (p === "news" || PAGES[p])) setPage(p); } catch {}
   api.getNews().then(applyNews);
   api.getQuotes().then(renderQuotes);
   setInterval(() => { renderPulled(); }, 20000);

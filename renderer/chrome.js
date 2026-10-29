@@ -34,8 +34,9 @@
 
   const head = document.createElement("div");
   head.className = "phead";
-  head.innerHTML = `<b class="ph-code" id="phCode">TOP</b><span class="ph-title" id="phTitle">TOP NEWS</span><span class="ph-status" id="phStatus"></span><span class="ph-pulled num" id="phPulled"></span>`;
+  head.innerHTML = `<b class="ph-code" id="phCode">TOP</b><span class="ph-title" id="phTitle">TOP NEWS</span><span class="ph-status" id="phStatus"></span><span class="ph-pulled num" id="phPulled"></span><button type="button" class="ph-pop" id="phPop" title="Open this page in its own window (⌘⇧N) · Window › Tile Windows (⌘⌥T) arranges them">⧉ POP OUT</button>`;
   $(".main").prepend(head);
+  head.querySelector("#phPop").addEventListener("click", () => window.wire?.popout(window.WireApp?.page?.() || "news"));
 
   const hint = document.createElement("span");
   hint.className = "khint"; hint.id = "khint";

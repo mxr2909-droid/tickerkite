@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld("wire", {
   refreshScores: () => ipcRenderer.invoke("score:refresh"),
   onScores: (cb) => ipcRenderer.on("score:update", (_e, d) => cb(d)),
   onPage: (cb) => ipcRenderer.on("page:set", (_e, p) => cb(p)),
+  popout: (page) => ipcRenderer.invoke("window:popout", page),
+  tileWindows: () => ipcRenderer.invoke("window:tile"),
+  reportPage: (p) => ipcRenderer.send("window:page", p),
+  onPopoutCurrent: (cb) => ipcRenderer.on("popout:current", () => cb()),
   showInstrument: (sym) => ipcRenderer.invoke("show-instrument", sym),
   onInstrument: (cb) => ipcRenderer.on("inst:open", (_e, sym) => cb(sym)),
   // generic bridge for pages added under renderer/<page>.js: only their own channels pass

@@ -198,6 +198,10 @@ The Graphs page (⌘⌥6) is a charting workspace for any FRED series or market 
 
 Data: FRED's public CSV export and series page (title, units, frequency), and Yahoo daily closes, full history, cached per series in `graphs-cache/` for a day (the last copy is used offline).
 
+## Multiple windows
+
+Open any page in its own window to watch several at once: click **⧉ POP OUT** in a page's header strip, or press **⌘⇧N** (Window › Pop Out Current Page). Each pop-out is a full Tickerkite window that starts on that page; the page shortcuts (⌘⌥0–9) switch only the window you're in. **Window › Tile Windows** (⌘⌥T) arranges the main window and all pop-outs in a grid when the screen has room (e.g. an external monitor) and in a cascade on a laptop screen. Pop-outs reopen where you left them next launch.
+
 ## Charts, momentum and "what moved it"
 
 Click any price in the sidebar (or in the widget) to open its chart in the right-hand pane.
