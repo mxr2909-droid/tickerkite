@@ -198,6 +198,22 @@ The Graphs page (⌘⌥6) is a charting workspace for any FRED series or market 
 
 Data: FRED's public CSV export and series page (title, units, frequency), and Yahoo daily closes, full history, cached per series in `graphs-cache/` for a day (the last copy is used offline).
 
+## Risk monitors
+
+The Brief page (BRF) opens with **risk monitors**: the chance of five major events, each from a model whose factors were chosen by cross-validation (`scripts/select-factors.js`), refreshed on launch and every 6 hours.
+
+| Monitor | Factors | CV AUC | Brier skill |
+|---|---|---|---|
+| New recession within 12 months | yield curve, building permits, fed funds change, oil | 0.89 | 8% |
+| Unemployment up 0.5+ points within 12 months | building permits, industrial production, fed funds level, S&P 500 (6-mo) | 0.90 | 39% |
+| Fed cuts 1+ point within 12 months | fed funds level, VIX | 0.86 | 34% |
+| S&P 500 falls 20%+ within 12 months | yield curve (12-mo change), oil, unemployment level, financial conditions | 0.86 | 19% |
+| Inflation up 1+ point within 12 months | M2 growth, unemployment level | 0.67 | 8% |
+
+Each card shows today's probability, the usual rate, the 1- and 3-month change, a 3-year trend, what's raising the odds and the model's quality. **WARNING** = 30%+ and at least twice the usual rate; **WATCH** = 1.5× the usual rate or up 8+ points in a month. A Mac notification fires when a monitor reaches WARNING or jumps 10+ points in a month. Click a card to open its full model on the Factor page.
+
+Not included because nothing predicted them better than chance out of sample: a 10% correction within 6 months, and credit spreads widening 1+ point. Models live in `src/monitor-models.js`; rerun the selection script before changing one.
+
 ## Factor probabilities
 
 The **FAC** page (Markets ▾ › Factor probabilities, ⌘⌥R) estimates the chance of a **case** from macro factors.

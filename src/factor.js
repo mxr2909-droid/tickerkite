@@ -114,25 +114,16 @@ function describeCase(c, name) {
 
 // ---------- presets ----------
 const F = (key, name, tf, lag = 0) => ({ key, name, tf, lag });
+const MONITORS = require("./monitor-models");
 const PRESETS = [
-  // Chosen by forward selection on cross-validated AUC (6 time blocks, 12-month gaps), 1982–2025:
-  // curve 0.86 → + permits 0.87 → + Fed tightening 0.88 → + oil 0.89; shrinkage 10 keeps the
-  // probabilities calibrated (cross-validated Brier 0.083 vs 0.090 for always guessing the base rate).
-  // Unemployment, stocks, claims, sentiment and spread levels added nothing out of sample.
-  // The Fed term's odds ratio is below 1: given the curve, the Fed *cutting* (a falling 12-month
-  // change) is the warning, since it tends to start easing just before or as recessions begin.
-  // Without it, cross-validated AUC falls to 0.870 and Brier to 0.091 (no better than the base rate).
-  { id: "recession", name: "New recession within 12 months", target: { key: "fred:USREC", name: "US recession (NBER)", measure: "level" }, ridge: 10,
-    c: { text: "A new US recession begins within the next 12 months", cond: "above", x: 0.5, h: 12, when: "within", unit: "pts", onlyNew: true },
-    factors: [F("fred:T10Y3M", "Yield curve (10y minus 3m)", "level"), F("fred:PERMIT", "Building permits", "pct12"), F("fred:DFF", "Fed funds rate (cuts raise odds)", "chg12"), F("fred:WTISPLC", "Oil price (monthly)", "pct12")] },
-  { id: "spx-drop", name: "S&P 500 falls 10%+ within 6 months", target: { key: "yahoo:^GSPC", name: "S&P 500", measure: "level" }, c: { text: "The S&P 500 falls 10% or more at some point in the next 6 months", cond: "fall", x: 10, h: 6, when: "within", unit: "pct" },
+  // validated monitors first (see src/monitor-models.js), then simpler examples
+  ...MONITORS.map((m) => ({ ...m, name: `✓ ${m.name}` })),
+  { id: "spx-drop", name: "S&P 500 falls 10%+ within 6 months (hard to predict)", target: { key: "yahoo:^GSPC", name: "S&P 500", measure: "level" }, c: { text: "The S&P 500 falls 10% or more at some point in the next 6 months", cond: "fall", x: 10, h: 6, when: "within", unit: "pct" },
     factors: [F("yahoo:^VIX", "VIX", "level"), F("fred:T10Y3M", "Yield curve (10y minus 3m)", "level"), F("fred:BAA10Y", "Corporate bond spread (Baa)", "chg3"), F("yahoo:^GSPC", "S&P 500", "pct12")] },
   { id: "spx-up", name: "S&P 500 up 10%+ over 12 months", target: { key: "yahoo:^GSPC", name: "S&P 500", measure: "level" }, c: { text: "The S&P 500 is up 10% or more 12 months from now", cond: "rise", x: 10, h: 12, when: "end", unit: "pct" },
     factors: [F("yahoo:^VIX", "VIX", "level"), F("fred:DGS10", "10-year Treasury yield", "chg12"), F("fred:BAA10Y", "Corporate bond spread (Baa)", "level"), F("fred:UNRATE", "Unemployment rate", "chg12")] },
   { id: "inflation", name: "CPI inflation above 3% in 12 months", target: { key: "fred:CPIAUCSL", name: "CPI inflation", measure: "yoy" }, c: { text: "CPI inflation is 3% or higher 12 months from now", cond: "above", x: 3, h: 12, when: "end", unit: "pts" },
     factors: [F("fred:CPIAUCSL", "CPI inflation (12-mo)", "pct12"), F("yahoo:CL=F", "Crude oil (WTI)", "pct12"), F("fred:UNRATE", "Unemployment rate", "level"), F("fred:M2SL", "M2 money supply", "pct12")] },
-  { id: "unemployment", name: "Unemployment up 0.5+ points within 12 months", target: { key: "fred:UNRATE", name: "Unemployment rate", measure: "level" }, c: { text: "The unemployment rate rises 0.5 points or more within 12 months", cond: "rise", x: 0.5, h: 12, when: "within", unit: "pts" },
-    factors: [F("fred:T10Y3M", "Yield curve (10y minus 3m)", "level"), F("fred:ICSA", "Initial jobless claims", "pct6"), F("fred:BAA10Y", "Corporate bond spread (Baa)", "level"), F("yahoo:^GSPC", "S&P 500", "pct12")] },
   { id: "yields", name: "10-year yield up 0.5+ points within 6 months", target: { key: "fred:DGS10", name: "10-year Treasury yield", measure: "level" }, c: { text: "The 10-year Treasury yield rises 0.5 points or more within 6 months", cond: "rise", x: 0.5, h: 6, when: "within", unit: "pts" },
     factors: [F("fred:CPIAUCSL", "CPI inflation (12-mo)", "pct12"), F("fred:DFF", "Fed funds rate", "chg6"), F("fred:T10Y2Y", "Yield curve (10y minus 2y)", "level"), F("yahoo:CL=F", "Crude oil (WTI)", "pct6")] },
   { id: "gold", name: "Gold up 10%+ within 6 months", target: { key: "yahoo:GC=F", name: "Gold", measure: "level" }, c: { text: "Gold rises 10% or more at some point in the next 6 months", cond: "rise", x: 10, h: 6, when: "within", unit: "pct" },

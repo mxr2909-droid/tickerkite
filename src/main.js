@@ -18,7 +18,7 @@ const PAGE_MODULES = {
   calendar: require("./calendar"), markets: require("./markets"), 
   fed: require("./fed"), graphs: require("./graphs"), recession: require("./recession"),
   board: require("./board"), releases: require("./releases"), portfolio: require("./portfolio"), brief: require("./brief"),
-  companypage: require("./companypage"), curve: require("./curve"), command: require("./command"), factor: require("./factor")
+  companypage: require("./companypage"), curve: require("./curve"), command: require("./command"), factor: require("./factor"), monitors: require("./monitors")
 };
 const bus = new EventEmitter(); // "news" | "quotes" | "scores" after each refresh, for page modules
 const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");

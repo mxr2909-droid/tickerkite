@@ -302,6 +302,16 @@
   let rt = null;
   window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => K.active && drawChart(), 150); });
 
+  // open a preset from elsewhere (the Brief's risk monitors) and run it
+  window.WireFactor = {
+    async open(id) {
+      if (!K.presets) { try { K.presets = await call("factor:presets"); } catch { K.presets = []; } }
+      applyPreset(id);
+      window.WireApp.setPage("factor");
+      run();
+    }
+  };
+
   (window.WirePages ||= {}).factor = {
     async show() {
       K.active = true;

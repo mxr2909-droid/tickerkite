@@ -56,6 +56,7 @@ function register(ctx) {
   const cacheDir = file("graphs-cache");
   const cachePath = (key) => path.join(cacheDir, key.replace(/[^A-Za-z0-9_.-]/g, "_") + ".json");
   const inflight = new Map();
+  module.exports.loadSeries = (key) => series(key); // shared with the risk monitors (src/monitors.js)
 
   async function series(input) {
     const key = sourceKey(input);

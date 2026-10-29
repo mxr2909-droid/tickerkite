@@ -6,7 +6,7 @@
   const api = window.wire;
   const $ = (s) => document.querySelector(s);
   const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const B = { active: false, data: null, since: 0 };
+  const B = { active: false, data: null, since: 0, monitors: null };
   const AWAY_MS = 4 * 3600e3;
 
   // ---------- when to open by itself ----------
@@ -56,6 +56,31 @@
   }
 
   // ---------- main column ----------
+  // ---------- risk monitors (src/monitors.js): probability of major events, with warnings ----------
+  function monitorsPanel() {
+    const m = B.monitors;
+    if (!m) return "";
+    if (!m.list?.length) return `<section class="bf-card bf-risk"><h3>Risk monitors</h3><p class="dim">${m.errors && Object.keys(m.errors).length ? "Couldn't load the data for the monitors. They'll retry on the next refresh." : "Working out the monitors (takes a few seconds the first time)…"}</p></section>`;
+    const pc = (p) => `${Math.round(p * 100)}%`;
+    const chg = (d) => (d == null || Math.abs(d) < 0.005 ? `<em class="flat">±0</em>` : `<em class="${d > 0 ? "rise" : "fall"}">${d > 0 ? "▲" : "▼"}${Math.abs(Math.round(d * 100))}</em>`);
+    const spark = (v) => { if (!v?.length) return ""; const W = 120, H = 26, x = (i) => (i / (v.length - 1)) * W, y = (p) => H - 2 - p * (H - 4); return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${v.map((p, i) => `${x(i).toFixed(1)},${y(p).toFixed(1)}`).join(" ")}" fill="none" stroke="currentColor" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>`; };
+    const order = { WARNING: 0, WATCH: 1, NORMAL: 2 };
+    const cards = [...m.list].sort((a, b) => order[a.status] - order[b.status] || b.p / b.base - a.p / a.base).map((x) => `
+      <button type="button" class="bf-mon ${x.status.toLowerCase()}" data-mon="${esc(x.id)}" title="${esc(x.name)}. ${esc(x.why)} Click for the full model.">
+        <span class="bf-mh"><b>${esc(x.short)}</b><i>${x.status}</i></span>
+        <span class="bf-mp"><b>${pc(x.p)}</b><span>usual ${pc(x.base)}</span></span>
+        <span class="bf-md">1 mo ${chg(x.d1m)} · 3 mo ${chg(x.d3m)}</span>
+        <span class="bf-ms">${spark(x.spark)}</span>
+        <span class="bf-mw" title="${esc(x.drivers.filter((d) => d.up).map((d) => `${d.name}${d.level ? ` (${d.level})` : ""}`).join(", "))}">${x.drivers.some((d) => d.up) ? `Raising the odds: ${x.drivers.filter((d) => d.up).slice(0, 2).map((d) => `${esc(d.name.replace(/\s*\(.*\)$/, "").toLowerCase())}${d.level ? ` (${d.level})` : ""}`).join(" · ")}` : "Nothing raising the odds"}</span>
+        <span class="bf-mq">${esc(x.quality.grade)} model · AUC ${x.quality.auc.toFixed(2)}</span>
+      </button>`).join("");
+    const warn = m.list.filter((x) => x.status === "WARNING").length, watch = m.list.filter((x) => x.status === "WATCH").length;
+    const head = warn ? `${warn} warning${warn > 1 ? "s" : ""}${watch ? `, ${watch} to watch` : ""}` : watch ? `${watch} to watch` : "All normal";
+    return `<section class="bf-card bf-risk"><h3>Risk monitors · <span class="${warn ? "w" : watch ? "o" : "n"}">${head}</span> <button type="button" class="bf-link" data-page="factor">Factor page ›</button></h3>
+      <div class="bf-mons">${cards}</div>
+      <p class="bf-foot">Chance each event starts within its window, from macro factors chosen by cross-validation. WARNING: 30%+ and at least twice the usual rate. WATCH: 1.5× usual, or up 8+ points in a month. History, not a guarantee. As of ${esc(m.list[0].period)}.</p></section>`;
+  }
+
   function render() {
     if (!B.active) return;
     const el = $("#brief"), d = B.data;
@@ -87,7 +112,7 @@
         ${o.regime ? `<p class="bf-reg"><b>${esc(o.regime.name)}.</b> ${esc(o.regime.text)}</p>` : ""}
         <p class="bf-foot">▲▼ change in the last week</p></section>` : "";
 
-    el.innerHTML = `<div class="bf">${hero}${mk}
+    el.innerHTML = `<div class="bf">${hero}${monitorsPanel()}${mk}
       <section class="bf-card"><h3>Top stories ${d.since ? "since you last looked" : "today"} <button type="button" class="bf-link" data-page="news">All news ›</button></h3>${stories}</section>
       <div class="bf-cols">${pf}${ol}</div></div>`;
   }
@@ -126,8 +151,10 @@
   const onClick = (e) => {
     const s = e.target.closest("[data-sid]");
     if (s) { api.showStory(s.dataset.sid); return; }
-    const pg = e.target.closest("[data-page]"); if (pg) return window.WireApp.setPage(pg.dataset.page);
+    // buttons only: #app itself carries data-page (the page being shown), so a bare [data-page] matched every click
+    const pg = e.target.closest("button[data-page]"); if (pg) return window.WireApp.setPage(pg.dataset.page);
     if (e.target.closest("[data-reload]")) return load();
+    const mon = e.target.closest("[data-mon]"); if (mon) return window.WireFactor?.open(mon.dataset.mon);
     const q = e.target.closest("[data-sym]"); if (q) window.WireApp.openInstrument(q.dataset.sym);
   };
   $("#brief").addEventListener("click", onClick);
@@ -135,6 +162,8 @@
   if (api?.page) {
     // keep an open brief current without moving things under the reader: reactions and releases arrive live
     api.page.on("releases:update", () => { if (B.active) load(); });
+    api.page.on("monitors:update", (m) => { B.monitors = m; if (B.active && B.data) render(); });
+    api.page.invoke("monitors:get").then((m) => { B.monitors = m; if (B.active && B.data) render(); }).catch(() => {});
     setInterval(() => { if (B.active && !document.hidden) load(); }, 5 * 60e3);
   }
 
