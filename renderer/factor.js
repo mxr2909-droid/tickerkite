@@ -39,6 +39,7 @@
     R.target = { key: p.target.key, label: p.target.name, measure: p.target.measure };
     R.c = { ...p.c };
     R.factors = p.factors.map((f) => ({ key: f.key, label: f.name, tf: f.tf, lag: f.lag || 0 }));
+    R.ridge = p.ridge || 0;
     K.res = null; K.err = null; K.whatIf = null;
     save();
   }
@@ -52,7 +53,7 @@
     if (!c || !t) return "";
     if (c.text) return c.text;
     const amt = c.cond === "rise" || c.cond === "fall" ? `${c.x}${c.unit === "pct" ? "%" : " points"}` : `${c.x}`;
-    return `${t.label || t.key}${t.measure === "yoy" ? " (vs a year ago)" : ""} ${CONDS.find(([v]) => v === c.cond)[1]} ${amt}, ${WHEN.find(([v]) => v === c.when)[1]} ${c.h} month${c.h === 1 ? "" : "s"}`;
+    return `${t.label || t.key}${t.measure === "yoy" ? " (vs a year ago)" : ""} ${CONDS.find(([v]) => v === c.cond)[1]} ${amt}, ${WHEN.find(([v]) => v === c.when)[1]} ${c.h} month${c.h === 1 ? "" : "s"}${c.onlyNew && (c.cond === "above" || c.cond === "below") ? " (new cases only)" : ""}`;
   }
 
   function render() {
@@ -70,6 +71,7 @@
         ${move ? `<select data-c="unit">${opts(c.unit, [["pct", "%"], ["pts", "points"]])}</select>` : "<span></span>"}
         <select data-c="when">${opts(c.when, WHEN)}</select>
         <select data-c="h">${opts(c.h, HORIZONS.map((h) => [h, `${h} month${h === 1 ? "" : "s"}`]))}</select>
+        ${c.cond === "above" || c.cond === "below" ? `<label class="fa-chk" title="Skip months that are already in the case (e.g. already in a recession), so the model learns to see it coming"><input type="checkbox" data-c="onlyNew"${c.onlyNew ? " checked" : ""}> new cases only</label>` : ""}
       </div>
       <p class="fa-sent">“${esc(caseSentence())}”</p>
       <div class="fa-sec">FACTORS · WHAT MIGHT PREDICT IT</div>
@@ -131,7 +133,7 @@
       ${row("Label", `y<sub>t</sub> = 1 if, starting from month t, ${esc(r.case.charAt(0).toLowerCase() + r.case.slice(1))}; else 0`, `${r.events} of ${r.n} months = 1`)}
       ${row("Standardize", "z<sub>i</sub> = (x<sub>i</sub> − mean<sub>i</sub>) / sd<sub>i</sub>, so coefficients are per 1 standard deviation", "")}
       ${row("Model", "P(y = 1) = 1 / (1 + e<sup>−(a + Σ b<sub>i</sub>·z<sub>i</sub>)</sup>), logistic regression", `a = ${num(b0)}`)}
-      ${row("Fit", "maximum likelihood: choose a, b to maximize Σ [ y·ln p + (1 − y)·ln(1 − p) ] (Newton–Raphson)", "")}
+      ${row("Fit", `maximum likelihood: choose a, b to maximize Σ [ y·ln p + (1 − y)·ln(1 − p) ]${r.ridge > 0.01 ? ` − ${r.ridge}/2·Σ b<sub>i</sub>² (shrinkage, so the few past cases don't make it overconfident)` : ""} (Newton–Raphson)`, r.ridge > 0.01 ? `shrinkage ${r.ridge}` : "")}
       ${row("Odds ratio", "OR<sub>i</sub> = e<sup>b<sub>i</sub></sup>: the odds multiply by this per +1 SD", r.coefs.slice(1).map((c) => `${esc(c.term.split(" (")[0])} ${c.oddsRatio.toFixed(2)}`).join(" · "))}
       ${row("Std errors", `from the inverse Hessian, × √${r.h} because consecutive ${r.h}-month windows overlap; z = b / SE, two-sided p`, "")}
       ${row("Range now", "p = 1/(1 + e<sup>−(η ± 1.645·SE<sub>η</sub>)</sup>), SE<sub>η</sub> = √(xᵀ Σ x) · √h", `${pct(r.now.lo)}–${pct(r.now.hi)}`)}
@@ -201,7 +203,7 @@
         target: { name: R.target.label || got[0].title || R.target.key, points: got[0].points, measure: R.target.measure || "level" },
         c: { ...R.c, x: Number(R.c.x), h: Number(R.c.h) },
         factors: fs.map((f, i) => ({ name: names[i], points: got[i + 1].points, tf: f.tf, lag: +f.lag || 0 })),
-        sinceYear: R.since ? +R.since : null, holdout: +R.holdout / 100
+        sinceYear: R.since ? +R.since : null, holdout: +R.holdout / 100, ridge: R.ridge || 0
       });
       if (seq !== K.seq) return;
       if (!res.ok) throw new Error(res.error);
@@ -273,7 +275,8 @@
     if (t.dataset.g) { R[t.dataset.g] = t.value; save(); return; }
     if (t.dataset.c && t.dataset.c !== "x") {
       delete R.c.text;
-      if (t.dataset.c === "measure") R.target.measure = t.value;
+      if (t.dataset.c === "onlyNew") R.c.onlyNew = t.checked;
+      else if (t.dataset.c === "measure") R.target.measure = t.value;
       else R.c[t.dataset.c] = t.dataset.c === "h" ? +t.value : t.value;
       if (t.dataset.c === "cond" && (t.value === "rise" || t.value === "fall") && !R.c.unit) R.c.unit = "pct";
       R.preset = ""; save(); render(); return;
@@ -302,7 +305,7 @@
   (window.WirePages ||= {}).factor = {
     async show() {
       K.active = true;
-      if (!K.presets) { try { K.presets = await call("factor:presets"); } catch { K.presets = []; } }
+      if (!K.presets) { try { K.presets = await call("factor:presets"); } catch { K.presets = []; } if (R.preset) applyPreset(R.preset); }
       render();
     },
     hide() { K.active = false; },

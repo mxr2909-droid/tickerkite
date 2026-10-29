@@ -25,6 +25,7 @@ module.exports = [
   C("fred:PCEC96", "Real consumer spending", "Growth", "pct", "personal consumption expenditures consumer"),
   C("fred:UMCSENT", "Consumer sentiment (UMich)", "Growth", "diff", "confidence michigan survey mood"),
   C("fred:HOUST", "Housing starts", "Housing", "pct", "construction new homes building"),
+  C("fred:PERMIT", "Building permits", "Housing", "pct", "permits construction housing leading"),
   C("fred:CSUSHPINSA", "Home prices (Case-Shiller)", "Housing", "yoy", "house prices real estate housing"),
   C("fred:MORTGAGE30US", "30-year mortgage rate", "Housing", "diff", "mortgage rates home loan"),
   // rates
@@ -55,6 +56,7 @@ module.exports = [
   C("yahoo:TLT", "Long-term Treasury bonds (TLT)", "Bonds", "pct", "bonds treasuries etf"),
   C("yahoo:HYG", "High-yield bonds (HYG)", "Bonds", "pct", "junk bonds credit etf"),
   C("yahoo:CL=F", "Crude oil (WTI)", "Commodities", "pct", "oil crude wti energy petroleum"),
+  C("fred:WTISPLC", "Oil price (monthly, since 1946)", "Commodities", "pct", "oil crude wti energy long history"),
   C("yahoo:BZ=F", "Crude oil (Brent)", "Commodities", "pct", "oil crude brent energy"),
   C("yahoo:NG=F", "Natural gas", "Commodities", "pct", "gas energy natgas"),
   C("yahoo:GC=F", "Gold", "Commodities", "pct", "gold precious metals bullion"),

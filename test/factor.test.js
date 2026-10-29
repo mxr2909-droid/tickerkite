@@ -36,6 +36,14 @@ test("cases are labeled from the months after each date", () => {
   assert.deepStrictEqual([...end.values()], [1, 1, 0]); // 100→88 (−12%), 105→92 (−12.4%), 95→110
 });
 
+test("new cases only: months already in the case are skipped", () => {
+  const rows = [0, 0, 1, 1, 0, 0, 0].map((v, i) => [`2008-0${i + 1}`, v]);
+  const all = F.labelCase(rows, { cond: "above", x: 0.5, h: 2, when: "within", unit: "pts" });
+  const fresh = F.labelCase(rows, { cond: "above", x: 0.5, h: 2, when: "within", unit: "pts", onlyNew: true });
+  assert.deepStrictEqual([...all.keys()].length, 5);
+  assert.deepStrictEqual([...fresh.entries()], [["2008-01", 1], ["2008-02", 1], ["2008-05", 0]]); // March and April are in the recession
+});
+
 test("point moves and levels", () => {
   const rows = [3.5, 3.6, 4.1, 4.0, 3.2].map((v, i) => [`2021-0${i + 1}`, v]);
   assert.deepStrictEqual([...F.labelCase(rows, { cond: "rise", x: 0.5, h: 2, when: "within", unit: "pts" }).values()], [1, 0, 0]);
