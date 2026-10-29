@@ -198,16 +198,16 @@ The Graphs page (⌘⌥6) is a charting workspace for any FRED series or market 
 
 Data: FRED's public CSV export and series page (title, units, frequency), and Yahoo daily closes, full history, cached per series in `graphs-cache/` for a day (the last copy is used offline).
 
-## Regression
+## Factor probabilities
 
-The **REG** page (Markets ▾ › Regression, ⌘⌥R) fits a model to your choice of data:
+The **FAC** page (Markets ▾ › Factor probabilities, ⌘⌥R) estimates the chance of a **case** from macro factors.
 
-- **Market series:** search each Y and X by plain name ("inflation", "unemployment", "10-year", "oil", "Nvidia"): a built-in list of about 60 common economic and market series plus every listed company and ETF. Picking one also picks its usual transform. FRED IDs and tickers still work if you know them. Each series gets a transform (level, % change, % vs a year ago, change, log) and an optional lag ("CPI three months earlier"). Tickerkite lines them up on one frequency (daily, weekly, monthly, quarterly) over the range you choose.
-- **My data:** paste from Excel or Sheets, or type columns of numbers (tabs, commas or spaces; header row optional; `$` and `%` are fine), then choose the Y column and X columns.
+- **Case:** a series, a condition and a window, e.g. "S&P 500 falls 10% or more at any point within 6 months", "a recession within 12 months", "CPI inflation 3% or higher 12 months from now". Pick one of 8 presets or build your own. Series are searched by plain name ("unemployment", "yield curve", "oil").
+- **Factors:** up to 8, each as a level or a 3-, 6- or 12-month change or % change, with an optional lag.
+- **Model:** every past month is labeled with whether the case then happened, and a **logistic regression** on the standardized factors turns today's values into a probability. Standard errors are widened by √(window) because neighboring months share outcomes.
+- **Results:** probability now with a 90% range, the historical base rate, what's pushing today's number up or down, odds ratios per 1 standard deviation with p-values, the case's rate when each factor was in its low, middle or high third, AUC and Brier skill, a held-out test on the most recent quarter of the data, calibration, the probability over time with case months shaded, and a FORMULAS panel. The right pane runs **what-ifs**: change a factor's value and recalculate.
 
-Models: **Linear** (one X), **Multiple** (every X) and **Polynomial** (a degree 2–4 curve in the first X), all ordinary least squares. Results show R² and adjusted R², the F-test, the equation, each coefficient with its standard error, t-stat and p-value, overlap between X's (VIF) for multiple regression, a scatter with the fitted line (actual vs predicted for multiple), and residuals. **Hold out** the last 20–30% to test the model on data it never saw. The right pane predicts Y for values you type, with a 95% range, and exports the data with fitted values and residuals (CSV to Downloads, or copy for Excel).
-
-Regressing price levels on each other usually gives a high R² that means nothing, since both just trend up, so the page warns when a series is a level. The math (in `src/regress.js`) is tested against Anscombe's published results.
+It's history, not a forecast: how often the case followed conditions like today's. The math is in `src/factor.js`, and the regression helpers it reuses are in `src/regress.js`.
 
 ## Multiple windows
 

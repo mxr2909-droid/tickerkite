@@ -37,8 +37,9 @@ module.exports = [
   C("fred:T10Y2Y", "Yield curve (10y minus 2y)", "Rates", "diff", "curve spread inversion recession"),
   C("fred:T10Y3M", "Yield curve (10y minus 3m)", "Rates", "diff", "curve spread inversion recession"),
   // credit & money
-  C("fred:BAMLH0A0HYM2", "High-yield (junk) bond spread", "Credit", "diff", "credit spread risk junk bonds"),
+  C("fred:BAMLH0A0HYM2", "High-yield (junk) bond spread (last 3 years only)", "Credit", "diff", "credit spread risk junk bonds"),
   C("fred:BAMLC0A0CM", "Investment-grade bond spread", "Credit", "diff", "credit spread corporate bonds"),
+  C("fred:BAA10Y", "Corporate bond spread (Baa, since 1986)", "Credit", "diff", "credit spread corporate bonds baa moodys long history"),
   C("fred:NFCI", "Financial conditions (Chicago Fed)", "Credit", "diff", "stress conditions liquidity"),
   C("fred:M2SL", "M2 money supply", "Money", "yoy", "money printing liquidity"),
   C("fred:WALCL", "Fed balance sheet", "Money", "pct", "qe quantitative easing liquidity assets"),

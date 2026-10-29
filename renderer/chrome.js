@@ -17,7 +17,7 @@
     ["fed", "FED", "FED FUNDS PATH, MARKET-IMPLIED", 5, "↑↓ MOVE · R RELOAD · CME / FRED"],
     ["curve", "GC", "TREASURY YIELD CURVE", 8, "R RELOAD · US TREASURY"],
     ["graphs", "GP", "GRAPHS", 6, "/ ADD SERIES · ESC CANCEL TOOL"],
-    ["regress", "REG", "REGRESSION", "R", "↵ FIT · MARKET SERIES OR YOUR OWN DATA · LINEAR, MULTIPLE, POLYNOMIAL"],
+    ["factor", "FAC", "FACTOR PROBABILITIES", "R", "↵ RUN · PICK A CASE AND MACRO FACTORS · LOGISTIC REGRESSION"],
     ["portfolio", "PORT", "PORTFOLIO", 7, "↑↓ MOVE · ↵ CHART · ESC DESELECT"],
     ["company", "DES", "COMPANY", 9, "1–6 / ←→ TAB · ↵ CHART · / OR ⌘K LOOK UP"]
   ];

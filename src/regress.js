@@ -1,4 +1,6 @@
-// Regression page: main-process side. main.js calls register(ctx) once at startup.
+// Regression and series-search library (OLS, alignment, transforms, table parsing, plain-name search).
+// Used by the Factor page (src/factor.js). The Regression tab itself was replaced by Factor; register()
+// is kept for reuse but main.js no longer calls it.
 //  - IPC channels start with "regress:" (the preload only forwards those)
 //  - Data comes from two places: market/economic series (aligned here to one frequency) or a table
 //    the user pastes or types. Either way the page ends up with named columns of numbers.
@@ -254,7 +256,15 @@ function resample(points, f) {
 function shape(rows, transform, lag, f) {
   const k = PER_YEAR[f] || 12;
   let out;
+  // N-period versions for factor work: chg3 = change over 3 periods, pct12 = % change over 12
+  const m = /^(chg|pct)(\d+)$/.exec(transform || "");
+  if (m) {
+    const n = +m[2];
+    out = rows.map(([p, v], i) => [p, i < n ? null : m[1] === "chg" ? v - rows[i - n][1] : rows[i - n][1] ? (v / rows[i - n][1] - 1) * 100 : null]);
+    transform = "_done";
+  }
   switch (transform) {
+    case "_done": break;
     case "pct": out = rows.map(([p, v], i) => [p, i && rows[i - 1][1] ? (v / rows[i - 1][1] - 1) * 100 : null]); break;
     case "yoy": out = rows.map(([p, v], i) => [p, i >= k && rows[i - k][1] ? (v / rows[i - k][1] - 1) * 100 : null]); break;
     case "diff": out = rows.map(([p, v], i) => [p, i ? v - rows[i - 1][1] : null]); break;
@@ -297,6 +307,28 @@ function searchCatalog(q, limit = 10) {
   return scored.sort((a, b) => b[0] - a[0]).slice(0, limit).map(([, c]) => c);
 }
 
+/** Catalog + listed companies/ETFs (Yahoo), for any page's series search. */
+const ycache = new Map();
+async function searchSeries(q) {
+  q = String(q || "").trim().slice(0, 40);
+  const out = searchCatalog(q, 8).map((c) => ({ key: c.key, name: c.name, cat: c.cat, tf: c.tf }));
+  if (q.length >= 2) {
+    let list = ycache.get(q.toLowerCase());
+    if (!list) {
+      try { list = require("./command").parseSearch(await require("./data/yahoo").search(q, 5000)); ycache.set(q.toLowerCase(), list); if (ycache.size > 200) ycache.delete(ycache.keys().next().value); }
+      catch { list = []; }
+    }
+    for (const r of list) {
+      if (r.kind === "Future" && !/=F/i.test(q)) continue; // oil, gold etc. come from the catalog; skip single-stock futures
+      const key = "yahoo:" + r.sym.toUpperCase();
+      if (out.some((o) => o.key.toUpperCase() === key)) continue;
+      out.push({ key, name: `${r.name} (${r.sym})`, cat: r.kind + (r.exch ? ` · ${r.exch}` : ""), tf: "pct" });
+      if (out.length >= 12) break;
+    }
+  }
+  return out;
+}
+
 // ---------- IPC ----------
 function register(ctx) {
   const { ipcMain } = ctx;
@@ -332,4 +364,4 @@ function register(ctx) {
   });
 }
 
-module.exports = { register, searchCatalog, CATALOG, ols, fitModel, predict, predictFrom, vif, parseTable, alignSeries, resample, shape, periodOf, tPValue, fPValue, tCrit, unscalePoly };
+module.exports = { register, searchCatalog, searchSeries, CATALOG, ols, fitModel, predict, predictFrom, vif, parseTable, alignSeries, resample, shape, periodOf, tPValue, fPValue, tCrit, unscalePoly };

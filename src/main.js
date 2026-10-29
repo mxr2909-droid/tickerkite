@@ -18,7 +18,7 @@ const PAGE_MODULES = {
   calendar: require("./calendar"), markets: require("./markets"), 
   fed: require("./fed"), graphs: require("./graphs"), recession: require("./recession"),
   board: require("./board"), releases: require("./releases"), portfolio: require("./portfolio"), brief: require("./brief"),
-  companypage: require("./companypage"), curve: require("./curve"), command: require("./command"), regress: require("./regress")
+  companypage: require("./companypage"), curve: require("./curve"), command: require("./command"), factor: require("./factor")
 };
 const bus = new EventEmitter(); // "news" | "quotes" | "scores" after each refresh, for page modules
 const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");
@@ -555,7 +555,7 @@ function buildMenu() {
         { label: "Graphs", accelerator: "CmdOrCtrl+Alt+6", click: () => setPageInFocused("graphs") },
         { label: "Portfolio", accelerator: "CmdOrCtrl+Alt+7", click: () => setPageInFocused("portfolio") },
         { label: "Yield Curve", accelerator: "CmdOrCtrl+Alt+8", click: () => setPageInFocused("curve") },
-        { label: "Regression", accelerator: "CmdOrCtrl+Alt+R", click: () => setPageInFocused("regress") },
+        { label: "Factor Probabilities", accelerator: "CmdOrCtrl+Alt+R", click: () => setPageInFocused("factor") },
         { label: "Company", accelerator: "CmdOrCtrl+Alt+9", click: () => setPageInFocused("company") },
         { label: "Go To…", accelerator: "CmdOrCtrl+K", click: () => { showStory(null); send("cmd:open"); } },
         { type: "separator" },
