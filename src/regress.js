@@ -193,6 +193,7 @@ function fitModel(spec) {
 
   return {
     model, degree: poly?.degree || null, n: fit.n, df: fit.df, r2: fit.r2, adjR2: fit.adjR2, rmse: fit.rmse, se: fit.se,
+    sse: fit.sse, sst: fit.sst, k: fit.k - 1, tcrit: tCrit(0.05, fit.df), ybar: y.slice(0, nTrain).reduce((a, v) => a + v, 0) / nTrain, // for the formulas panel
     F: fit.F, Fp: fit.Fp, coefs, equation, oos, warnings, significant: sig,
     vif: v, fitted: fit.fitted, resid: fit.resid, nTrain, poly, xNames, names,
     _fit: fit // kept in main only, for predictions

@@ -107,11 +107,43 @@
         ${r.coefs.map((c, i) => `<tr><td>${esc(c.term)}</td><td>${num(c.coef)}${stars(c.p)}</td><td>${num(c.se)}</td><td>${c.t == null ? "—" : c.t.toFixed(2)}</td><td class="${c.p != null && c.p < 0.05 ? "up" : ""}">${pval(c.p)}</td>${r.vif?.length ? `<td class="${i && r.vif[i - 1] > 10 ? "dn" : ""}">${i ? num(r.vif[i - 1], 3) : ""}</td>` : ""}</tr>`).join("")}
       </tbody></table>
       <p class="rg-note">* p &lt; 0.05, ** p &lt; 0.01: unlikely to be zero by chance.${r.poly ? " Polynomial terms overlap with each other, so judge the curve by R² and the held-out test more than by each term's p-value." : ""}</p>
+      ${formulas(r)}
       ${r.warnings.length ? `<ul class="rg-warn">${r.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
       <div class="rg-sec">${r.model === "multiple" ? "ACTUAL VS PREDICTED" : `${esc(r.equation.y)} VS ${esc(r.xNames[0])}`}</div>
       <div class="rg-chart" id="rgchart"></div>
       <div class="rg-sec">RESIDUALS <span class="dim">(actual − fitted; patterns or drift mean the model is missing something)</span></div>
       <div class="rg-chart small" id="rgresid"></div>`;
+  }
+
+  // ---------- formulas: the math behind every number above, with this fit's values ----------
+  function formulas(r) {
+    const k = r.k, n = r.n, df = r.df, yN = esc(r.equation.y);
+    const general = r.model === "poly"
+      ? `ŷ = a + b₁·x + b₂·x²${r.degree >= 3 ? " + b₃·x³" : ""}${r.degree >= 4 ? " + b₄·x⁴" : ""}`
+      : r.model === "multiple" ? `ŷ = a + ${r.xNames.map((_, i) => `b${"₁₂₃₄₅₆₇"[i]}·x${"₁₂₃₄₅₆₇"[i]}`).join(" + ")}` : "ŷ = a + b·x";
+    const vars = r.model === "multiple" ? r.xNames.map((x, i) => `x${"₁₂₃₄₅₆₇"[i]} = ${esc(x)}`).join(", ") : `x = ${esc(r.xNames[0])}`;
+    const fitted = r.equation.terms.map((t, i) => `${i && t.coef >= 0 ? " + " : i ? " − " : ""}${num(i ? Math.abs(t.coef) : t.coef)}${t.x ? `·${esc(t.x)}` : ""}`).join("");
+    const b1 = r.coefs[1];
+    const row = (name, formula, value) => `<tr><th>${name}</th><td class="f">${formula}</td><td class="v">${value}</td></tr>`;
+    let open = true; try { open = localStorage.getItem("wire.regress.formulas") !== "0"; } catch {}
+    return `<details class="rg-f"${open ? " open" : ""}><summary>FORMULAS · HOW THESE NUMBERS ARE CALCULATED</summary>
+      <table class="num"><tbody>
+        ${row("Model", `${general}`, `${vars}, y = ${yN}`)}
+        ${row("Fitted", `ŷ = ${fitted}`, `${n} observations`)}
+        ${row("Estimation", "Ordinary least squares: choose the coefficients that make Σ(yᵢ − ŷᵢ)² as small as possible.<br>In matrix form <b>β̂ = (XᵀX)⁻¹ Xᵀy</b>" + (r.model === "linear" ? "; for one x: b = Σ(xᵢ − x̄)(yᵢ − ȳ) / Σ(xᵢ − x̄)², a = ȳ − b·x̄" : ""), `ȳ = ${num(r.ybar)}`)}
+        ${row("Sum of squares", "SST = Σ(yᵢ − ȳ)² (total variation) · SSE = Σ(yᵢ − ŷᵢ)² (unexplained)", `SST = ${num(r.sst)}, SSE = ${num(r.sse)}`)}
+        ${row("R²", "R² = 1 − SSE / SST", `1 − ${num(r.sse)} / ${num(r.sst)} = <b>${r.r2.toFixed(3)}</b>`)}
+        ${row("Adjusted R²", "1 − (1 − R²)·(n − 1) / (n − k − 1), k = number of x terms", `1 − ${(1 - r.r2).toFixed(3)}·${n - 1}/${df} = <b>${r.adjR2.toFixed(3)}</b>`)}
+        ${row("Std error", "s = √( SSE / (n − k − 1) ), the typical miss", `√(${num(r.sse)} / ${df}) = <b>${num(r.se)}</b>`)}
+        ${row("Coef. std error", "SE(bⱼ) = s·√[ (XᵀX)⁻¹ ]ⱼⱼ", b1?.se != null ? `${esc(b1.term)}: ${num(b1.se)}` : "see table")}
+        ${row("t-stat", "t = bⱼ / SE(bⱼ), with n − k − 1 degrees of freedom", b1?.se != null ? `${num(b1.coef)} / ${num(b1.se)} = <b>${b1.t.toFixed(2)}</b>, df = ${df}` : `df = ${df}`)}
+        ${row("p-value", "p = P(|T| ≥ |t|) for a t-distribution with n − k − 1 df", b1 ? `${esc(b1.term)}: ${pval(b1.p)}` : "")}
+        ${row("F-test", "F = (R² / k) / ((1 − R²) / (n − k − 1)), on k and n − k − 1 df", r.F != null ? `<b>${r.F.toFixed(2)}</b> on ${k} and ${df} df, p = ${pval(r.Fp)}` : "—")}
+        ${row("Prediction", "ŷ₀ ± t₀.₉₇₅ · s · √( 1 + x₀ᵀ (XᵀX)⁻¹ x₀ ), the 95% range in the right pane", `t₀.₉₇₅ = ${r.tcrit.toFixed(3)} for ${df} df`)}
+        ${r.vif?.length ? row("VIF", "VIFⱼ = 1 / (1 − Rⱼ²), Rⱼ² from regressing xⱼ on the other x's; above 10 = trouble", r.vif.map((v) => num(v, 3)).join(", ")) : ""}
+        ${r.oos ? row("Held-out R²", "1 − Σ(yᵢ − ŷᵢ)² / Σ(yᵢ − ȳ_test)² over the held-out points, using the fitted coefficients", `<b>${r.oos.r2 == null ? "—" : r.oos.r2.toFixed(3)}</b> on ${r.oos.n} points`) : ""}
+        ${r.poly ? row("Polynomial note", "Fitted on standardized x, z = (x − x̄)/σ, so the powers don't swamp each other, then expanded back into powers of x", `x̄ = ${num(r.poly.m)}, σ = ${num(r.poly.s)}`) : ""}
+      </tbody></table></details>`;
   }
 
   // ---------- charts ----------
@@ -298,6 +330,7 @@
     K.pred = { xs, out: await call("regress:predict", xs) };
     renderDetail();
   });
+  document.addEventListener("toggle", (e) => { if (e.target.classList?.contains("rg-f")) try { localStorage.setItem("wire.regress.formulas", e.target.open ? "1" : "0"); } catch {} }, true);
   let rt = null;
   window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => K.active && drawCharts(), 150); });
 
