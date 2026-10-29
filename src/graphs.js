@@ -57,9 +57,21 @@ function register(ctx) {
   const cachePath = (key) => path.join(cacheDir, key.replace(/[^A-Za-z0-9_.-]/g, "_") + ".json");
   const inflight = new Map();
 
-  async function series(key) {
-    key = sourceKey(key);
+  async function series(input) {
+    const key = sourceKey(input);
     if (!key) throw new Error("enter a FRED ID or a symbol");
+    // a bare name like "NVDA" or "UNRATE" could be either: try FRED, then fall back to a market ticker
+    if (!/^(fred|yahoo):/i.test(String(input).trim()) && key.startsWith("fred:")) {
+      try { return await load(key); }
+      catch (e) {
+        try { return await load("yahoo:" + key.slice(5)); }
+        catch { throw new Error(`"${key.slice(5)}" isn't a FRED series or a ticker`); }
+      }
+    }
+    return load(key);
+  }
+
+  async function load(key) {
     const p = cachePath(key);
     let cached = null;
     try { cached = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
