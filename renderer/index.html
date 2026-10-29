@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="brief.css">
 <link rel="stylesheet" href="portfolio.css">
 <link rel="stylesheet" href="curve.css">
+<link rel="stylesheet" href="regress.css">
 <link rel="stylesheet" href="companypage.css">
 <link rel="stylesheet" href="command.css">
 <link rel="stylesheet" href="settings.css">
@@ -55,6 +56,7 @@
             <button type="button" role="menuitemradio" data-p="curve" aria-selected="false">Yield curve<kbd>⌘⌥8</kbd></button>
             <button type="button" role="menuitemradio" data-p="fed" aria-selected="false">Fed path<kbd>⌘⌥5</kbd></button>
             <button type="button" role="menuitemradio" data-p="graphs" aria-selected="false">Graphs<kbd>⌘⌥6</kbd></button>
+            <button type="button" role="menuitemradio" data-p="regress" aria-selected="false">Regression<kbd>⌘⌥R</kbd></button>
           </div>
         </div>
         <div class="pgrp" data-g="Macro">
@@ -86,6 +88,7 @@
     <div class="list num brief-only" id="brief" aria-label="Brief"></div>
     <div class="list num portfolio-only" id="portfolio" aria-label="Portfolio"></div>
     <div class="list num curve-only" id="curve" aria-label="Yield curve"></div>
+    <div class="list num regress-only" id="regress" aria-label="Regression"></div>
     <div class="list num company-only" id="company" aria-label="Company"></div>
     <div class="secbar news-only">
       <div class="l"><b>Top Ranked News</b><span>|</span><em id="more">More »</em></div>
@@ -114,6 +117,7 @@
   <aside class="detail brief-only" id="bdetail" aria-label="Today"></aside>
   <aside class="detail portfolio-only" id="pdetail" aria-label="Holding detail"></aside>
   <aside class="detail curve-only" id="ydetail" aria-label="Yield curve detail"></aside>
+  <aside class="detail regress-only" id="rgdetail" aria-label="Regression detail"></aside>
   <aside class="detail company-only" id="codetail" aria-label="Company detail"></aside>
 </div>
 <script src="ui.js"></script>
@@ -129,6 +133,7 @@
 <script src="brief.js"></script>
 <script src="portfolio.js"></script>
 <script src="curve.js"></script>
+<script src="regress.js"></script>
 <script src="companypage.js"></script>
 <script src="command.js"></script>
 <script src="chrome.js"></script>

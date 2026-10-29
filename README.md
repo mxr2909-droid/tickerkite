@@ -198,6 +198,17 @@ The Graphs page (⌘⌥6) is a charting workspace for any FRED series or market 
 
 Data: FRED's public CSV export and series page (title, units, frequency), and Yahoo daily closes, full history, cached per series in `graphs-cache/` for a day (the last copy is used offline).
 
+## Regression
+
+The **REG** page (Markets ▾ › Regression, ⌘⌥R) fits a model to your choice of data:
+
+- **Market series:** pick a Y and one or more X's by FRED ID (UNRATE, DGS10…) or ticker (NVDA, ^GSPC, CL=F), with a transform each (level, % change, % vs a year ago, change, log) and an optional lag ("CPI three months earlier"). Tickerkite lines them up on one frequency (daily, weekly, monthly, quarterly) over the range you choose.
+- **My data:** paste from Excel or Sheets, or type columns of numbers (tabs, commas or spaces; header row optional; `$` and `%` are fine), then choose the Y column and X columns.
+
+Models: **Linear** (one X), **Multiple** (every X) and **Polynomial** (a degree 2–4 curve in the first X), all ordinary least squares. Results show R² and adjusted R², the F-test, the equation, each coefficient with its standard error, t-stat and p-value, overlap between X's (VIF) for multiple regression, a scatter with the fitted line (actual vs predicted for multiple), and residuals. **Hold out** the last 20–30% to test the model on data it never saw. The right pane predicts Y for values you type, with a 95% range, and exports the data with fitted values and residuals (CSV to Downloads, or copy for Excel).
+
+Regressing price levels on each other usually gives a high R² that means nothing, since both just trend up, so the page warns when a series is a level. The math (in `src/regress.js`) is tested against Anscombe's published results.
+
 ## Multiple windows
 
 Open any page in its own window to watch several at once: click **⧉ POP OUT** in a page's header strip, or press **⌘⇧N** (Window › Pop Out Current Page). Each pop-out is a full Tickerkite window that starts on that page; the page shortcuts (⌘⌥0–9) switch only the window you're in. **Window › Tile Windows** (⌘⌥T) arranges the main window and all pop-outs in a grid when the screen has room (e.g. an external monitor) and in a cascade on a laptop screen. Pop-outs reopen where you left them next launch.
