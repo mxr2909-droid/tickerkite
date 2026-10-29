@@ -198,6 +198,23 @@ The Graphs page (⌘⌥6) is a charting workspace for any FRED series or market 
 
 Data: FRED's public CSV export and series page (title, units, frequency), and Yahoo daily closes, full history, cached per series in `graphs-cache/` for a day (the last copy is used offline).
 
+## Data health light
+
+A dot next to the clock in the top bar shows whether the data is fresh: **green** everything loading, **amber** a source failed or is late (the app shows its last good copy), **red** no data or very old. Click it for each source: news feeds, market quotes, the scorecard's FRED/Yahoo data, the risk monitors and the screener, each with when it last updated and what failed. (Terminal theme.)
+
+## Warning history
+
+**WARN** (Macro ▾ › Warning history, ⌘⌥W) shows each risk monitor's probability over its whole history with WARNING periods shaded, every past warning (when it began and ended, its peak, whether the event followed, and the S&P 500 over the next 6 and 12 months), the hit rate, and a summary of all monitors. Keys 1–5 switch monitors; Enter opens the model. The history is the model's fitted line, so it looks sharper than it would have in real time; warnings during an event (for "new cases only" models) count as "during", not as hits or misses.
+
+## Stock screener
+
+**SCRN** (Screener tab, ⌘⌥S) filters the ~600 largest US-listed companies by revenue on market cap, P/E, price/sales, revenue growth, gross/operating/net margin, return on equity, debt/equity, 6- and 12-month return and distance from the 52-week high. Fundamentals come from SEC "frames" (one file per line item for every filer, calendar-year annual figures); prices from a year of Yahoo daily closes. Rebuilt daily (about 2 minutes, in the background).
+
+- Presets: Value, Growth, Quality, Momentum, Beaten down, Megacaps; or add your own filters
+- Click a column to sort; click a company for its numbers, its Company page, chart, or to add it to the watchlist
+- **Save a screen** with "notify me of new names" and get a Mac notification after a daily rebuild when a company newly passes
+- Ratios past sane limits (P/E over 1,000, etc.) show as "—": filings occasionally carry a value in the wrong unit
+
 ## Risk monitors
 
 The Brief page (BRF) opens with **risk monitors**: the chance of five major events, each from a model whose factors were chosen by cross-validation (`scripts/select-factors.js`), refreshed on launch and every 6 hours.

@@ -1,2 +1,36 @@
 /* Tickerkite Stock screener */
 .app:not([data-page="screen"]) .screen-only{display:none!important}
+.sc2{padding:14px 20px 28px 28px;display:flex;flex-direction:column;gap:10px}
+.sc2-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
+.sc2-lbl{font-size:10.5px;letter-spacing:.08em;color:var(--dim);margin-right:2px}
+.sc2-chip{padding:4px 10px;border:1px solid var(--line-2,var(--line));color:var(--fg);font-size:12px}
+.sc2-chip:hover{border-color:var(--accent);color:var(--fg-strong)}
+.sc2-chip em{font-style:normal;color:var(--warn);font-weight:700}
+.sc2-saved{display:inline-flex;align-items:center}
+.sc2-x{color:var(--dim);font-size:14px;padding:0 4px}.sc2-x:hover{color:var(--down)}
+.sc2-filters{display:flex;flex-direction:column;gap:5px}
+.sc2-f{display:flex;gap:6px;align-items:center}
+.sc2 select,.sc2 input,.sc2-d input{background:var(--surface,rgba(255,255,255,.04));border:1px solid var(--line-2,var(--line));color:var(--fg-strong,#fff);font:inherit;font-size:12.5px;padding:4px 7px;outline:none}
+.sc2 select:focus,.sc2 input:focus,.sc2-d input:focus{border-color:var(--accent)}
+.sc2-f input{width:90px}.sc2-f .u{color:var(--dim);font-size:11.5px;width:24px}
+.sc2-btn{padding:4px 10px;border:1px solid var(--line-2,var(--line));color:var(--fg);font-size:11px;letter-spacing:.06em}
+.sc2-btn:hover{border-color:var(--accent);color:var(--accent)}
+.sc2-q{width:220px}.sc2-n{margin-left:auto;color:var(--dim)}.sc2-n b{color:var(--fg-strong);font-size:14px}
+.sc2-tw{overflow-x:auto}
+.sc2-tab{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.sc2-tab th{position:sticky;top:0;background:var(--list,var(--bg));font-size:10.5px;letter-spacing:.05em;color:var(--dim);text-align:right;padding:5px 7px;border-bottom:1px solid var(--line);font-weight:500;cursor:pointer;user-select:none}
+.sc2-tab th:hover,.sc2-tab th.on{color:var(--accent)}
+.sc2-tab td{text-align:right;padding:4px 7px;border-bottom:1px solid var(--line);cursor:pointer}
+.sc2-tab th:nth-child(-n+2),.sc2-tab td:nth-child(-n+2){text-align:left}
+.sc2-tab td.tk{color:var(--accent);font-weight:600}
+.sc2-tab td.nm{max-width:210px;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
+.sc2-tab tr:hover td{background:var(--row-hi,rgba(255,255,255,.05))}
+.sc2-tab tr.sel td{background:var(--accent-soft,rgba(54,163,230,.14))}
+.sc2-tab .up{color:var(--up)} .sc2-tab .dn{color:var(--down)}
+.sc2-note{margin:0;color:var(--dim);font-size:11.5px;line-height:1.5}
+.sc2-link{color:var(--accent);text-decoration:underline;font-size:11.5px}
+.sc2-err{color:var(--down)}
+.sc2-d{display:flex;flex-direction:column;gap:10px}
+.sc2-big{display:flex;align-items:baseline;gap:10px}.sc2-big b{font-size:26px;color:var(--fg-strong)}.sc2-big .up{color:var(--up)}.sc2-big .dn{color:var(--down)}
+.sc2-d dd.up{color:var(--up)}.sc2-d dd.dn{color:var(--down)}
+.sc2-save{display:flex;flex-direction:column;gap:6px}.sc2-save label{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--fg)}
