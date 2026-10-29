@@ -28,3 +28,21 @@ test("every monitor model is complete and documented", () => {
     assert.ok(m.short && m.why && m.c.text && m.factors.length >= 2 && m.quality.auc > 0.6 && m.ridge > 0, m.id);
   }
 });
+
+test("episodes: runs of warnings, their outcome and the S&P afterwards", () => {
+  const mk = (i) => `2020-${String(i + 1).padStart(2, "0")}`;
+  // months 2–4 warn (a 1-month dip at 3 doesn't split the run), month 8 warns again
+  const probs = [0.05, 0.05, 0.4, 0.2, 0.45, 0.05, 0.05, 0.05, 0.5, 0.05, 0.05, 0.05];
+  const ys = [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, null];
+  const hist = probs.map((prob, i) => ({ p: mk(i), prob, y: ys[i] }));
+  const spx = new Map(hist.map((h, i) => [h.p, 100 + i]));
+  const e = M.episodes(hist, 0.1, spx);
+  assert.deepStrictEqual(e.map((x) => [x.start, x.end, x.outcome]), [["2020-03", "2020-05", "hit"], ["2020-09", "2020-09", "false alarm"]]);
+  assert.ok(Math.abs(e[0].spx6 - (108 / 102 - 1)) < 1e-12);
+  assert.strictEqual(e[1].spx6, null); // beyond the data
+});
+
+test("episodes inside an event (no label, not recent) count as 'during', not pending", () => {
+  const hist = [0.5, 0.5, 0.05, 0.05].map((prob, i) => ({ p: `2008-0${i + 1}`, prob, y: i < 2 ? null : 0 }));
+  assert.deepStrictEqual(M.episodes(hist, 0.1, null).map((e) => e.outcome), ["during"]);
+});

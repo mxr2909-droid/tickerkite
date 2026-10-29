@@ -588,6 +588,8 @@ function buildMenu() {
         { label: "Portfolio", accelerator: "CmdOrCtrl+Alt+7", click: () => setPageInFocused("portfolio") },
         { label: "Yield Curve", accelerator: "CmdOrCtrl+Alt+8", click: () => setPageInFocused("curve") },
         { label: "Factor Probabilities", accelerator: "CmdOrCtrl+Alt+R", click: () => setPageInFocused("factor") },
+        { label: "Warning History", accelerator: "CmdOrCtrl+Alt+W", click: () => setPageInFocused("warn") },
+        { label: "Stock Screener", accelerator: "CmdOrCtrl+Alt+S", click: () => setPageInFocused("screen") },
         { label: "Company", accelerator: "CmdOrCtrl+Alt+9", click: () => setPageInFocused("company") },
         { label: "Go To…", accelerator: "CmdOrCtrl+K", click: () => { showStory(null); send("cmd:open"); } },
         { type: "separator" },

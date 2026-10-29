@@ -1,0 +1,25 @@
+/* Tickerkite Warning history */
+.app:not([data-page="warn"]) .warn-only{display:none!important}
+.wn{padding:14px 20px 28px 28px;display:flex;flex-direction:column;gap:10px;max-width:1100px}
+.wn-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.wn-tabs button{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--line-2,var(--line));color:var(--fg);font-size:12px}
+.wn-tabs button[aria-pressed="true"]{border-color:var(--accent);color:var(--fg-strong);background:var(--accent-soft,rgba(54,163,230,.12))}
+.wn-tabs .k{color:var(--dimmer);font-size:10.5px}
+.wn-tabs i{font-style:normal;font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:0 4px}
+.wn i.warning,.wn-tabs i.warning{background:var(--down);color:#fff} .wn-tabs i.watch{background:var(--warn);color:#000} .wn-tabs i.normal{color:var(--up)}
+.wn-head h2{margin:4px 0 2px;font-size:18px;color:var(--fg-strong)} .wn-head p{margin:0;color:var(--dim);font-size:12.5px;line-height:1.5}
+.wn-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.wn-tiles>div{border:1px solid var(--line);background:var(--surface,rgba(255,255,255,.03));padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.wn-tiles span{font-size:10.5px;letter-spacing:.06em;color:var(--dim)} .wn-tiles b{font-size:24px;color:var(--fg-strong)} .wn-tiles em{font-style:normal;font-size:10.5px;color:var(--dimmer)}
+.wn b.warning,.wn-d td.warning{color:var(--down)!important} .wn b.watch,.wn-d td.watch{color:var(--warn)!important}
+.wn-sec{font-size:11px;letter-spacing:.08em;color:var(--dim);border-bottom:1px solid var(--line);padding:10px 0 5px;font-weight:600}
+.wn-chart svg{display:block;width:100%;height:auto;font-family:var(--mono)}
+.wn-tab{width:100%;border-collapse:collapse;font-size:12.5px}
+.wn-tab th{font-size:10.5px;letter-spacing:.05em;color:var(--dim);text-align:right;padding:4px 8px;border-bottom:1px solid var(--line);font-weight:500}
+.wn-tab td{text-align:right;padding:4px 8px;border-bottom:1px solid var(--line)}
+.wn-tab th:first-child,.wn-tab td:first-child{text-align:left}
+.wn-tab .oc{text-align:left} .wn-tab .oc.hit{color:var(--warn)} .wn-tab .oc.false-alarm{color:var(--dim)} .wn-tab .oc.pending{color:var(--accent)} .wn-tab .oc.during{color:var(--dimmer)}
+.wn-tab .up{color:var(--up)} .wn-tab .dn{color:var(--down)}
+.wn-tab tr.pick{cursor:pointer} .wn-tab tr.pick:hover td{background:var(--row-hi,rgba(255,255,255,.06))}
+.wn-note{margin:0;color:var(--dim);font-size:11.5px;line-height:1.5}
+.wn-d{display:flex;flex-direction:column;gap:10px}

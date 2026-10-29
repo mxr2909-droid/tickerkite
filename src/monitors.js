@@ -15,8 +15,38 @@ function status(p, base, d1m) {
   return "NORMAL";
 }
 
+/**
+ * Past warnings: runs of WARNING months (a one-month dip doesn't end a run), whether the event
+ * followed, and the S&P 500's return over the next 6 and 12 months from the first warning month.
+ * @param hist [{ p: "YYYY-MM", prob, y }]  @param spx Map "YYYY-MM" → month-end close
+ */
+function episodes(hist, base, spx) {
+  const st = hist.map((h, i) => status(h.prob, base, i ? h.prob - hist[i - 1].prob : null));
+  const out = [];
+  for (let i = 0; i < hist.length; i++) {
+    if (st[i] !== "WARNING") continue;
+    const last = out[out.length - 1];
+    if (last && i - last.endIdx <= 2) { last.endIdx = i; continue; }
+    out.push({ startIdx: i, endIdx: i });
+  }
+  const shift = (p, n) => { const [y, m] = p.split("-").map(Number), t = y * 12 + (m - 1) + n; return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}`; };
+  const ret = (p, n) => { const a = spx?.get(p), b = spx?.get(shift(p, n)); return a && b ? b / a - 1 : null; };
+  // months without a label are either too recent (the window hasn't passed) or skipped because the
+  // event was already under way ("new cases only" models)
+  let lastKnown = -1;
+  hist.forEach((h, i) => { if (h.y != null) lastKnown = i; });
+  return out.map(({ startIdx, endIdx }) => {
+    const run = hist.slice(startIdx, endIdx + 1), known = run.filter((h) => h.y != null);
+    const outcome = known.some((h) => h.y === 1) ? "hit" : endIdx > lastKnown ? "pending" : !known.length ? "during" : "false alarm";
+    return {
+      start: hist[startIdx].p, end: hist[endIdx].p, months: endIdx - startIdx + 1, peak: Math.max(...run.map((h) => h.prob)), outcome,
+      spx6: ret(hist[startIdx].p, 6), spx12: ret(hist[startIdx].p, 12)
+    };
+  });
+}
+
 /** One monitor's result from a Factor analysis: today, a month and three months ago, and what drives it. */
-function summarize(m, r) {
+function summarize(m, r, spx) {
   const hist = r.history;
   const at = (k) => (hist.length > k ? hist[hist.length - 1 - k].prob : null);
   const p = r.now.p, p1 = at(1), p3 = at(3);
@@ -26,7 +56,9 @@ function summarize(m, r) {
     period: r.now.period, p, lo: r.now.lo, hi: r.now.hi, base: r.base,
     d1m, d3m: p3 == null ? null : p - p3, status: status(p, r.base, d1m),
     drivers: r.pushes.slice(0, 3).map((x) => ({ name: x.name, up: x.logOdds > 0, size: Math.abs(x.logOdds), level: x.zscore >= 0 ? "high" : "low" })),
-    spark: hist.slice(-36).map((h) => h.prob)
+    spark: hist.slice(-36).map((h) => h.prob),
+    history: hist.map((h) => [h.p, Math.round(h.prob * 1e4) / 1e4, h.y]),
+    episodes: episodes(hist, r.base, spx), h: r.h, case: r.case
   };
 }
 
@@ -47,11 +79,14 @@ function register(ctx) {
     if (running) return;
     running = true;
     const list = [], errors = {};
+    // S&P 500 month-end closes, for what the market did after each past warning
+    let spx = null;
+    try { spx = new Map(require("./regress").resample(await load("yahoo:^GSPC"), "M")); } catch {}
     for (const m of MODELS) {
       try {
         const [tp, ...fp] = await Promise.all([m.target.key, ...m.factors.map((f) => f.key)].map(load));
         const r = analyze({ target: { ...m.target, points: tp }, c: m.c, factors: m.factors.map((f, i) => ({ name: f.name, tf: f.tf, lag: f.lag, points: fp[i] })), ridge: m.ridge, holdout: 0 });
-        list.push(summarize(m, r));
+        list.push(summarize(m, r, spx));
       } catch (e) { errors[m.id] = String(e.message || e); }
     }
     running = false;
@@ -92,4 +127,4 @@ function register(ctx) {
   setInterval(refresh, EVERY_MS);
 }
 
-module.exports = { register, status, summarize };
+module.exports = { register, status, summarize, episodes };

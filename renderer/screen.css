@@ -1,0 +1,2 @@
+/* Tickerkite Stock screener */
+.app:not([data-page="screen"]) .screen-only{display:none!important}

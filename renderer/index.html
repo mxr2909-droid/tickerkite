@@ -14,6 +14,8 @@
 <link rel="stylesheet" href="portfolio.css">
 <link rel="stylesheet" href="curve.css">
 <link rel="stylesheet" href="factor.css">
+<link rel="stylesheet" href="warn.css">
+<link rel="stylesheet" href="screen.css">
 <link rel="stylesheet" href="companypage.css">
 <link rel="stylesheet" href="command.css">
 <link rel="stylesheet" href="settings.css">
@@ -64,8 +66,10 @@
           <div class="gmenu" role="menu" hidden>
             <button type="button" role="menuitemradio" data-p="score" aria-selected="false">Scorecards<kbd>⌘⌥2</kbd></button>
             <button type="button" role="menuitemradio" data-p="calendar" aria-selected="false">Calendar<kbd>⌘⌥3</kbd></button>
+            <button type="button" role="menuitemradio" data-p="warn" aria-selected="false">Warning history<kbd>⌘⌥W</kbd></button>
           </div>
         </div>
+        <button type="button" role="tab" data-p="screen" aria-selected="false" title="Stock screener (⌘⌥S)">Screener</button>
         <button type="button" role="tab" data-p="company" aria-selected="false" title="Company (⌘⌥9) · ⌘K to look one up">Company</button>
       </div>
       <div class="tabs news-only" id="tabs"><span class="pg"><span id="pgView">All</span><b>News</b></span></div>
@@ -89,6 +93,8 @@
     <div class="list num portfolio-only" id="portfolio" aria-label="Portfolio"></div>
     <div class="list num curve-only" id="curve" aria-label="Yield curve"></div>
     <div class="list num factor-only" id="factor" aria-label="Factor probabilities"></div>
+    <div class="list num warn-only" id="warn" aria-label="Warning history"></div>
+    <div class="list num screen-only" id="screen" aria-label="Stock screener"></div>
     <div class="list num company-only" id="company" aria-label="Company"></div>
     <div class="secbar news-only">
       <div class="l"><b>Top Ranked News</b><span>|</span><em id="more">More »</em></div>
@@ -118,6 +124,8 @@
   <aside class="detail portfolio-only" id="pdetail" aria-label="Holding detail"></aside>
   <aside class="detail curve-only" id="ydetail" aria-label="Yield curve detail"></aside>
   <aside class="detail factor-only" id="fadetail" aria-label="Factor probabilities detail"></aside>
+  <aside class="detail warn-only" id="wndetail" aria-label="Warning history detail"></aside>
+  <aside class="detail screen-only" id="scdetail" aria-label="Screener detail"></aside>
   <aside class="detail company-only" id="codetail" aria-label="Company detail"></aside>
 </div>
 <script src="ui.js"></script>
@@ -134,6 +142,8 @@
 <script src="portfolio.js"></script>
 <script src="curve.js"></script>
 <script src="factor.js"></script>
+<script src="warn.js"></script>
+<script src="screen.js"></script>
 <script src="companypage.js"></script>
 <script src="command.js"></script>
 <script src="chrome.js"></script>
