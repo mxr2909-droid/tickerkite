@@ -30,8 +30,36 @@
   bar.innerHTML = `<div class="fb-logo" aria-hidden="true"><svg viewBox="0 0 148 90" width="26" height="16"><path fill="#F47321" d="M0 0H40V64C40 76 56 81 72 81V90C30 90 0 84 0 70Z"/><path fill="#005030" d="M148 0H108V64C108 76 92 81 76 81V90C118 90 148 84 148 70Z"/></svg><span>TICKER<br>KITE</span></div>
     <nav class="fb-codes" role="tablist" aria-label="Functions">${PAGES.map(([p, code, title, d]) =>
       `<button type="button" role="tab" data-p="${p}" aria-selected="false" title="${esc(title.charAt(0) + title.slice(1).toLowerCase())} (⌘⌥${d})">${code}</button>`).join("")}</nav>
+    <button type="button" class="fb-health" id="fbHealth" aria-haspopup="dialog" aria-expanded="false" title="Data health: is each source loading and fresh?"><i></i><span>DATA</span></button>
     <span class="fb-clock num" id="fbClock"></span>`;
   $("#app").prepend(bar);
+
+  // ---------- data health light (src/main.js healthSnapshot) ----------
+  const pop = document.createElement("div");
+  pop.className = "fb-hpop"; pop.id = "fbHealthPop"; pop.hidden = true; pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "Data health");
+  document.body.append(pop);
+  const HB = bar.querySelector("#fbHealth");
+  const LABEL = { ok: "DATA OK", warn: "DATA ISSUE", bad: "DATA PROBLEM" };
+  let H = null;
+  function paintHealth() {
+    if (!H) return;
+    HB.className = `fb-health ${H.level}`;
+    HB.querySelector("span").textContent = LABEL[H.level];
+    pop.innerHTML = `<div class="hp-h"><b>Data health</b><span>${H.level === "ok" ? "Everything is loading and fresh." : "Some numbers may be stale; details below."}</span></div>
+      ${H.rows.map((r) => `<div class="hp-r ${r.level}"><i></i><div><b>${esc(r.label)}</b><span>${esc(r.detail || "")}</span></div><em>${esc(r.ago)}</em></div>`).join("")}
+      <p class="hp-f">Green: fresh. Amber: a source failed or is late, so the app is showing its last good copy. Red: no data or very old. Sources retry on their own; ⌘R refreshes news and quotes now.</p>`;
+  }
+  HB.addEventListener("click", (e) => {
+    e.stopPropagation();
+    pop.hidden = !pop.hidden; HB.setAttribute("aria-expanded", String(!pop.hidden));
+    if (!pop.hidden) { const r = HB.getBoundingClientRect(); pop.style.top = `${r.bottom + 6}px`; pop.style.right = `${Math.max(8, innerWidth - r.right)}px`; }
+  });
+  document.addEventListener("click", (e) => { if (!pop.hidden && !pop.contains(e.target)) { pop.hidden = true; HB.setAttribute("aria-expanded", "false"); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !pop.hidden) { pop.hidden = true; HB.setAttribute("aria-expanded", "false"); } });
+  if (window.wire?.page) {
+    window.wire.page.on("health:update", (h) => { H = h; paintHealth(); });
+    window.wire.page.invoke("health:get").then((h) => { H = h; paintHealth(); }).catch(() => {});
+  }
 
   const head = document.createElement("div");
   head.className = "phead";

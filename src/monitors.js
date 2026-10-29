@@ -55,6 +55,9 @@ function register(ctx) {
       } catch (e) { errors[m.id] = String(e.message || e); }
     }
     running = false;
+    const nErr = Object.keys(errors).length;
+    ctx.reportHealth?.("monitors", { label: "Risk monitors", at: list.length ? Date.now() : state.at, level: !list.length ? "bad" : nErr ? "warn" : "ok",
+      detail: list.length ? `${list.length} of ${MODELS.length} models${nErr ? ` · failed: ${Object.keys(errors).join(", ")}` : ""}` : `couldn't load: ${Object.values(errors)[0] || "no data"}` });
     if (!list.length) { state = { ...state, errors }; send("monitors:update", state); return; }
     alert(list);
     state = { at: Date.now(), list, errors, notified: state.notified || {} };

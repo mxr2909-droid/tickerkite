@@ -28,8 +28,8 @@ contextBridge.exposeInMainWorld("wire", {
   onInstrument: (cb) => ipcRenderer.on("inst:open", (_e, sym) => cb(sym)),
   // generic bridge for pages added under renderer/<page>.js: only their own channels pass
   page: {
-    invoke: (ch, ...a) => (/^(calendar|markets|fed|graphs|recession|board|releases|portfolio|brief|company|curve|factor|monitors|cmd|settings|license|theme):/.test(ch) ? ipcRenderer.invoke(ch, ...a) : Promise.reject(new Error("blocked channel " + ch))),
-    on: (ch, cb) => { if (/^(calendar|markets|fed|graphs|recession|board|releases|portfolio|brief|company|curve|factor|monitors|cmd|settings|license|theme):/.test(ch)) ipcRenderer.on(ch, (_e, d) => cb(d)); }
+    invoke: (ch, ...a) => (/^(calendar|markets|fed|graphs|recession|board|releases|portfolio|brief|company|curve|factor|monitors|health|warn|screen|cmd|settings|license|theme):/.test(ch) ? ipcRenderer.invoke(ch, ...a) : Promise.reject(new Error("blocked channel " + ch))),
+    on: (ch, cb) => { if (/^(calendar|markets|fed|graphs|recession|board|releases|portfolio|brief|company|curve|factor|monitors|health|warn|screen|cmd|settings|license|theme):/.test(ch)) ipcRenderer.on(ch, (_e, d) => cb(d)); }
   },
   widget: {
     toggle: () => ipcRenderer.invoke("widget:toggle"),

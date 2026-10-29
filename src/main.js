@@ -171,6 +171,7 @@ async function refreshMacro(force = false) {
     const r = await fetchAllSeries(macro.series);
     macro.series = r.series; macro.errors = r.errors; macro.fetchedAt = r.fetchedAt;
     writeJSON("macro-cache.json", { series: macro.series, errors: macro.errors, fetchedAt: macro.fetchedAt });
+    pushHealth();
     computeScores();
   } catch (e) {
     console.error("macro refresh failed", e);
@@ -228,6 +229,34 @@ function resetWeights() {
   send("score:update", scoreSnapshot());
 }
 
+// ---------- data health: is each source fresh and loading? ----------
+// main.js measures news, quotes and the scorecard data itself; page modules report the rest through
+// ctx.reportHealth(id, { label, level: "ok"|"warn"|"bad", at, detail }).
+const reported = {};
+const ago = (t) => { if (!t) return "never"; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 2880 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
+function healthSnapshot() {
+  const rows = [];
+  const feeds = state.status || [], live = feeds.filter((f) => f.ok).length, newsAge = Date.now() - (state.pulledAt || 0);
+  rows.push({ id: "news", label: "News feeds", at: state.pulledAt,
+    // one dead feed out of many isn't worth an alarm: amber below 80% live (failures are still listed)
+    level: !feeds.length || live === 0 || newsAge > 30 * 60e3 ? "bad" : live < 0.8 * feeds.length || newsAge > 10 * 60e3 ? "warn" : "ok",
+    detail: feeds.length ? `${live} of ${feeds.length} feeds live${live < feeds.length ? ` · failing: ${feeds.filter((f) => !f.ok).map((f) => f.name).join(", ")}` : ""}` : "not pulled yet" });
+  const qs = state.quotes || [], missing = qs.filter((q) => q.last == null).length, qAge = Date.now() - (state.quotesAt || 0);
+  rows.push({ id: "quotes", label: "Market quotes (Yahoo)", at: state.quotesAt,
+    level: !qs.length || missing === qs.length || qAge > 15 * 60e3 ? "bad" : missing > qs.length / 4 || qAge > 5 * 60e3 ? "warn" : "ok",
+    detail: qs.length ? `${qs.length - missing} of ${qs.length} prices${missing ? ` · missing: ${qs.filter((q) => q.last == null).map((q) => q.label).slice(0, 6).join(", ")}` : ""}` : "not loaded yet" });
+  const mErr = Object.keys(macro.errors || {}), mAge = Date.now() - (macro.fetchedAt || 0);
+  rows.push({ id: "macro", label: "Economic data (FRED + Yahoo)", at: macro.fetchedAt,
+    level: !macro.fetchedAt || mAge > 48 * 3600e3 ? "bad" : mErr.length || mAge > 12 * 3600e3 ? "warn" : "ok",
+    detail: macro.fetchedAt ? `${mErr.length ? `${mErr.length} series failed, using the last good copy: ${mErr.slice(0, 5).map((k) => k.replace(/^\w+:/, "")).join(", ")}` : "all series loaded"}` : "not downloaded yet" });
+  for (const r of Object.values(reported)) rows.push(r);
+  const worst = rows.some((r) => r.level === "bad") ? "bad" : rows.some((r) => r.level === "warn") ? "warn" : "ok";
+  return { level: worst, rows: rows.map((r) => ({ ...r, ago: ago(r.at) })), at: Date.now() };
+}
+let healthTimer = null;
+function pushHealth() { clearTimeout(healthTimer); healthTimer = setTimeout(() => send("health:update", healthSnapshot()), 250); }
+function reportHealth(id, info) { reported[id] = { ...reported[id], ...info, id }; pushHealth(); }
+
 // ---------- data ----------
 // every open window (main + widget) gets the same updates
 function send(channel, payload) {
@@ -252,6 +281,7 @@ async function refreshNews() {
     state.pulledAt = Date.now();
     notifyNew();
     bus.emit("news", state.stories);
+    pushHealth();
     writeJSON("cache.json", { items: state.items, status, pulledAt: state.pulledAt, seen: [...state.seen].slice(-3000) });
   } catch (e) {
     console.error("refresh failed", e);
@@ -281,7 +311,9 @@ function notifyNew() {
 async function refreshQuotes() {
   try {
     state.quotes = await fetchQuotes();
+    state.quotesAt = Date.now();
     bus.emit("quotes", state.quotes);
+    pushHealth();
     send("quotes:update", state.quotes);
   } catch (e) { console.error("quotes failed", e); }
 }
@@ -613,6 +645,7 @@ ipcMain.handle("widget:state", () => ({ open: !!widget, onTop: prefs.widget.onTo
 ipcMain.handle("watch:add", (_e, sym) => addWatch(String(sym || "")));
 ipcMain.handle("watch:remove", (_e, sym) => { removeWatch(String(sym || "")); return true; });
 ipcMain.handle("score:get", () => scoreSnapshot());
+ipcMain.handle("health:get", () => healthSnapshot());
 ipcMain.handle("score:series", (_e, id) => scoreSeries(String(id)));
 ipcMain.handle("score:refresh", () => { refreshMacro(true); return true; });
 ipcMain.handle("window:popout", (_e, page) => { createPopout(String(page || "")); return true; });
@@ -702,7 +735,8 @@ app.whenReady().then(() => {
     expose: {}, // getters modules publish for each other (calendarToday, releases, portfolio, …)
     prefs: () => prefs,
     showPage: (p) => { showStory(null); win?.webContents.send("page:set", p); },
-    get: () => ({ stories: state.stories, quotes: state.quotes, watch: state.watch, scores: macro.result })
+    get: () => ({ stories: state.stories, quotes: state.quotes, watch: state.watch, scores: macro.result }),
+    reportHealth
   };
   lic = license.register(ctx);
   upd = updater.register(ctx);
@@ -719,6 +753,7 @@ app.whenReady().then(() => {
   refreshQuotes();
   setInterval(refreshNews, NEWS_EVERY_MS);
   setInterval(refreshQuotes, QUOTES_EVERY_MS);
+  setInterval(pushHealth, 60e3);
   setTimeout(() => refreshMacro(), 4000); // after the first news pull
   setInterval(() => refreshMacro(), 30 * 60 * 1000);
   app.on("activate", () => { if (!win) createWindow(); });

@@ -240,3 +240,20 @@
 /* pop-out button in the page header strip */
 .ph-pop{margin-left:12px;padding:2px 8px;border:1px solid var(--line);color:var(--dim);font-size:11px;letter-spacing:.06em;flex:none}
 .ph-pop:hover{color:var(--accent);border-color:var(--accent)}
+
+/* data health light */
+.fb-health{-webkit-app-region:no-drag;display:inline-flex;align-items:center;gap:6px;margin-left:auto;padding:3px 8px;border:1px solid var(--line-2);font:600 10.5px var(--mono);letter-spacing:.06em;color:var(--dim);flex:none}
+.fb-health i{width:8px;height:8px;border-radius:50%;background:var(--dimmer)}
+.fb-health.ok i{background:var(--up)} .fb-health.warn i{background:var(--warn)} .fb-health.bad i{background:var(--down);box-shadow:0 0 6px var(--down)}
+.fb-health.warn{color:var(--warn)} .fb-health.bad{color:var(--down);border-color:var(--down)}
+.fb-health:hover{border-color:var(--accent);color:var(--fg-strong)}
+.fb-health + .fb-clock{margin-left:12px}
+.fb-hpop{position:fixed;z-index:90;width:min(460px,calc(100vw - 24px));background:var(--panel,#0b0e13);border:1px solid var(--line-2);box-shadow:0 14px 40px rgba(0,0,0,.6);padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:12px}
+.fb-hpop .hp-h{display:flex;flex-direction:column;gap:2px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.fb-hpop .hp-h b{color:var(--fg-strong);letter-spacing:.04em} .fb-hpop .hp-h span{color:var(--dim)}
+.fb-hpop .hp-r{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:8px;align-items:start;padding:4px 0}
+.fb-hpop .hp-r i{width:8px;height:8px;border-radius:50%;margin-top:4px;background:var(--dimmer)}
+.fb-hpop .hp-r.ok i{background:var(--up)} .fb-hpop .hp-r.warn i{background:var(--warn)} .fb-hpop .hp-r.bad i{background:var(--down)}
+.fb-hpop .hp-r b{display:block;color:var(--fg-strong);font-weight:600} .fb-hpop .hp-r span{color:var(--dim);line-height:1.4}
+.fb-hpop .hp-r em{font-style:normal;color:var(--dimmer);white-space:nowrap}
+.fb-hpop .hp-f{margin:4px 0 0;color:var(--dimmer);font-size:11px;line-height:1.45}

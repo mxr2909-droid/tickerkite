@@ -21,7 +21,7 @@ module.exports = [
   { id: "cnbc-top", name: "CNBC Top News", url: "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", weight: 7, kind: "news" },
   { id: "cnbc-markets", name: "CNBC Markets", url: "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258", weight: 7, kind: "news" },
   { id: "mw-top", name: "MarketWatch", url: "https://feeds.content.dowjones.io/public/rss/mw_topstories", weight: 6, kind: "news" },
-  { id: "yahoo", name: "Yahoo Finance", url: "https://finance.yahoo.com/news/rssindex", weight: 4, kind: "news" },
+  // Yahoo Finance's RSS feed (finance.yahoo.com/news/rssindex) was removed: it returns 404 since 2026
   { id: "bbc-biz", name: "BBC Business", url: "https://feeds.bbci.co.uk/news/business/rss.xml", weight: 5, kind: "news" },
   { id: "nikkei", name: "Nikkei Asia", url: "https://asia.nikkei.com/rss/feed/nar", weight: 6, kind: "news" },
   { id: "fed", name: "Federal Reserve", url: "https://www.federalreserve.gov/feeds/press_all.xml", weight: 10, kind: "news" },
