@@ -276,10 +276,50 @@ function alignSeries(list, f = "M", sinceMs = null) {
   return { periods, cols: Object.fromEntries(list.map((s, i) => [s.name, periods.map((p) => shaped[i].get(p))])) };
 }
 
+// ---------- series search: plain names instead of FRED codes ----------
+const CATALOG = require("./regress-catalog");
+const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9&^=.\- ]+/g, " ").trim();
+/** Catalog entries matching every word of the query, best first. Empty query = a starter list. */
+function searchCatalog(q, limit = 10) {
+  const words = norm(q).split(/\s+/).filter(Boolean);
+  if (!words.length) return CATALOG.filter((c) => ["fred:CPIAUCSL", "fred:UNRATE", "fred:DGS10", "fred:DFF", "yahoo:^GSPC", "yahoo:CL=F", "yahoo:GC=F", "yahoo:^VIX", "fred:GDPC1", "yahoo:DX-Y.NYB"].includes(c.key)).slice(0, limit);
+  // a whole category name ("inflation", "jobs", "rates") lists that category, most common first
+  const qq = words.join(" ");
+  const cat = CATALOG.filter((c) => { const n = norm(c.cat); return n === qq || n === qq.replace(/s$/, "") || (qq.length >= 3 && n.startsWith(qq)); });
+  if (cat.length) return cat.slice(0, limit);
+  const scored = [];
+  for (const c of CATALOG) {
+    const id = c.key.slice(c.key.indexOf(":") + 1).toLowerCase(), name = norm(c.name), hay = `${name} ${norm(c.aka)} ${norm(c.cat)} ${id}`;
+    if (!words.every((w) => hay.includes(w))) continue;
+    const s = (id === words.join(" ") ? 100 : 0) + (name.startsWith(words[0]) ? 40 : 0) + words.filter((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(name)).length * 10;
+    scored.push([s, c]);
+  }
+  return scored.sort((a, b) => b[0] - a[0]).slice(0, limit).map(([, c]) => c);
+}
+
 // ---------- IPC ----------
 function register(ctx) {
   const { ipcMain } = ctx;
   let last = null; // latest fit, kept for predictions
+  const yahoo = require("./data/yahoo"), { parseSearch } = require("./command");
+  const ycache = new Map();
+  ipcMain.handle("regress:search", async (_e, q) => {
+    q = String(q || "").trim().slice(0, 40);
+    const out = searchCatalog(q, 8).map((c) => ({ key: c.key, name: c.name, cat: c.cat, tf: c.tf }));
+    // companies, ETFs and anything else listed, from the same lookup as the ⌘K bar
+    if (q.length >= 2) {
+      let list = ycache.get(q.toLowerCase());
+      if (!list) { try { list = parseSearch(await yahoo.search(q, 5000)); ycache.set(q.toLowerCase(), list); if (ycache.size > 200) ycache.delete(ycache.keys().next().value); } catch { list = []; } }
+      for (const r of list) {
+        if (r.kind === "Future" && !/=F/i.test(q)) continue; // oil, gold etc. come from the catalog; skip single-stock futures
+        const key = "yahoo:" + r.sym.toUpperCase();
+        if (out.some((o) => o.key.toUpperCase() === key)) continue;
+        out.push({ key, name: `${r.name} (${r.sym})`, cat: r.kind + (r.exch ? ` · ${r.exch}` : ""), tf: "pct" });
+        if (out.length >= 12) break;
+      }
+    }
+    return out;
+  });
   ipcMain.handle("regress:parse", (_e, text) => { try { return { ok: true, ...parseTable(text) }; } catch (e) { return { ok: false, error: e.message }; } });
   ipcMain.handle("regress:align", (_e, list, f, sinceMs) => { try { return { ok: true, ...alignSeries(list, f, sinceMs) }; } catch (e) { return { ok: false, error: e.message }; } });
   ipcMain.handle("regress:fit", (_e, spec) => {
@@ -292,4 +332,4 @@ function register(ctx) {
   });
 }
 
-module.exports = { register, ols, fitModel, predict, predictFrom, vif, parseTable, alignSeries, resample, shape, periodOf, tPValue, fPValue, tCrit, unscalePoly };
+module.exports = { register, searchCatalog, CATALOG, ols, fitModel, predict, predictFrom, vif, parseTable, alignSeries, resample, shape, periodOf, tPValue, fPValue, tCrit, unscalePoly };

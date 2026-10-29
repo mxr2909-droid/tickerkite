@@ -60,3 +60,13 @@
 .rg-f td.f{color:var(--fg-strong,#fff);font-family:var(--mono);width:58%}
 .rg-f td.v{color:var(--accent);text-align:right;width:30%;overflow-wrap:anywhere}
 .rg-f td b{color:var(--fg-strong,#fff)}
+
+/* series search */
+.rg-pick{position:relative;min-width:0}
+.rg-pick input{width:100%}
+.rg-sugg{position:absolute;left:0;right:0;top:100%;z-index:30;background:var(--bg,#0a0c10);border:1px solid var(--line-2,var(--line));box-shadow:0 10px 28px rgba(0,0,0,.55);max-height:320px;overflow:auto}
+.rg-sugg button{display:flex;justify-content:space-between;gap:12px;width:100%;text-align:left;padding:6px 10px;align-items:baseline}
+.rg-sugg button b{font-weight:500;color:var(--fg-strong,#fff);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rg-sugg button em{font-style:normal;font-size:11px;color:var(--dim);white-space:nowrap}
+.rg-sugg button[aria-selected="true"],.rg-sugg button:hover{background:var(--row-hi,rgba(255,255,255,.08))}
+.rg-eq{white-space:normal!important;line-height:1.6}

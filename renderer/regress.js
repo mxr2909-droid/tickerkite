@@ -14,7 +14,7 @@
 
   const defaults = () => ({
     mode: "series",
-    series: [{ key: "yahoo:^GSPC", transform: "pct", lag: 0 }, { key: "fred:DGS10", transform: "diff", lag: 0 }],
+    series: [{ key: "yahoo:^GSPC", label: "S&P 500", transform: "pct", lag: 0 }, { key: "fred:DGS10", label: "10-year Treasury yield", transform: "diff", lag: 0 }],
     freq: "M", range: "10", paste: "", yCol: null, xCols: [], model: "linear", degree: 2, holdout: 0
   });
   let R = defaults();
@@ -39,10 +39,10 @@
   function seriesRows() {
     const opts = (sel, list) => list.map(([v, l]) => `<option value="${v}"${v === sel ? " selected" : ""}>${l}</option>`).join("");
     return `<div class="rg-vars">
-      <div class="rg-vh"><span>ROLE</span><span>SERIES (FRED ID OR TICKER)</span><span>TRANSFORM</span><span>LAG</span><span></span></div>
+      <div class="rg-vh"><span>ROLE</span><span>SERIES: SEARCH BY NAME (INFLATION, OIL, 10-YEAR, NVIDIA…)</span><span>TRANSFORM</span><span>LAG</span><span></span></div>
       ${R.series.map((s, i) => `<div class="rg-v" data-i="${i}">
         <span class="rg-role ${i ? "" : "y"}">${i ? `X${R.series.length > 2 ? i : ""}` : "Y"}</span>
-        <input data-f="key" list="rgpicks" value="${esc(s.key)}" placeholder="e.g. UNRATE, NVDA, fred:CPIAUCSL" spellcheck="false">
+        <div class="rg-pick"><input data-f="key" value="${esc(s.label || s.key)}" placeholder="Search: inflation, unemployment, oil, gold, Nvidia…" spellcheck="false" autocomplete="off" title="${esc(s.key)}"><div class="rg-sugg" role="listbox" hidden></div></div>
         <select data-f="transform">${opts(s.transform, TRANSFORMS)}</select>
         <input data-f="lag" type="number" min="0" max="36" value="${s.lag || 0}" title="Periods to shift this series back: lag 3 on monthly data compares y today with x three months earlier">
         ${i > 1 ? `<button type="button" class="rg-x" data-act="rm" data-i="${i}" title="Remove">×</button>` : "<span></span>"}
@@ -50,7 +50,6 @@
       <div class="rg-row"><button type="button" class="rg-btn" data-act="addx">+ ADD X</button>
         <label>FREQUENCY <select data-g="freq">${opts(R.freq, FREQS)}</select></label>
         <label>RANGE <select data-g="range">${opts(R.range, RANGES)}</select></label></div>
-      <datalist id="rgpicks">${(K.picks?.indicators || []).map((p) => `<option value="${esc(p.src)}">${esc(p.name)}</option>`).join("")}${(K.picks?.watch || []).map((p) => `<option value="${esc(p.src)}">${esc(p.name)}</option>`).join("")}</datalist>
     </div>`;
   }
 
@@ -234,8 +233,9 @@
       // transform of it ("S&P 500 vs 200-day average"), so tickers use Yahoo's own short name instead
       const pick = (K.picks?.indicators || []).find((p) => /^fred:/i.test(p.src) && p.src.toUpperCase() === "FRED:" + id && !/vs 200-day|annualized|3-mo avg/i.test(p.name));
       const pickName = got[i].key?.startsWith("fred:") ? pick?.name : (K.picks?.watch || []).find((p) => p.src.toUpperCase() === "YAHOO:" + id)?.name;
-      const title = (got[i].title || "").replace(/\s*\(.*?\)\s*$/, "");
-      let name = `${pickName || (title && title.length <= 28 ? title : id)}${s.transform === "level" ? "" : `, ${t}`}${+s.lag ? ` (lag ${+s.lag})` : ""}`;
+      // "Gold Dec 26" / "Crude Oil Dec 26": Yahoo names the front futures contract; drop the month
+      const title = (got[i].title || "").replace(/\s*\(.*?\)\s*$/, "").replace(/\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{2,4}$/i, "");
+      let name = `${s.label || pickName || (title && title.length <= 28 ? title : id)}${s.transform === "level" ? "" : `, ${t}`}${+s.lag ? ` (lag ${+s.lag})` : ""}`;
       while (used.has(name)) name += "′";
       used.add(name);
       return { name, points: got[i].points, transform: s.transform, lag: +s.lag || 0 };
@@ -289,6 +289,47 @@
     if (focused) { const ta = $("#rgpaste"); ta.focus(); ta.setSelectionRange(pos, pos); }
   }
 
+  // ---------- series search dropdown ----------
+  const SG = { input: null, list: [], idx: 0, seq: 0, t: null };
+  function suggest(input) {
+    SG.input = input;
+    clearTimeout(SG.t);
+    SG.t = setTimeout(async () => {
+      const seq = ++SG.seq, q = input.value;
+      const list = await call("regress:search", q).catch(() => []);
+      if (seq !== SG.seq || SG.input !== input) return;
+      SG.list = list || []; SG.idx = 0; drawSugg();
+    }, 160);
+  }
+  function drawSugg() {
+    const box = SG.input?.parentElement?.querySelector(".rg-sugg");
+    document.querySelectorAll(".rg-sugg").forEach((b) => { if (b !== box) b.hidden = true; });
+    if (!box) return;
+    box.hidden = !SG.list.length;
+    const TF = Object.fromEntries(TRANSFORMS);
+    box.innerHTML = SG.list.map((r, i) => `<button type="button" role="option" data-sg="${i}" aria-selected="${i === SG.idx}"><b>${esc(r.name)}</b><em>${esc(r.cat)} · ${esc(TF[r.tf] || "")}</em></button>`).join("");
+  }
+  function closeSugg() { SG.list = []; SG.seq++; document.querySelectorAll(".rg-sugg").forEach((b) => (b.hidden = true)); }
+  function pickSugg(i) {
+    const r = SG.list[i], row = SG.input?.closest(".rg-v");
+    if (!r || !row) return;
+    const s = R.series[+row.dataset.i];
+    Object.assign(s, { key: r.key, label: r.name, transform: r.tf });
+    closeSugg(); save(); render();
+    // move on to the next empty row, if any
+    const next = [...root().querySelectorAll(".rg-v input[data-f=key]")].find((el) => !el.value);
+    next?.focus();
+  }
+  document.addEventListener("focusin", (e) => { if (K.active && e.target.matches?.(".rg-v input[data-f=key]")) { e.target.select(); suggest(e.target); } });
+  document.addEventListener("focusout", (e) => { if (e.target.matches?.(".rg-v input[data-f=key]")) setTimeout(() => { if (!document.activeElement?.matches?.(".rg-v input[data-f=key]")) closeSugg(); }, 150); });
+  document.addEventListener("mousedown", (e) => { const b = e.target.closest?.("[data-sg]"); if (b && K.active) { e.preventDefault(); pickSugg(+b.dataset.sg); } });
+  document.addEventListener("keydown", (e) => {
+    if (!K.active || !e.target.matches?.(".rg-v input[data-f=key]") || !SG.list.length || SG.input !== e.target) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); SG.idx = (SG.idx + (e.key === "ArrowDown" ? 1 : SG.list.length - 1)) % SG.list.length; drawSugg(); }
+    else if (e.key === "Enter" || e.key === "Tab") { if (e.key === "Enter" || e.target.value) { e.preventDefault(); e.stopPropagation(); pickSugg(SG.idx); } }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeSugg(); }
+  }, true);
+
   // ---------- events ----------
   const root = () => $("#regress");
   document.addEventListener("click", async (e) => {
@@ -312,6 +353,7 @@
   document.addEventListener("input", (e) => {
     if (!K.active || !root().contains(e.target)) return;
     const row = e.target.closest(".rg-v");
+    if (row && e.target.dataset.f === "key") { const s = R.series[+row.dataset.i]; s.key = e.target.value; s.label = null; save(); suggest(e.target); return; }
     if (row && e.target.dataset.f) { const s = R.series[+row.dataset.i]; s[e.target.dataset.f] = e.target.dataset.f === "lag" ? Math.max(0, Math.min(36, +e.target.value || 0)) : e.target.value; save(); return; }
     if (e.target.id === "rgpaste") { R.paste = e.target.value; save(); clearTimeout(pt); pt = setTimeout(parsePaste, 350); }
   });
