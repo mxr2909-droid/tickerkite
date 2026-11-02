@@ -1,4 +1,5 @@
-// Earnings for the Calendar page: the world's 100 largest companies by market cap.
+// Earnings for the Calendar page, for three company lists: the world's 100 largest by market cap, the
+// largest US companies by revenue (Fortune-style, ranked by the screener from SEC filings) and the user's own list.
 // The ranking comes from companiesmarketcap.com's free CSV (refreshed daily, a checked snapshot below
 // when it can't be reached); dates, EPS consensus and actuals from Nasdaq's free earnings calendar
 // (api.nasdaq.com/api/calendar/earnings?date=YYYY-MM-DD, no key). Nasdaq only lists US-traded shares, so
@@ -42,6 +43,8 @@ const ALIASES = {
   "MC.PA": ["LVMUY"], "SIE.DE": ["SIEGY"], "005930.KS": ["SSNLF"], "1398.HK": ["IDCBY"], "601939.SS": ["CICHY"],
   "601288.SS": ["ACGBY"], "601988.SS": ["BACHY"], "0857.HK": ["PTR"], "0941.HK": ["CHLKF"], "ITX.MC": ["IDEXY"], "CBA.AX": ["CMWAY"], "2454.TW": ["MDTKF"]
 };
+const MIN_CAP = 1e9; // smaller companies are only cached when they're on one of the lists
+const CACHE_V = 2;   // cached days from before the Fortune and own lists kept only $20B+ companies
 const norm = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
 /** companiesmarketcap CSV → [{ rank, name, sym, cap, country }] for the top n. */
@@ -68,9 +71,9 @@ function symbolMap(top) {
 
 const money = (s) => { const x = parseFloat(String(s || "").replace(/[$,()]/g, "")); return isFinite(x) ? (/\(/.test(s) ? -x : x) : null; };
 
-/** One Nasdaq earnings day → the rows worth keeping (market cap ≥ $20B, so the cache stays small). */
-function parseDay(json) {
-  return (json?.data?.rows || []).filter((r) => r?.symbol && (money(r.marketCap) || 0) >= 20e9).map((r) => ({
+/** One Nasdaq earnings day → the rows worth keeping: market cap ≥ $1B, or a symbol in `keep` (normalized). */
+function parseDay(json, keep = new Set()) {
+  return (json?.data?.rows || []).filter((r) => r?.symbol && ((money(r.marketCap) || 0) >= MIN_CAP || keep.has(norm(r.symbol)))).map((r) => ({
     sym: String(r.symbol).trim(), name: String(r.name || "").trim(),
     when: /pre-market/.test(r.time) ? "pre" : /after-hours/.test(r.time) ? "post" : "",
     qtr: r.fiscalQuarterEnding || "", est: r.epsForecast || "", eps: r.eps || "", yago: r.lastYearEPS || "", n: +r.noOfEsts || 0
@@ -78,22 +81,43 @@ function parseDay(json) {
 }
 
 /**
- * Calendar events for the top companies among a day's rows. `mk(date, time)` = ET date/time → ms,
+ * One entry per company across the lists, by normalized US ticker. `lists` = { top, fortune, mine } or just
+ * the top list. top: ranking entries; fortune: [{ ticker, name, rank }] by revenue; mine: [{ sym, name }].
+ */
+function universe(lists) {
+  const { top = [], fortune = [], mine = [] } = Array.isArray(lists) ? { top: lists } : lists || {};
+  const ent = new Map(), byCompany = new Map(); // share classes and ADR aliases point at one entry
+  for (const [k, c] of symbolMap(top)) {
+    if (!byCompany.has(c)) byCompany.set(c, { key: c.sym, name: c.name, country: c.country, rank: c.rank, cap: c.cap });
+    ent.set(k, byCompany.get(c));
+  }
+  const add = (sym, info) => { const k = norm(sym); if (!k) return; const e = ent.get(k); if (e) Object.assign(e, info); else ent.set(k, { key: sym, country: "United States", rank: null, cap: 0, ...info }); };
+  for (const f of fortune) add(f.ticker, { frank: f.rank });
+  for (const x of mine) add(x.sym, { mine: true });
+  return ent;
+}
+
+/** Normalized tickers the lists need cached even when the company is under $1B. */
+const keepSet = (lists) => new Set(universe(lists).keys());
+
+/**
+ * Calendar events for the listed companies among a day's rows. `mk(date, time)` = ET date/time → ms,
  * `country(name)` = { code, flag, region }. One event per company even when two share classes report.
  */
-function events(date, rows, top, mk, country) {
-  const map = symbolMap(top), seen = new Set(), out = [];
+function events(date, rows, lists, mk, country) {
+  const map = universe(lists), seen = new Set(), out = [];
   for (const r of rows || []) {
     const c = map.get(norm(r.sym));
-    if (!c || seen.has(c.sym)) continue;
-    seen.add(c.sym);
+    if (!c || seen.has(c.key)) continue;
+    seen.add(c.key);
+    const name = c.rank ? c.name : r.name.replace(/,? (Inc|Corp|Corporation|Co|Company|Ltd|plc|Holdings|Incorporated)\.?$/i, "") || r.sym;
     const where = country(c.country);
     const when = r.when === "pre" ? "before open" : r.when === "post" ? "after close" : "";
     out.push({
-      id: `earn:${c.sym}:${date}`, cat: "earnings", key: "earn", sym: r.sym, title: `${c.name} earnings`,
+      id: `earn:${c.key}:${date}`, cat: "earnings", key: "earn", sym: r.sym, title: `${name} earnings`,
       ref: [when, r.qtr ? `qtr to ${r.qtr}` : ""].filter(Boolean).join(" · "), when,
       t: mk(date, r.when === "pre" ? "07:00" : r.when === "post" ? "16:05" : "12:00"), timed: false, estimated: false,
-      src: "Nasdaq earnings calendar", rank: c.rank, cap: c.cap, company: c.name, country: c.country,
+      src: "Nasdaq earnings calendar", rank: c.rank || null, frank: c.frank || null, mine: !!c.mine, cap: c.cap || 0, company: name, country: c.country,
       code: where.code, flag: where.flag, region: where.region, g10: true,
       survey: r.est || "", actual: r.eps || "", prior: r.yago || "", ests: r.n
     });
@@ -101,4 +125,4 @@ function events(date, rows, top, mk, country) {
   return out;
 }
 
-module.exports = { TOP_URL, TOP_N, TOP_CHECKED, ALIASES, parseTop, fallbackTop, symbolMap, parseDay, events, money };
+module.exports = { TOP_URL, TOP_N, TOP_CHECKED, ALIASES, MIN_CAP, CACHE_V, parseTop, fallbackTop, symbolMap, universe, keepSet, parseDay, events, money, norm };

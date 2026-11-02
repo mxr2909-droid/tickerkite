@@ -47,10 +47,10 @@
 [data-theme="terminal"] .tabs .pg{display:none}
 
 /* ---------- buttons and labels: square, outlined, uppercase ---------- */
-[data-theme="terminal"] :is(.tabs button,.toggle button,.refresh,.sref,.es-btn,.copy,.iclose,.rtabs button,.mperiods button,.mrange button,.mref,.mopen,.calbar button,.bd-past button,.wchg .tog button,.cform button,.yc-tog,.wset-row button){
+[data-theme="terminal"] :is(.tabs button,.toggle button,.refresh,.sref,.es-btn,.copy,.iclose,.rtabs button,.mperiods button,.mrange button,.mref,.mopen,.calbar button,.calsub .cgrp button,.bd-past button,.wchg .tog button,.cform button,.yc-tog,.wset-row button){
   font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;background:var(--surface);border:1px solid var(--line-2);color:var(--fg);padding:3px 9px}
-[data-theme="terminal"] :is(.tabs button,.toggle button,.rtabs button,.mperiods button,.mrange button,.calbar button,.wchg .tog button,.yc-tog):hover{border-color:var(--accent);background:var(--surface-2);color:var(--fg-strong)}
-[data-theme="terminal"] :is(.tabs button[aria-pressed="true"],.toggle button[aria-pressed="true"],.rtabs button[aria-selected="true"],.mperiods button[aria-pressed="true"],.mrange button[aria-pressed="true"],.calbar button[aria-pressed="true"],.wchg .tog button[aria-pressed=true]){background:var(--sel);border-color:var(--sel);color:var(--sel-ink)}
+[data-theme="terminal"] :is(.tabs button,.toggle button,.rtabs button,.mperiods button,.mrange button,.calbar button,.calsub .cgrp button,.wchg .tog button,.yc-tog):hover{border-color:var(--accent);background:var(--surface-2);color:var(--fg-strong)}
+[data-theme="terminal"] :is(.tabs button[aria-pressed="true"],.toggle button[aria-pressed="true"],.rtabs button[aria-selected="true"],.mperiods button[aria-pressed="true"],.mrange button[aria-pressed="true"],.calbar button[aria-pressed="true"],.calsub .cgrp button[aria-pressed="true"],.wchg .tog button[aria-pressed=true]){background:var(--sel);border-color:var(--sel);color:var(--sel-ink)}
 [data-theme="terminal"] .toggle{background:none;border:0;padding:0;gap:3px}
 [data-theme="terminal"] :is(.sgroup,.subhead,.isec,.cols,.calcols,.msec h3,.msum h4,.secbar .l b,.kv dt,.istats dt,.cov .lbl,.drv h3,.wchg h3,.relbar .rt,.regime .rt,.recbox .rt,.ftile .fl,.frow.fhead,.fcrow.fhead,.bd-ctl .lbl,.calfig span,.calhist th,.mret th,.ctab th,.rtrack th){
   text-transform:uppercase;letter-spacing:.07em;font-family:var(--mono);font-size:10.5px;font-weight:600;color:var(--dim)}

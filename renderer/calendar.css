@@ -72,3 +72,26 @@
 #cdetail .calrx div{background:var(--surface);padding:8px 10px;display:flex;flex-direction:column;gap:3px}
 #cdetail .calrx span{font-size:11px;color:var(--dim)}
 #cdetail .calrx b{font-size:16px;font-weight:600}
+/* earnings sub-tabs and the My list panel */
+.calsub{display:flex;align-items:center;gap:2px;padding:6px 10px 6px 52px;background:var(--list);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.calsub button{font-size:12px;padding:3px 9px;color:var(--fg);background:var(--surface);border-radius:var(--r)}
+.calsub button:hover{background:var(--surface-3)}
+.calsub button[aria-pressed="true"]{background:var(--sel);color:var(--sel-ink)}
+.calsub .cgrp{display:inline-flex;gap:2px;margin-right:10px}
+.calsub .calnote{margin-left:auto;color:var(--dimmer);font-size:11.5px}
+.calmine{display:flex;flex-direction:column;gap:8px;padding:8px 10px 10px 52px;background:var(--list);border-bottom:1px solid var(--line)}
+.calmsearch{position:relative;max-width:420px}
+#calmq{width:100%;font:inherit;font-size:13px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:var(--r);padding:5px 9px;outline:none}
+#calmq:focus{border-color:var(--orange)}
+#calmres{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line-2);box-shadow:0 10px 28px rgba(0,0,0,.5)}
+#calmres:empty{display:none}
+.calmres-i{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:8px;align-items:baseline;text-align:left;padding:6px 9px;border-bottom:1px solid var(--line)}
+.calmres-i:hover,.calmres-i.first{background:var(--row-hi,rgba(255,255,255,.06))}
+.calmres-i b{color:var(--fg-strong)} .calmres-i span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)} .calmres-i em{font-style:normal;color:var(--dimmer);font-size:11px}
+.calmlist{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}
+.calchip{display:inline-flex;align-items:stretch;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
+.calchip .cm-open{display:inline-flex;gap:6px;align-items:baseline;padding:3px 8px;background:var(--surface)}
+.calchip .cm-open:hover{background:var(--surface-3)}
+.calchip .cm-open b{color:var(--fg-strong)} .calchip .cm-open span{color:var(--dim);font-size:11px}
+.calchip .cm-x{padding:0 7px;color:var(--dim);background:var(--surface);border-left:1px solid var(--line)}
+.calchip .cm-x:hover{color:var(--down);background:var(--surface-3)}

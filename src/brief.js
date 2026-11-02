@@ -30,10 +30,10 @@ function outlooks(result) {
   return { rows, regime: result.regime ? { name: result.regime.name, text: result.regime.text } : null };
 }
 
-/** Today's events worth a line in the brief: high-importance releases (US + G10), Fed events, your earnings. */
+/** Today's events worth a line in the brief: high-importance releases (US + G10), Fed events, earnings for the world's top 100 and your own list. */
 function todayEvents(events, releases) {
   const rx = new Map((releases || []).map((r) => [`${r.code}:${r.t}`, r]));
-  return (events || []).filter((e) => e.cat === "earnings" || e.cat === "fed" || (e.rel >= 3 && (e.code === "US" || e.g10)))
+  return (events || []).filter((e) => (e.cat === "earnings" && (e.rank || e.mine)) || e.cat === "fed" || (e.rel >= 3 && (e.code === "US" || e.g10)))
     .slice(0, 14).map((e) => ({
       id: e.id, t: e.t, timed: e.timed !== false, title: e.title, cat: e.cat, code: e.code, flag: e.flag,
       survey: e.survey || "", actual: e.actual || "", prior: e.prior || "", sym: e.sym || null,
@@ -66,7 +66,7 @@ function register(ctx) {
       markets,
       today: todayEvents(ctx.expose.calendarToday?.(), releases),
       released: releases.filter((r) => now - r.t < 24 * 3600e3),
-      earnings: week.filter((e) => e.cat === "earnings" && e.t >= now - 24 * 3600e3).slice(0, 8).map((e) => ({ t: e.t, sym: e.sym, title: e.title, timed: e.timed !== false })),
+      earnings: week.filter((e) => e.cat === "earnings" && (e.rank || e.mine) && e.t >= now - 24 * 3600e3).slice(0, 8).map((e) => ({ t: e.t, sym: e.sym, title: e.title, timed: e.timed !== false })),
       outlook: outlooks(g.scores),
       portfolio: pf && pf.rows.length ? {
         total: pf.total, outlook: pf.outlook, cash: pf.cash,

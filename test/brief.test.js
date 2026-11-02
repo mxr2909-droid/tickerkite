@@ -22,7 +22,7 @@ test("today's events: big releases, Fed and earnings, with reactions attached", 
     { id: "1", t: 10, cat: "macro", rel: 3, code: "US", title: "CPI", actual: "0.4%" },
     { id: "2", t: 11, cat: "macro", rel: 2, code: "US", title: "Redbook" },
     { id: "3", t: 12, cat: "macro", rel: 3, code: "BR", g10: false, title: "IPCA" },
-    { id: "4", t: 13, cat: "earnings", code: "US", title: "NVDA earnings", sym: "NVDA" }
+    { id: "4", t: 13, cat: "earnings", code: "US", title: "NVDA earnings", sym: "NVDA", rank: 1 }
   ];
   const out = todayEvents(ev, [{ code: "US", t: 10, reaction: [{ label: "S&P futures", v: 1, unit: "pct" }] }]);
   assert.deepStrictEqual(out.map((e) => e.id), ["1", "4"]);

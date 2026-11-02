@@ -9,8 +9,13 @@
   const DAY = 864e5;
   const REGIONS = [["g10", "G10"], ["am", "Americas"], ["eu", "Europe/MEA"], ["as", "Asia/Pacific"], ["world", "World"]];
   const CATS = [["all", "All"], ["macro", "Macro"], ["fed", "Fed"], ["earnings", "Earnings"]];
-  const C = { active: false, data: null, region: "world", cat: "all", q: "", sel: null, list: [], latest: {}, week: null, hist: {} };
-  try { C.region = localStorage.getItem("wire.cal.region") || "world"; C.cat = localStorage.getItem("wire.cal.cat") || "all"; } catch {}
+  // earnings sub-tabs: world's top 100 by market cap, largest US companies by revenue (Fortune-style), your own list
+  const ELISTS = [["g100", "Global 100", "The world's 100 largest companies by market cap"],
+    ["f100", "Fortune 100", "The 100 largest US companies by revenue, ranked from SEC filings (close to Fortune's list, which isn't free to download)"],
+    ["f500", "Fortune 500", "The 500 largest US companies by revenue, ranked from SEC filings (close to Fortune's list, which isn't free to download)"],
+    ["mine", "My list", "Companies you add: search below"]];
+  const C = { active: false, data: null, region: "world", cat: "all", elist: "g100", q: "", mq: "", mres: [], sel: null, list: [], latest: {}, week: null, hist: {} };
+  try { C.region = localStorage.getItem("wire.cal.region") || "world"; C.cat = localStorage.getItem("wire.cal.cat") || "all"; C.elist = localStorage.getItem("wire.cal.elist") || "g100"; } catch {}
 
   // ---------- time (US Eastern) ----------
   const ETF = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -81,9 +86,43 @@
     const q = C.q.trim().toLowerCase();
     return (C.data?.events || []).filter((e) => {
       if (C.cat !== "all" && e.cat !== C.cat) return false;
+      if (e.cat === "earnings" && !inList(e)) return false;
       if (C.region === "g10" ? !e.g10 : C.region !== "world" && e.region !== C.region) return false;
       return !q || `${e.title} ${e.ref || ""} ${e.code} ${e.sym || ""}`.toLowerCase().includes(q);
     });
+  }
+  // the Earnings tab shows the chosen list; All shows the global 100 plus your own companies
+  function inList(e) {
+    if (C.cat !== "earnings") return !!(e.rank || e.mine);
+    return C.elist === "f100" ? e.frank > 0 && e.frank <= 100 : C.elist === "f500" ? e.frank > 0 : C.elist === "mine" ? e.mine : !!e.rank;
+  }
+  function earnBar() {
+    if (C.cat !== "earnings") return "";
+    const f = C.data.fortune || {};
+    const note = C.elist.startsWith("f") ? (f.n ? `Ranked by ${esc(f.year || "")} revenue from SEC filings · ${f.n} companies` : "This list comes from the Screener's data, which builds a few minutes after first launch.")
+      : C.elist === "g100" ? "The world's 100 largest by market cap" : "";
+    let h = `<div class="calsub"><span class="cgrp">${ELISTS.map(([k, n, t]) => `<button type="button" data-elist="${k}" aria-pressed="${C.elist === k}" title="${esc(t)}">${n}</button>`).join("")}</span><span class="calnote">${note}</span></div>`;
+    if (C.elist === "mine") h += minePanel();
+    return h;
+  }
+  const nextLabel = (n) => !n ? "no date yet" : `${shortDate(n.date)}${n.estimated ? " (est.)" : ""}`;
+  function minePanel() {
+    const mine = (C.data.mine || []).slice().sort((a, b) => (a.next?.date || "9") < (b.next?.date || "9") ? -1 : 1);
+    return `<div class="calmine">
+      <div class="calmsearch"><input id="calmq" type="search" placeholder="Add a company: name or ticker" value="${esc(C.mq)}" spellcheck="false" autocomplete="off"><div id="calmres">${mresHtml()}</div></div>
+      <div class="calmlist">${mine.length ? mine.map((m) => `<span class="calchip" title="${esc(m.name)}${m.next ? ` · next report ${esc(nextLabel(m.next))} (${esc(m.next.source)})` : ""}"><button type="button" class="cm-open" data-msym="${esc(m.sym)}"><b>${esc(m.sym)}</b><span>${esc(nextLabel(m.next))}</span></button><button type="button" class="cm-x" data-mrm="${esc(m.sym)}" aria-label="Remove ${esc(m.sym)}">×</button></span>`).join("")
+        : `<span class="dim">No companies yet. Search above to add one; its earnings then show up here and in All.</span>`}</div></div>`;
+  }
+  const mresHtml = () => C.mres.length && C.mq.trim() ? C.mres.map((r, i) => `<button type="button" class="calmres-i${i === 0 ? " first" : ""}" data-madd="${esc(r.sym)}" data-mname="${esc(r.name)}"><b>${esc(r.sym)}</b><span>${esc(r.name)}</span><em>${esc(r.exch)}</em></button>`).join("") : "";
+  let mqTimer = null;
+  function searchMine(q) {
+    clearTimeout(mqTimer);
+    if (!q.trim()) { C.mres = []; const b = $("#calmres"); if (b) b.innerHTML = ""; return; }
+    mqTimer = setTimeout(() => api.page.invoke("calendar:search", q).then((r) => { if (q !== C.mq) return; C.mres = r || []; const b = $("#calmres"); if (b) b.innerHTML = mresHtml(); }), 220);
+  }
+  function addMine(sym, name) {
+    C.mq = ""; C.mres = [];
+    api.page.invoke("calendar:mine-add", { sym, name }).then((d) => { apply(d); setTimeout(() => $("#calmq")?.focus(), 0); });
   }
   const dots = (n) => `<span class="crel r${n}" title="${["", "Low", "Medium", "High"][n] || ""} importance">${"●".repeat(n)}${"○".repeat(3 - n)}</span>`;
   function row(e, now) {
@@ -108,7 +147,7 @@
     const el = $("#calendar");
     if (!C.data) { el.innerHTML = window.WireUI.skeleton("rows", { n: 12, label: "Loading the calendar…" }); return; }
     const now = Date.now();
-    const focused = document.activeElement?.id === "calq";
+    const focused = document.activeElement?.id === "calq", mfocused = document.activeElement?.id === "calmq";
     C.list = visible();
     C.latest = {};
     for (const e of C.data.events) if (e.t <= now && e.key !== "nq") C.latest[e.key] = e.id;
@@ -120,8 +159,9 @@
       <span class="cgrp cweek"><button type="button" data-week="-1" title="Previous week (←)">‹</button><button type="button" data-week="0" aria-pressed="${thisWk}" title="This week (t)">This week</button><button type="button" data-week="1" title="Next week (→)">›</button><span class="wk">${esc(wkLabel)}</span></span>
       <input id="calq" type="search" placeholder="Search events  /" value="${esc(C.q)}" spellcheck="false" autocomplete="off">
       <span class="calnote">${srcNote()}</span></div>
+      ${earnBar()}
       <div class="calcols"><span>ET</span><span>CTRY</span><span>REL</span><span>EVENT</span><span>PERIOD</span><span class="r">SURVEY</span><span class="r">ACTUAL</span><span class="r">SURP</span><span class="r">PRIOR</span><span class="r">REVISED</span></div></div>`;
-    if (!C.list.length) h += `<div class="empty">${C.q ? "No events match." : C.cat === "earnings" ? (C.data.nasdaq?.loading ? "Loading this week's earnings…" : "None of the world's 100 largest companies report this week.") : C.data.nasdaq?.loading ? "Loading this week…" : "Nothing scheduled this week."}</div>`;
+    if (!C.list.length) h += `<div class="empty">${C.q ? "No events match." : C.cat === "earnings" ? (C.data.nasdaq?.loading ? "Loading this week's earnings…" : C.elist === "mine" ? ((C.data.mine || []).length ? "None of your companies report this week. Their next dates are on the chips above." : "Add companies above to follow their earnings.") : `None of the ${{ g100: "world's 100 largest companies", f100: "Fortune 100", f500: "Fortune 500" }[C.elist]} report this week.`) : C.data.nasdaq?.loading ? "Loading this week…" : "Nothing scheduled this week."}</div>`;
     let day = null;
     for (const e of C.list) {
       const d = etDay(e.t);
@@ -130,10 +170,11 @@
     }
     el.innerHTML = h;
     if (focused) { const i = $("#calq"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+    if (mfocused) { const i = $("#calmq"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
     if (!C.sel || !C.list.some((e) => e.id === C.sel)) {
       const next = C.list.find((e) => e.t > now) || C.list[C.list.length - 1];
       C.sel = next?.id || null;
-      if (C.sel) { el.querySelector(`.calrow[data-id="${CSS.escape(C.sel)}"]`)?.setAttribute("aria-selected", "true"); if (!focused) scrollToSel(); }
+      if (C.sel) { el.querySelector(`.calrow[data-id="${CSS.escape(C.sel)}"]`)?.setAttribute("aria-selected", "true"); if (!focused && !mfocused) scrollToSel(); }
     }
     renderDetail();
   }
@@ -158,6 +199,7 @@
     if (n) { select(n.id); scrollToSel(); }
   }
   function setRegion(k) { C.region = k; C.sel = null; try { localStorage.setItem("wire.cal.region", k); } catch {} render(); }
+  function setElist(k) { C.elist = k; C.sel = null; try { localStorage.setItem("wire.cal.elist", k); } catch {} render(); }
   function setCat(k) { C.cat = k; C.sel = null; try { localStorage.setItem("wire.cal.cat", k); } catch {} render(); }
   function setWeek(d) {
     const cur = Date.parse((C.data?.week || C.data?.thisWeek) + "T12:00:00Z") / DAY;
@@ -212,7 +254,7 @@
     let kv = `<dt>When</dt><dd>${esc(when)}</dd><dt>Countdown</dt><dd>${esc(countdown(e))}</dd>`;
     if (e.cat !== "earnings") kv += `<dt>Next</dt><dd class="calnext">${e.t > Date.now() ? esc(countdown(e)) : "…"}</dd>`;
     if (e.cat === "earnings") {
-      kv += `<dt>Company</dt><dd>${esc(e.company || e.sym)} · ${esc(e.sym)}${e.rank ? ` · #${e.rank} by market cap` : ""}${e.cap ? ` ($${(e.cap / 1e9 >= 1000 ? (e.cap / 1e12).toFixed(2) + "T" : Math.round(e.cap / 1e9) + "B")})` : ""}</dd>`;
+      kv += `<dt>Company</dt><dd>${esc(e.company || e.sym)} · ${esc(e.sym)}${e.rank ? ` · #${e.rank} by market cap` : ""}${e.frank ? ` · #${e.frank} US by revenue` : ""}${e.mine ? " · on your list" : ""}${e.cap ? ` ($${(e.cap / 1e9 >= 1000 ? (e.cap / 1e12).toFixed(2) + "T" : Math.round(e.cap / 1e9) + "B")})` : ""}</dd>`;
       kv += `<dt>Report</dt><dd>${esc(e.ref || "time not given")}</dd>`;
       if (e.survey || e.actual) kv += `<dt>EPS</dt><dd>consensus ${esc(e.survey || "—")}${e.ests ? ` (${e.ests} ests)` : ""}${e.actual ? ` · actual ${esc(e.actual)}` : ""}${e.prior ? ` · year ago ${esc(e.prior)}` : ""}</dd>`;
     } else if (e.ref) kv += `<dt>${e.cat === "earnings" ? "COMPANY" : e.cat === "fed" && e.key === "fomc" ? "MEETING" : "PERIOD"}</dt><dd>${esc(e.ref)}</dd>`;
@@ -273,10 +315,17 @@
   $("#calendar").addEventListener("click", (ev) => {
     const g = ev.target.closest("[data-region]"); if (g) return setRegion(g.dataset.region);
     const b = ev.target.closest("[data-cat]"); if (b) return setCat(b.dataset.cat);
+    const l = ev.target.closest("[data-elist]"); if (l) return setElist(l.dataset.elist);
+    const ma = ev.target.closest("[data-madd]"); if (ma) return addMine(ma.dataset.madd, ma.dataset.mname);
+    const mr = ev.target.closest("[data-mrm]"); if (mr) return api.page.invoke("calendar:mine-remove", mr.dataset.mrm).then(apply);
+    const mo = ev.target.closest("[data-msym]"); if (mo) return window.WireApp.openInstrument(mo.dataset.msym);
     const w = ev.target.closest("[data-week]"); if (w) return setWeek(+w.dataset.week);
     const r = ev.target.closest(".calrow"); if (r) select(r.dataset.id);
   });
-  $("#calendar").addEventListener("input", (ev) => { if (ev.target.id === "calq") { C.q = ev.target.value; C.sel = null; render(); } });
+  $("#calendar").addEventListener("input", (ev) => {
+    if (ev.target.id === "calq") { C.q = ev.target.value; C.sel = null; render(); }
+    else if (ev.target.id === "calmq") { C.mq = ev.target.value; searchMine(C.mq); }
+  });
   $("#cdetail").addEventListener("click", (ev) => {
     const o = ev.target.closest(".calopen"); if (o) return window.WireApp.openInstrument(o.dataset.sym);
     const s = ev.target.closest(".calstory");
@@ -298,12 +347,17 @@
     api.page.on("calendar:update", apply);
     api.page.invoke("calendar:get").then(apply);
   }
-  setInterval(() => { if (C.active && !window.WireInstrument?.isOpen() && document.activeElement?.id !== "calq") { const y = $("#calendar").scrollTop; render(); $("#calendar").scrollTop = y; } }, 60e3);
+  setInterval(() => { if (C.active && !window.WireInstrument?.isOpen() && !["calq", "calmq"].includes(document.activeElement?.id)) { const y = $("#calendar").scrollTop; render(); $("#calendar").scrollTop = y; } }, 60e3);
 
   (window.WirePages ||= {}).calendar = {
     show() { C.active = true; render(); if (api?.page) api.page.invoke("calendar:get", C.week || undefined).then(apply); },
     hide() { C.active = false; },
     key(e) {
+      if (e.target.id === "calmq") {
+        if (e.key === "Escape") { C.mq = ""; C.mres = []; e.target.value = ""; e.target.blur(); render(); }
+        else if (e.key === "Enter") { e.preventDefault(); const r = C.mres[0]; if (r) addMine(r.sym, r.name); }
+        return;
+      }
       if (e.target.id === "calq") {
         if (e.key === "Escape") { C.q = ""; e.target.value = ""; e.target.blur(); render(); }
         else if (e.key === "Enter" || e.key === "ArrowDown") { e.preventDefault(); e.target.blur(); }

@@ -12,7 +12,9 @@
 //  - BLS:    bls.gov per-release schedule pages (CPI, PPI, jobs, JOLTS). BLS blocks most scripts,
 //            so a failed fetch falls back to the list below, which is marked "fallback" in the UI.
 //  - DOL:    initial jobless claims, every Thursday 8:30 ET (Wednesday in a Thanksgiving/Christmas week)
-//  - Earnings: the world's 100 largest companies by market cap, dates and EPS from Nasdaq (calendar-earnings.js)
+//  - Earnings: dates and EPS from Nasdaq (calendar-earnings.js) for three lists: the world's 100 largest
+//    companies by market cap, the largest US companies by revenue (the screener's SEC ranking, like Fortune's)
+//    and the user's own list (calendar-mylist.json, each with its next report date from Nasdaq)
 //  - Consensus, actuals and global events: Nasdaq's economic calendar, one request per day, cached in
 //    calendar-nasdaq.json; every release's numbers also go into calendar-history.json (see calendar-nasdaq.js)
 
@@ -20,6 +22,8 @@ const http = require("./data/http");
 const NQ = require("./calendar-nasdaq");
 const EQ = require("./calendar-earnings");
 const nasdaq = require("./data/nasdaq");
+const yahoo = require("./data/yahoo");
+const company = require("./company");
 const SC = require("./macro/score");
 const { INDICATORS } = require("./macro/indicators");
 
@@ -316,14 +320,40 @@ function register(ctx) {
       .finally(() => { topLoading = null; });
     return topLoading;
   }
+  // largest US companies by revenue, from the screener's data (src/screen.js), re-read every 10 minutes
+  let fort = { at: 0, list: [], year: null, builtAt: 0 };
+  function fortune() {
+    if (Date.now() - fort.at > 10 * 60e3) {
+      const d = ctx.readJSON("screen-data.json", null);
+      const list = (d?.rows || []).filter((r) => r.rev > 0).sort((a, b) => b.rev - a.rev).slice(0, 500).map((r, i) => ({ ticker: r.ticker, name: r.name, rank: i + 1 }));
+      fort = { at: Date.now(), list, year: d?.year || null, builtAt: d?.builtAt || 0 };
+    }
+    return fort.list;
+  }
+  // the user's own companies: [{ sym, name, next: { date, estimated, source } | null, nextAt }]
+  let mine = ctx.readJSON("calendar-mylist.json", { list: [] }).list || [];
+  const saveMine = () => ctx.writeJSON("calendar-mylist.json", { list: mine });
+  const lists = () => ({ top: topList(), fortune: fortune(), mine });
   function earnings() {
-    const tl = topList(), out = [];
-    for (const [d, v] of Object.entries(edays)) out.push(...EQ.events(d, v.rows, tl, etToMs, NQ.country));
+    const l = lists(), out = [];
+    for (const [d, v] of Object.entries(edays)) out.push(...EQ.events(d, v.rows, l, etToMs, NQ.country));
     return out;
+  }
+  // next report date for each of the user's companies (Nasdaq, else Zacks' estimate), checked twice a day
+  let nextLoading = null;
+  function loadNext(force) {
+    if (nextLoading) return nextLoading;
+    const due = mine.filter((m) => force === m.sym || !m.nextAt || Date.now() - m.nextAt > 12 * 3600e3);
+    if (!due.length) return null;
+    nextLoading = (async () => {
+      for (const m of due) { m.next = await company.nasdaqEarnings(m.sym); m.nextAt = Date.now(); await new Promise((r) => setTimeout(r, 250)); }
+      saveMine();
+    })().finally(() => { nextLoading = null; push(); });
+    return nextLoading;
   }
   // a past day is final once fetched after it ended; today goes stale after an hour, later days after 6
   function earnFresh(entry, iso, today, now = Date.now()) {
-    if (!entry) return false;
+    if (!entry || entry.v !== EQ.CACHE_V) return false;
     if (iso < today) return entry.at > Date.parse(iso + "T12:00:00Z") + DAY;
     return now - entry.at < (iso === today ? 3600e3 : 6 * 3600e3);
   }
@@ -341,7 +371,8 @@ function register(ctx) {
     for (const [k, s] of [["fomc", sched.fomc], ["bea", sched.bea], ["retail", sched.retail], ...Object.entries(sched.bls || {})]) status[k] = { live: !!s?.live, at: s?.at || 0, error: cache?.errors?.[k] || null };
     return { events: weekEvents(allEvents(), days, hstore.keys, week), week: isoDay(week), thisWeek: isoDay(weekOf(Date.now())), nasdaq: { ...nq, loading: !!nqLoading },
       values: values(), releases: RELEASES, status, fetchedAt: cache?.at || 0, fallbackChecked: FALLBACK_CHECKED, now: Date.now(),
-      top: { live: !!top?.live, at: top?.at || 0, checked: EQ.TOP_CHECKED, n: topList().length } };
+      top: { live: !!top?.live, at: top?.at || 0, checked: EQ.TOP_CHECKED, n: topList().length },
+      fortune: { n: fortune().length, year: fort.year, builtAt: fort.builtAt }, mine: mine.map(({ sym, name, next }) => ({ sym, name, next })) };
   }
   const push = () => ctx.send("calendar:update", payload());
 
@@ -375,7 +406,7 @@ function register(ctx) {
       }
       if (todo.length) nq = { at: ok ? Date.now() : nq.at, error: ok ? null : err };
       for (const iso of etodo) { // weekends answer with no rows, which is fine
-        try { edays[iso] = { at: Date.now(), rows: EQ.parseDay(await nasdaq.earnings(iso)) }; }
+        try { edays[iso] = { at: Date.now(), v: EQ.CACHE_V, rows: EQ.parseDay(await nasdaq.earnings(iso), EQ.keepSet(lists())) }; }
         catch (e) { console.error("calendar earnings", iso, e.message || e); }
         await new Promise((r) => setTimeout(r, 250));
       }
@@ -439,9 +470,32 @@ function register(ctx) {
 
   ctx.ipcMain.handle("calendar:get", (_e, w) => {
     if (typeof w === "string" && /^\d{4}-\d{2}-\d{2}$/.test(w)) week = weekOf(Date.parse(w) + 12 * 3600e3);
-    refresh(false); loadWeek(false);
+    refresh(false); loadWeek(false); loadNext();
     return payload();
   });
+  // the user's own list: search (Yahoo, stocks only), add, remove
+  ctx.ipcMain.handle("calendar:search", async (_e, q) => {
+    q = String(q || "").trim().slice(0, 40);
+    if (!q) return [];
+    try {
+      const j = await yahoo.search(q);
+      return (j.quotes || []).filter((x) => x.symbol && /EQUITY/.test(x.quoteType || "")).slice(0, 8)
+        .map((x) => ({ sym: x.symbol, name: x.shortname || x.longname || x.symbol, exch: x.exchDisp || x.exchange || "" }));
+    } catch { return []; }
+  });
+  ctx.ipcMain.handle("calendar:mine-add", (_e, x) => {
+    const sym = String(x?.sym || "").trim().toUpperCase().slice(0, 15);
+    if (!/^[A-Z0-9.\-^=]+$/.test(sym)) return payload();
+    if (!mine.some((m) => m.sym === sym)) {
+      mine.push({ sym, name: String(x?.name || sym).slice(0, 80), next: null, nextAt: 0 });
+      saveMine();
+      // cached days skipped companies under $1B, so reload the shown week's earnings
+      for (let d = week; d < week + 7; d++) if (edays[isoDay(d)]) edays[isoDay(d)].v = 0;
+      loadWeek(false); loadNext(sym);
+    }
+    return payload();
+  });
+  ctx.ipcMain.handle("calendar:mine-remove", (_e, sym) => { mine = mine.filter((m) => m.sym !== sym); saveMine(); return payload(); });
   ctx.ipcMain.handle("calendar:refresh", async () => { await Promise.all([refresh(true), loadWeek(true)]); return payload(); });
   ctx.ipcMain.handle("calendar:history", (_e, key) => historyFor(hstore.keys, String(key || ""), allEvents(), days));
   ctx.ipcMain.handle("calendar:headlines", (_e, words) => headlines(ctx.get().stories, Array.isArray(words) ? words.map(String).slice(0, 20) : [])

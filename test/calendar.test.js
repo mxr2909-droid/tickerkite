@@ -279,3 +279,18 @@ test("earnings day: top companies only, one per company, timing and EPS", () => 
   assert.strictEqual(ro.sym, "RHHBY"); // ADR alias
   assert.strictEqual(ro.code, "CH");
 });
+
+test("earnings lists: Fortune-style and own companies join the global 100, one event each", () => {
+  const json = { data: { rows: [
+    { time: "time-pre-market", symbol: "WMT", name: "Walmart Inc.", marketCap: "$800,000,000,000", epsForecast: "$0.60" },
+    { time: "time-after-hours", symbol: "CVS", name: "CVS Health Corporation", marketCap: "$90,000,000,000", epsForecast: "$1.50" },
+    { time: "time-after-hours", symbol: "CELH", name: "Celsius Holdings, Inc.", marketCap: "$900,000,000", epsForecast: "$0.20" },
+    { time: "time-after-hours", symbol: "SMOL", name: "Small Co", marketCap: "$500,000,000", epsForecast: "$0.01" }
+  ] } };
+  const lists = { top: [{ rank: 16, name: "Walmart", sym: "WMT", cap: 8e11, country: "United States" }], fortune: [{ ticker: "WMT", rank: 1 }, { ticker: "CVS", rank: 5 }], mine: [{ sym: "CELH", name: "Celsius" }] };
+  const rows = EQ.parseDay(json, EQ.keepSet(lists));
+  assert.deepStrictEqual(rows.map((r) => r.sym), ["WMT", "CVS", "CELH"]); // CELH kept though under $1B, SMOL not
+  const ev = EQ.events("2026-11-04", rows, lists, C.etToMs, NQC.country);
+  assert.deepStrictEqual(ev.map((e) => [e.title, e.rank, e.frank, e.mine]), [
+    ["Walmart earnings", 16, 1, false], ["CVS Health earnings", null, 5, false], ["Celsius Holdings earnings", null, null, true]]);
+});
