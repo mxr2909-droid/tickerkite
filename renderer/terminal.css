@@ -249,6 +249,7 @@
 .fb-health:hover{border-color:var(--accent);color:var(--fg-strong)}
 .fb-health + .fb-clock{margin-left:12px}
 .fb-hpop{position:fixed;z-index:90;width:min(460px,calc(100vw - 24px));background:var(--panel,#0b0e13);border:1px solid var(--line-2);box-shadow:0 14px 40px rgba(0,0,0,.6);padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:12px}
+.fb-hpop[hidden]{display:none}
 .fb-hpop .hp-h{display:flex;flex-direction:column;gap:2px;padding-bottom:6px;border-bottom:1px solid var(--line)}
 .fb-hpop .hp-h b{color:var(--fg-strong);letter-spacing:.04em} .fb-hpop .hp-h span{color:var(--dim)}
 .fb-hpop .hp-r{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:8px;align-items:start;padding:4px 0}
