@@ -24,4 +24,4 @@ Use Obsidian `[[wiki links]]` between notes; link to a day with `[[log#2026-11-0
 
 Keep the vault color-coded: pages orange, decisions green, log blue, hub notes (index, Roadmap, Architecture, Backlog) gold, raw purple, outputs teal. The colors are in `.obsidian/snippets/tickerkite-colors.css` and the `colorGroups` in `.obsidian/graph.json`. A new folder or hub note gets its own color in both places. Quit Obsidian before editing `graph.json` (it overwrites the file while open), then reopen it.
 
-The vault is its own git repo (private GitHub repo `tickerkite-vault`); after an ingest, commit and push it there too: `git -C ~/Documents/Tickerkite\ Vault add -A && git -C ~/Documents/Tickerkite\ Vault commit -m "<change>"`.
+The vault is its own git repo (private GitHub repo `tickerkite-vault`); after an ingest, commit and push it there too: `git -C ~/Documents/Tickerkite\ Vault add -A && git -C ~/Documents/Tickerkite\ Vault commit -m "<change>" && git -C ~/Documents/Tickerkite\ Vault push`.
