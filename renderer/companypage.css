@@ -122,3 +122,7 @@
 .co-results button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .co-results button em{font-style:normal;color:var(--dim);font-size:11px}
 .co-results button[aria-selected="true"],.co-results button:hover{background:var(--row-hi,rgba(255,255,255,.08))}
+.co-notebox{width:100%;min-height:260px;resize:vertical;margin-top:8px;padding:10px 12px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line);color:var(--fg);font:inherit;font-size:13.5px;line-height:1.6}
+.co-notebox:focus{outline:none;border-color:var(--accent)}
+.co-mynote{margin:0;padding:10px 12px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line);white-space:pre-wrap;line-height:1.55;font-size:13px;cursor:pointer}
+.co-mynote:hover{border-color:var(--line-2)}

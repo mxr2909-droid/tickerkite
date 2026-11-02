@@ -21,7 +21,7 @@
     ["warn", "WARN", "WARNING HISTORY", "W", "1–5 MONITOR · ↵ OPEN MODEL · PAST RISK WARNINGS AND WHAT FOLLOWED"],
     ["screen", "SCRN", "STOCK SCREENER", "S", "↵ OPEN COMPANY · CLICK A COLUMN TO SORT · SEC FILINGS + YAHOO PRICES"],
     ["portfolio", "PORT", "PORTFOLIO", 7, "↑↓ MOVE · ↵ CHART · ESC DESELECT"],
-    ["company", "DES", "COMPANY", 9, "1–6 / ←→ TAB · ↵ CHART · / OR ⌘K LOOK UP"]
+    ["company", "DES", "COMPANY", 9, "1–7 / ←→ TAB · ↵ CHART · / OR ⌘K LOOK UP"]
   ];
   const META = Object.fromEntries(PAGES.map((p) => [p[0], { code: p[1], title: p[2], digit: p[3], hint: p[4] }]));
   const C = { page: "news", pulled: {}, status: {} };
@@ -65,7 +65,7 @@
   ipop.className = "fb-hpop fb-ipop"; ipop.hidden = true; ipop.setAttribute("role", "dialog"); ipop.setAttribute("aria-label", "Alerts inbox");
   document.body.append(ipop);
   const BB = bar.querySelector("#fbBell");
-  const KIND = { news: "NEWS", watchlist: "WATCHLIST", monitor: "RISK", release: "DATA", screen: "SCREEN", other: "ALERT" };
+  const KIND = { news: "NEWS", watchlist: "WATCHLIST", monitor: "RISK", release: "DATA", earnings: "EARNINGS", screen: "SCREEN", other: "ALERT" };
   let IB = { items: [], unread: 0 }, ikind = "";
   const when = (t) => { const d = new Date(t), now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }); };
   function paintInbox() {

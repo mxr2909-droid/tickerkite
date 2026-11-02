@@ -6,7 +6,7 @@
   const api = window.wire;
   const $ = (s) => document.querySelector(s);
   const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const TABS = [["overview", "Overview"], ["financials", "Financials"], ["holders", "Holders"], ["insiders", "Insiders"], ["filings", "Filings"], ["news", "News"]];
+  const TABS = [["overview", "Overview"], ["financials", "Financials"], ["holders", "Holders"], ["insiders", "Insiders"], ["filings", "Filings"], ["news", "News"], ["notes", "Notes"]];
   const C = { active: false, sym: null, tab: "overview", data: null, loading: false, err: null, chart: null, holders: null, insiders: null, news: null, period: "annual", onlyTrades: true, seq: 0 };
   try { C.sym = localStorage.getItem("wire.company.sym") || null; C.period = localStorage.getItem("wire.company.period") || "annual"; } catch {}
   const recent = () => { try { return JSON.parse(localStorage.getItem("wire.company.recent") || "[]"); } catch { return []; } };
@@ -36,8 +36,9 @@
   function open(sym, tab) {
     sym = String(sym || "").toUpperCase().trim();
     if (!sym) return;
+    saveNote();
     if (tab && TABS.some(([k]) => k === tab)) C.tab = tab;
-    if (sym !== C.sym || !C.data) { Object.assign(C, { sym, data: null, chart: null, holders: null, insiders: null, news: null, err: null }); }
+    if (sym !== C.sym || !C.data) { Object.assign(C, { sym, data: null, chart: null, holders: null, insiders: null, news: null, note: null, err: null }); }
     if (window.WireApp?.page() !== "company") window.WireApp.setPage("company");
     else if (C.data) { if (window.WireInstrument?.isOpen()) window.WireInstrument.close(); render(); renderDetail(); loadTab(); }
     else load();
@@ -52,6 +53,7 @@
       if (d.ok) remember(sym, d.profile?.name || "");
       render(); renderDetail(); loadTab();
     });
+    api.page.invoke("company:note", sym).then((n) => { if (seq === C.seq) { C.note = { ...n, sym }; if (C.tab === "overview" || C.tab === "notes") render(); } });
     api.getInstrument(sym, "1Y").then((r) => { if (seq === C.seq && r?.ok) { C.chart = r.data; if (C.tab === "overview") render(); renderDetail(); } });
   }
   function loadTab() {
@@ -103,7 +105,27 @@
       ${s ? `<div class="co-stats">${stats.map(([k, x]) => `<div><span>${k}</span><b>${x}</b></div>`).join("")}</div>
       ${pr ? `<p class="co-note">P/E is in the <b>${ordinal(Math.round(pr.pct * 100))} percentile</b> of its own 5-year range (${num(pr.min, 0)}–${num(pr.max, 0)}, median ${num(pr.median, 0)}).</p>` : ""}
       <div class="co-sec">Revenue and net income by fiscal year</div>${bars(d.statements.annual)}` : `<p class="co-note">${esc(d.reason || "No SEC financials for this symbol.")}</p>`}
+      ${C.note?.sym === C.sym && C.note.text ? `<div class="co-sec">Your note</div><p class="co-mynote" data-tab="notes" title="Open your note">${esc(C.note.text.length > 280 ? C.note.text.slice(0, 280) + "…" : C.note.text)}</p>` : ""}
       <div class="co-sec">Latest headlines</div>${newsList(C.news, 5)}`;
+  }
+
+  // ---------- your notes (saved as you type) ----------
+  let noteTimer = null;
+  function saveNote() {
+    clearTimeout(noteTimer); noteTimer = null;
+    const n = C.note; if (!n || !n.dirty) return;
+    n.dirty = false;
+    api.page.invoke("company:note-save", n.sym, n.text).then((r) => {
+      n.at = r.at;
+      const lab = $("#conotestate"); if (lab && C.sym === n.sym) lab.textContent = r.at ? `Saved ${new Date(r.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : "";
+    });
+  }
+  function notesTab() {
+    const n = C.note && C.note.sym === C.sym ? C.note : null;
+    if (!n) return `<p class="co-note">Loading your note…</p>`;
+    return `<p class="co-note">Private to this Mac. Saved as you type.</p>
+      <textarea id="conote" class="co-notebox" spellcheck="true" maxlength="20000" placeholder="Why you own it, what to watch, the thesis, price levels…" aria-label="Your note on ${esc(C.sym)}">${esc(n.text)}</textarea>
+      <div id="conotestate" class="co-note">${n.at ? `Saved ${new Date(n.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}</div>`;
   }
 
   const LINES = [
@@ -208,12 +230,15 @@
       <div class="co-px">${q?.price != null ? `<b>${num(q.price)}</b> <span class="dim">${esc(q.currency || "")}</span> ${dayPct != null ? `<span class="${cls(dayPct)}">${pct(dayPct, 2)}</span>` : ""}` : ""}</div></div>
       <nav class="co-tabs">${TABS.map(([k, l]) => `<button type="button" data-tab="${k}" aria-selected="${k === C.tab}">${l}</button>`).join("")}</nav>`;
     let body;
-    if (C.loading && !d) body = window.WireUI.skeleton("rows", { n: 8, label: `Loading ${C.sym} from SEC EDGAR…` });
+    if (C.tab === "notes") body = notesTab(); // works without SEC data (needs no contact email)
+    else if (C.loading && !d) body = window.WireUI.skeleton("rows", { n: 8, label: `Loading ${C.sym} from SEC EDGAR…` });
     else if (C.err) body = `<p class="co-note">${esc(C.err)}</p>`;
     else if (d?.needContact) body = contactForm();
     else if (d?.error) body = `<p class="co-note">${esc(d.error)}</p>`;
-    else if (d) body = ({ overview, financials, holders, insiders, filings, news: () => newsList(C.news) })[C.tab](d);
+    else if (d) body = ({ overview, financials, holders, insiders, filings, news: () => newsList(C.news), notes: notesTab })[C.tab](d);
+    const hadNote = document.activeElement?.id === "conote", caret = hadNote ? document.activeElement.selectionStart : 0;
     el.innerHTML = `<div class="co">${head}<div class="co-body">${body || ""}</div></div>`;
+    if (hadNote) { const t = $("#conote"); if (t) { t.focus(); t.setSelectionRange(caret, caret); } }
     const fs = el.querySelector(".co-fs-wrap"); if (fs) fs.scrollLeft = fs.scrollWidth; // latest period in view
   }
 
@@ -241,7 +266,7 @@
 
   // ---------- events ----------
   const onClick = (e) => {
-    const t = e.target.closest("[data-tab]"); if (t) { C.tab = t.dataset.tab; render(); loadTab(); return; }
+    const t = e.target.closest("[data-tab]"); if (t) { saveNote(); C.tab = t.dataset.tab; render(); loadTab(); return; }
     const p = e.target.closest("[data-period]"); if (p) { C.period = p.dataset.period; try { localStorage.setItem("wire.company.period", C.period); } catch {} render(); return; }
     const o = e.target.closest("[data-open]"); if (o) return open(o.dataset.open);
     if (e.target.closest("[data-cmdk]")) return window.WireCommand?.open();
@@ -293,6 +318,13 @@
 
   $("#company").addEventListener("click", onClick);
   $("#codetail").addEventListener("click", onClick);
+  $("#company").addEventListener("input", (e) => {
+    if (e.target.id !== "conote" || !C.note) return;
+    C.note.text = e.target.value; C.note.dirty = true;
+    clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 700);
+  });
+  $("#company").addEventListener("focusout", (e) => { if (e.target.id === "conote") saveNote(); });
+  window.addEventListener("beforeunload", saveNote);
   $("#company").addEventListener("change", (e) => { if (e.target.id === "coonly") { C.onlyTrades = e.target.checked; render(); } });
   $("#company").addEventListener("submit", async (e) => {
     if (e.target.id !== "cocontact") return;
@@ -304,12 +336,12 @@
 
   (window.WirePages ||= {}).company = {
     show() { C.active = true; if (C.sym && !C.data) load(); else { render(); renderDetail(); loadTab(); } },
-    hide() { C.active = false; },
+    hide() { saveNote(); C.active = false; },
     key(e) {
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       const i = TABS.findIndex(([k]) => k === C.tab);
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); C.tab = TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length][0]; render(); loadTab(); }
-      else if (/^[1-6]$/.test(e.key) && !e.metaKey) { C.tab = TABS[+e.key - 1][0]; render(); loadTab(); }
+      else if (/^[1-7]$/.test(e.key) && !e.metaKey) { C.tab = TABS[+e.key - 1][0]; render(); loadTab(); }
       else if (e.key === "/" ) { e.preventDefault(); sIn.focus(); }
       else if ((e.key === "Enter" || e.key === "o") && C.sym) window.WireApp.openInstrument(C.sym);
     },

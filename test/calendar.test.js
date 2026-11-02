@@ -294,3 +294,18 @@ test("earnings lists: Fortune-style and own companies join the global 100, one e
   assert.deepStrictEqual(ev.map((e) => [e.title, e.rank, e.frank, e.mine]), [
     ["Walmart earnings", 16, 1, false], ["CVS Health earnings", null, 5, false], ["Celsius Holdings earnings", null, null, true]]);
 });
+
+test("My-list earnings alerts: today's heads-up, then the result, once each, nothing for old reports", () => {
+  const ev = (sym, date, extra = {}) => ({ id: `earn:${sym}:${date}`, sym, company: sym + " Inc", mine: true, when: "after close", survey: "1.00", actual: "", prior: "0.90", ...extra });
+  const day = "2026-11-02", done = new Set();
+  let a = EQ.alerts([ev("CELH", day), ev("OLD", "2026-10-20", { actual: "1.2" }), { ...ev("WMT", day), mine: false }], day, done);
+  assert.deepStrictEqual(a.map((x) => [x.id, x.title, x.body]), [["today:earn:CELH:2026-11-02", "CELH Inc reports today", "after close · EPS est 1.00"]]);
+  a.forEach((x) => done.add(x.id));
+  assert.deepStrictEqual(EQ.alerts([ev("CELH", day)], day, done), []);
+  a = EQ.alerts([ev("CELH", day, { actual: "1.10" })], day, done);
+  assert.deepStrictEqual(a.map((x) => [x.title, x.body]), [["CELH Inc reported", "EPS 1.10 vs 1.00 expected (beat) · year ago 0.90"]]);
+  a.forEach((x) => done.add(x.id));
+  assert.deepStrictEqual(EQ.alerts([ev("CELH", day, { actual: "1.10" })], day, done), []);
+  assert.strictEqual(EQ.alerts([ev("X", "2026-11-01", { actual: "0.5", survey: "0.8" })], day, new Set())[0].body.includes("(miss)"), true);
+  assert.deepStrictEqual(EQ.alerts([ev("Y", "2026-11-01")], day, new Set()), []); // yesterday, no result yet: no "today" alert
+});

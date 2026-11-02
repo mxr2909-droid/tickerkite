@@ -451,6 +451,33 @@ function register(ctx) {
     catch (e) { console.error("calendar live", e.message || e); }
     finally { polling = false; }
   }
+  // alerts when a company on My list reports: heads-up on the day, then the EPS result. Today's earnings are
+  // re-read every 10 minutes while one of them is still to print (calendar:get only loads the shown week).
+  const notified = new Set(ctx.readJSON("calendar-earnings-alerts.json", []));
+  let watching = false;
+  async function mineWatch() {
+    if (watching || nqLoading || !mine.length) return;
+    watching = true;
+    try {
+      const iso = isoDay(etDay(Date.now())), cur = edays[iso];
+      const pending = earnings().some((e) => e.mine && e.id.endsWith(":" + iso) && !e.actual);
+      if (!cur || cur.v !== EQ.CACHE_V || (pending && Date.now() - cur.at > 10 * 60e3)) {
+        edays[iso] = { at: Date.now(), v: EQ.CACHE_V, rows: EQ.parseDay(await nasdaq.earnings(iso), EQ.keepSet(lists())) };
+        ctx.writeJSON("calendar-earnings.json", edays); push();
+      }
+      const fresh = EQ.alerts(earnings(), iso, notified);
+      for (const a of fresh) {
+        notified.add(a.id);
+        if (ctx.prefs().releaseAlerts === false || !ctx.Notification?.isSupported?.()) continue;
+        const n = new ctx.Notification({ title: a.title, body: a.body, silent: false, tk: { kind: "earnings", page: "calendar", sym: a.sym } });
+        n.on("click", () => ctx.showPage("calendar"));
+        n.show();
+      }
+      if (fresh.length) ctx.writeJSON("calendar-earnings-alerts.json", [...notified].slice(-300));
+    } catch (e) { console.error("calendar mine alerts", e.message || e); }
+    finally { watching = false; }
+  }
+
   ctx.expose.calendarToday = () => {
     const d = etDay(Date.now());
     return weekEvents(allEvents(), days, hstore.keys, weekOf(Date.now())).filter((e) => etDay(e.t) === d);
@@ -506,6 +533,8 @@ function register(ctx) {
   setInterval(() => { refresh(false); if (week === weekOf(Date.now())) loadWeek(false); }, 15 * 60e3);
   setInterval(saveHist, 5 * 60e3);
   setInterval(pollToday, 60e3);
+  setTimeout(mineWatch, 20e3);
+  setInterval(mineWatch, 5 * 60e3);
 }
 
 module.exports = { register, weekOf, weekEvents, historyFor, parseFomc, parseBls, parseBea, parseCensus, claimsDates, countdown, etToMs, etDay, refStart, buildEvents, readings, headlines, fallbackSched, RELEASES, FALLBACK_CHECKED };

@@ -75,6 +75,7 @@ Type a ticker into **+ add ticker** in the sidebar and press Enter. Any Yahoo Fi
   - **Valuation**: market cap, P/E (delayed price ÷ trailing-twelve-month diluted EPS) and price/sales, plus where today's P/E sits in its 5-year range.
   - **Fundamentals**: TTM revenue, net income, EPS, gross and operating margin, cash, total debt and shares outstanding.
   - **The last 8 quarters**.
+- **Notes** tab (key 7): your own free-text note per ticker, private to this Mac, saved as you type in `company-notes.json`; the Overview shows it under "Your note".
 - Fundamentals come from SEC EDGAR 10-Q/10-K filings (free, no key). Tickerkite caches them for 24 hours in `company-cache.json`.
   - The fourth quarter only appears inside the annual report, so it's worked out as the annual figure minus the first nine months, marked `*`.
   - Per-share figures are adjusted for stock splits.
@@ -159,7 +160,7 @@ The Calendar page (⌘⌥3) shows one week at a time: US economic releases, Fed 
 
 - **Columns**: time (ET), country flag and code, importance (●●● high, ●●○ medium, ●○○ low), event, period, survey (consensus), actual, surprise (actual − survey; green above, red below the survey), prior and revised (when the previous reading changed since it first printed).
 - **Filters**: G10 / Americas / Europe/MEA / Asia/Pacific / World (keys 1–5) and All / Macro / Fed / Earnings. ‹ › or ←/→ change week, "This week" or t goes back to now (and to the next event), / searches event names and countries (Esc clears). ↑/↓ or j/k move, r re-downloads everything. Hovering a row shows its countdown.
-- **Earnings lists**: under Earnings, four sub-tabs choose whose reports show. **Global 100** is the world's 100 largest companies by market cap. **Fortune 100** and **Fortune 500** are the largest US companies by revenue, ranked from SEC filings by the Screener's data (close to Fortune's own list, which isn't free to download; they appear once the Screener has built). **My list** has a search box (name or ticker, Enter adds the first match): each company gets a chip with its next report date from Nasdaq (× removes it, clicking opens the chart), and its earnings show here and in All. The All view and the Brief show the Global 100 plus your list.
+- **Earnings lists**: under Earnings, four sub-tabs choose whose reports show. **Global 100** is the world's 100 largest companies by market cap. **Fortune 100** and **Fortune 500** are the largest US companies by revenue, ranked from SEC filings by the Screener's data (close to Fortune's own list, which isn't free to download; they appear once the Screener has built). **My list** has a search box (name or ticker, Enter adds the first match): each company gets a chip with its next report date from Nasdaq (× removes it, clicking opens the chart), and its earnings show here and in All. The All view and the Brief show the Global 100 plus your list. **Alerts for My list:** a notification on the morning a company reports (with before-open / after-close and the EPS estimate), then another with the result (EPS vs the estimate, beat or miss) once Nasdaq has it; both land in the Alerts inbox under EARNINGS and follow the data-release alerts setting. Only today's and yesterday's reports alert, each once (`calendar-earnings-alerts.json`).
 - **Official backbone**: CPI, PPI, jobs report, JOLTS, weekly jobless claims, GDP, PCE, retail sales and FOMC decisions come from the agencies' own schedules (below) and take their survey/actual/prior from the matching Nasdaq row, so the time and period are the official ones. If Nasdaq has no row (or is down) they still show, with the last reading from the scorecard data instead.
 - **Right pane**: when, a countdown to this release and to the next one, the survey/actual/surprise/prior figures, then *actual vs survey* for up to the last 24 releases: a line chart (actual solid, survey dashed, dots green/red/grey for above/below/on), a summary like "Last 23 with a survey: 6 above, 12 below, 5 on it · typical miss 0.3% · SD 0.6%" (typical miss = average absolute surprise, SD = standard deviation of the surprises) and a table of release date, period, actual, survey, prior (→ revised) and surprise. Below that, Nasdaq's description of the indicator, the scorecard readings and Tickerkite headlines that mention it. Earnings rows open the stock's chart with Enter.
 
@@ -198,6 +199,9 @@ The Graphs page (⌘⌥6) is a charting workspace for any FRED series or market 
 - **Export**: CSV and PNG go to ~/Downloads ("Tickerkite <name>.csv/.png"); COPY FOR EXCEL puts tab-separated rows on the clipboard. Exports hold what's on the chart (transformed, in range, MA columns included).
 
 Data: FRED's public CSV export and series page (title, units, frequency), and Yahoo daily closes, full history, cached per series in `graphs-cache/` for a day (the last copy is used offline).
+
+## Startup
+The last news, scorecard data, page caches and market quotes (`quotes-cache.json`) are loaded when the app starts, so prices and headlines show at once while fresh data downloads in the background.
 
 ## Alerts inbox
 

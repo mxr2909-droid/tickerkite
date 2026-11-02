@@ -125,4 +125,29 @@ function events(date, rows, lists, mk, country) {
   return out;
 }
 
-module.exports = { TOP_URL, TOP_N, TOP_CHECKED, ALIASES, MIN_CAP, CACHE_V, parseTop, fallbackTop, symbolMap, universe, keepSet, parseDay, events, money, norm };
+/**
+ * Alerts for the user's own companies, from the events() output: "reports today" on the day (until the numbers are
+ * out), then "reported" with EPS against the estimate once Nasdaq has the actual. Only today's and yesterday's
+ * reports count, so a new list (or an old cache) never floods you. `done` = ids already alerted.
+ * → [{ id, sym, title, body }]
+ */
+function alerts(evs, today, done = new Set()) {
+  const yest = new Date(Date.parse(today + "T12:00:00Z") - 864e5).toISOString().slice(0, 10), out = [];
+  for (const e of evs || []) {
+    if (!e.mine) continue;
+    const date = e.id.slice(e.id.lastIndexOf(":") + 1);
+    if (date !== today && date !== yest) continue;
+    if (e.actual) {
+      const id = `result:${e.id}`;
+      if (done.has(id)) continue;
+      const a = money(e.actual), f = money(e.survey);
+      const verdict = a == null || f == null ? "" : a > f ? " (beat)" : a < f ? " (miss)" : " (in line)";
+      out.push({ id, sym: e.sym, title: `${e.company} reported`, body: `EPS ${e.actual}${e.survey ? ` vs ${e.survey} expected` : ""}${verdict}${e.prior ? ` · year ago ${e.prior}` : ""}` });
+    } else if (date === today && !done.has(`today:${e.id}`)) {
+      out.push({ id: `today:${e.id}`, sym: e.sym, title: `${e.company} reports today`, body: [e.when, e.survey ? `EPS est ${e.survey}` : ""].filter(Boolean).join(" · ") || "Date confirmed by Nasdaq" });
+    }
+  }
+  return out;
+}
+
+module.exports = { alerts, TOP_URL, TOP_N, TOP_CHECKED, ALIASES, MIN_CAP, CACHE_V, parseTop, fallbackTop, symbolMap, universe, keepSet, parseDay, events, money, norm };

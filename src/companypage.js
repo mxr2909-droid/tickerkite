@@ -7,6 +7,7 @@
 const company = require("./company");
 const SEC = require("./sec");
 const WL = require("./watchlist");
+const NOTES = require("./notes");
 
 const DAY = 864e5;
 const TTL = 24 * 3600e3;
@@ -119,6 +120,9 @@ function register(ctx) {
       .map((s) => ({ id: s.id, title: s.title, code: s.code, sev: s.sev, updated: s.updated, link: s.link }));
   }
 
+  const notes = ctx.readJSON("company-notes.json", {});
+  ctx.ipcMain.handle("company:note", (_e, sym) => NOTES.get(notes, sym));
+  ctx.ipcMain.handle("company:note-save", (_e, sym, text) => { const n = NOTES.set(notes, sym, text); ctx.writeJSON("company-notes.json", notes); return n; });
   ctx.ipcMain.handle("company:page", (_e, sym, force) => page(String(sym || ""), !!force));
   ctx.ipcMain.handle("company:insiders", (_e, sym) => insiderTrades(String(sym || "")));
   ctx.ipcMain.handle("company:holders", (_e, sym) => holdersOf(String(sym || "")));

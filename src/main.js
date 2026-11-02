@@ -319,6 +319,7 @@ async function refreshQuotes() {
   try {
     state.quotes = await fetchQuotes();
     state.quotesAt = Date.now();
+    writeJSON("quotes-cache.json", { quotes: state.quotes, at: state.quotesAt }); // so the next launch shows prices at once
     bus.emit("quotes", state.quotes);
     pushHealth();
     send("quotes:update", state.quotes);
@@ -732,6 +733,8 @@ app.whenReady().then(() => {
     state.pulledAt = cache.pulledAt || 0;
     state.seen = new Set(cache.seen || []);
   }
+  const qc = readJSON("quotes-cache.json", null);
+  if (Array.isArray(qc?.quotes) && qc.quotes.length) { state.quotes = qc.quotes; state.quotesAt = qc.at || 0; }
   watchFile();
   app.setAboutPanelOptions({ applicationName: "Tickerkite", applicationVersion: require("../package.json").version, copyright: "Market data is delayed and for information only. Not investment advice." });
   const ctx = {
