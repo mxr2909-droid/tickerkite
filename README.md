@@ -204,7 +204,7 @@ A dot next to the clock in the top bar shows whether the data is fresh: **green*
 
 ## Warning history
 
-**WARN** (Macro ▾ › Warning history, ⌘⌥W) shows each risk monitor's probability over its whole history with WARNING periods shaded, every past warning (when it began and ended, its peak, whether the event followed, and the S&P 500 over the next 6 and 12 months), the hit rate, and a summary of all monitors. Keys 1–5 switch monitors; Enter opens the model. The history is the model's fitted line, so it looks sharper than it would have in real time; warnings during an event (for "new cases only" models) count as "during", not as hits or misses.
+**WARN** (Macro ▾ › Warning history, ⌘⌥W) shows each risk monitor's probability over its whole history with WARNING periods shaded, every past warning (when it began and ended, its peak, whether the event followed, and the S&P 500 over the next 6 and 12 months), the hit rate, and a summary of all monitors. Keys 1–5 switch monitors; Enter opens the model. **REAL TIME** (the default) replays each model as it would have read at the time: refit once a year on data and outcomes known then, so its hit rates and AUC are the honest ones (it still uses today's revised data). **FITTED** draws today's model back over all history, which looks sharper than it really was; warnings during an event (for "new cases only" models) count as "during", not as hits or misses.
 
 ## Stock screener
 

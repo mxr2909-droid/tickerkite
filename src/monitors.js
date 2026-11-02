@@ -21,7 +21,8 @@ function status(p, base, d1m) {
  * @param hist [{ p: "YYYY-MM", prob, y }]  @param spx Map "YYYY-MM" → month-end close
  */
 function episodes(hist, base, spx) {
-  const st = hist.map((h, i) => status(h.prob, base, i ? h.prob - hist[i - 1].prob : null));
+  // each month can carry the base rate known at the time (real-time replay); otherwise one base for all
+  const st = hist.map((h, i) => (h.prob == null ? "NORMAL" : status(h.prob, h.base ?? base, i && hist[i - 1].prob != null ? h.prob - hist[i - 1].prob : null)));
   const out = [];
   for (let i = 0; i < hist.length; i++) {
     if (st[i] !== "WARNING") continue;
@@ -58,7 +59,12 @@ function summarize(m, r, spx) {
     drivers: r.pushes.slice(0, 3).map((x) => ({ name: x.name, up: x.logOdds > 0, size: Math.abs(x.logOdds), level: x.zscore >= 0 ? "high" : "low" })),
     spark: hist.slice(-36).map((h) => h.prob),
     history: hist.map((h) => [h.p, Math.round(h.prob * 1e4) / 1e4, h.y]),
-    episodes: episodes(hist, r.base, spx), h: r.h, case: r.case
+    episodes: episodes(hist, r.base, spx), h: r.h, case: r.case,
+    realtime: r.realtime && {
+      from: r.realtime.from, auc: r.realtime.auc,
+      history: r.realtime.history.filter((x) => x.prob != null).map((x) => [x.p, Math.round(x.prob * 1e4) / 1e4, x.y]),
+      episodes: episodes(r.realtime.history.filter((x) => x.prob != null), r.base, spx)
+    }
   };
 }
 
@@ -85,7 +91,7 @@ function register(ctx) {
     for (const m of MODELS) {
       try {
         const [tp, ...fp] = await Promise.all([m.target.key, ...m.factors.map((f) => f.key)].map(load));
-        const r = analyze({ target: { ...m.target, points: tp }, c: m.c, factors: m.factors.map((f, i) => ({ name: f.name, tf: f.tf, lag: f.lag, points: fp[i] })), ridge: m.ridge, holdout: 0 });
+        const r = analyze({ target: { ...m.target, points: tp }, c: m.c, factors: m.factors.map((f, i) => ({ name: f.name, tf: f.tf, lag: f.lag, points: fp[i] })), ridge: m.ridge, holdout: 0, realtime: true });
         list.push(summarize(m, r, spx));
       } catch (e) { errors[m.id] = String(e.message || e); }
     }

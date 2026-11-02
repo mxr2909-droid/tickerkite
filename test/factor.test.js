@@ -77,3 +77,16 @@ test("presets are complete", () => {
     assert.ok(["rise", "fall", "above", "below"].includes(p.c.cond));
   }
 });
+
+test("real-time replay never uses outcomes that weren't known yet", () => {
+  const r = rng(11), n = 300, h = 6;
+  const months = Array.from({ length: n }, (_, i) => `m${String(i).padStart(3, "0")}`);
+  const X = months.map(() => [r() * 2 - 1]);
+  const y = X.map(([x]) => (r() < F.sigmoid(2 * x - 1) ? 1 : 0));
+  const a = F.realtime(months, X, y, h, 1);
+  const y2 = y.slice(); for (let i = 200; i < n; i++) y2[i] = 1 - y2[i]; // rewrite the future
+  const b = F.realtime(months, X, y2, h, 1);
+  for (let i = 0; i < 200 + h; i++) assert.strictEqual(a[i].prob, b[i].prob, `month ${i} changed`);
+  assert.strictEqual(a[0].prob, null, "no prediction before there's enough history");
+  assert.ok(a[n - 1].prob != null);
+});

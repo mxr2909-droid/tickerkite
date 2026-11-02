@@ -132,6 +132,32 @@ const PRESETS = [
     factors: [F("yahoo:CL=F", "Crude oil (WTI)", "pct6"), F("yahoo:DX-Y.NYB", "US dollar index", "pct6"), F("fred:INDPRO", "Industrial production", "pct12"), F("yahoo:^VIX", "VIX", "level")] }
 ];
 
+// ---------- real time: what the model would have said at the time ----------
+/**
+ * Replay history month by month using only what was known then: a month's outcome is known once its
+ * window has passed (h months later), and standardization uses training data only. Refits every
+ * `every` months (expanding window). Factor values are today's revised data, not original releases.
+ * @returns [{ p, prob, base }] with prob null until there's enough history (minN months, 5+ cases each way)
+ */
+function realtime(months, X, y, h, ridge, { every = 12, minN = 120 } = {}) {
+  const out = [];
+  let fit = null, mu = null, sd = null, base = null, since = -Infinity;
+  for (let i = 0; i < months.length; i++) {
+    if (i - since >= every || !fit) {
+      const tr = []; for (let j = 0; j <= i - h; j++) if (y[j] != null) tr.push(j);
+      const ev = tr.reduce((s, j) => s + y[j], 0);
+      if (tr.length >= minN && ev >= 5 && tr.length - ev >= 5) {
+        const k = X[0].length;
+        mu = Array.from({ length: k }, (_, c) => tr.reduce((s, j) => s + X[j][c], 0) / tr.length);
+        sd = Array.from({ length: k }, (_, c) => Math.sqrt(tr.reduce((s, j) => s + (X[j][c] - mu[c]) ** 2, 0) / tr.length) || 1);
+        try { fit = logit(tr.map((j) => X[j].map((v, c) => (v - mu[c]) / sd[c])), tr.map((j) => y[j]), { ridge }); base = ev / tr.length; since = i; } catch { /* keep the last fit */ }
+      }
+    }
+    out.push({ p: months[i], prob: fit ? fit.prob(X[i].map((v, c) => (v - mu[c]) / sd[c])) : null, base });
+  }
+  return out;
+}
+
 // ---------- the whole analysis ----------
 /**
  * @param spec {{ target: { name, points, measure: "level"|"yoy" }, c, factors: [{ name, points, tf, lag }], sinceYear?, holdout? }}
@@ -217,7 +243,13 @@ function analyze(spec) {
   return {
     case: c.text || describeCase({ ...c, h }, target.name), h, n: known.length, events, base, from: known[0], to: known[known.length - 1],
     ridge, onlyNew: !!c.onlyNew, coefs, now, pushes, score, oos, splits, calibration: calibration(pIn, y), warnings, names, mu, sd,
-    history: months.map((p) => ({ p, prob: fit.prob(z(row(p))), y: labels.has(p) ? labels.get(p) : null }))
+    history: months.map((p) => ({ p, prob: fit.prob(z(row(p))), y: labels.has(p) ? labels.get(p) : null })),
+    realtime: spec.realtime ? (() => {
+      const yAll = months.map((p) => (labels.has(p) ? labels.get(p) : null));
+      const rt = realtime(months, months.map(row), yAll, h, ridge);
+      const scored = rt.map((r, i) => [r.prob, yAll[i]]).filter(([pr, yy]) => pr != null && yy != null);
+      return { history: rt.map((r, i) => ({ ...r, y: yAll[i] })), auc: scored.length ? auc(scored.map((x) => x[0]), scored.map((x) => x[1])) : null, from: rt.find((r) => r.prob != null)?.p || null };
+    })() : null
   };
 }
 
@@ -229,4 +261,4 @@ function register(ctx) {
   ipcMain.handle("factor:analyze", (_e, spec) => { try { return { ok: true, ...analyze(spec) }; } catch (e) { return { ok: false, error: String(e.message || e) }; } });
 }
 
-module.exports = { register, logit, auc, brier, calibration, labelCase, describeCase, analyze, PRESETS, sigmoid };
+module.exports = { register, realtime, logit, auc, brier, calibration, labelCase, describeCase, analyze, PRESETS, sigmoid };
