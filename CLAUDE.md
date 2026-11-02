@@ -4,12 +4,20 @@
 - `npm test` must pass; rebuild the installed app with `npm run update`; back up with `git push` (private repo, branch `main`).
 - Test with a separate copy so the user's data stays untouched: `npx electron . --user-data-dir=<scratch dir> --remote-debugging-port=9333`, driven by `scripts/cdp.mjs`.
 
-## Obsidian project notebook
-The user keeps a project notebook in Obsidian at `~/Documents/Tickerkite Vault`. After each committed change, update it in the same turn:
-- add the change to `Log/<YYYY-MM-DD>.md` (create the day's note if needed and link it from `Home.md`),
-- update the affected page note in `Pages/`,
-- record notable choices and their reasons in `Decisions/`,
-- tick off or add items in `Roadmap.md`.
-Use Obsidian `[[wiki links]]` between notes.
+## Obsidian project notebook (LLM wiki)
+The user keeps a project notebook in Obsidian at `~/Documents/Tickerkite Vault`, laid out as a Karpathy-style LLM wiki:
+- `raw/`: immutable sources (README snapshots, specs, data-source docs). Add to it, never edit existing files.
+- `wiki/`: the notes you maintain: `index.md` (catalog of every note with a one-line summary, read it first), `log.md`, `Roadmap.md`, `Architecture.md`, `pages/` (one per app page), `decisions/`.
+- `log.md` is a single append-only file: newest at the bottom, one `## YYYY-MM-DD` heading per day.
 
-Keep the vault color-coded: Pages orange, Decisions green, Log blue, hub notes (Home, Roadmap, Architecture) gold. The colors are in `.obsidian/snippets/tickerkite-colors.css` and the `colorGroups` in `.obsidian/graph.json`. A new folder or hub note gets its own color in both places. Quit Obsidian before editing `graph.json` (it overwrites the file while open), then reopen it.
+**Ingest (after each committed change, same turn):**
+- append the change to `wiki/log.md` (reuse today's heading if it exists),
+- update the affected note in `wiki/pages/`,
+- record notable choices and their reasons in `wiki/decisions/`,
+- tick off or add items in `wiki/Roadmap.md`,
+- add any new note to `wiki/index.md`.
+**Query:** read `wiki/index.md` first, then the notes it points to; only fall back to `raw/` for detail.
+**Lint:** when asked (or now and then), look for orphan notes, broken `[[links]]`, notes missing from the index, and claims the code has since made stale.
+Use Obsidian `[[wiki links]]` between notes; link to a day with `[[log#2026-11-02|2026-11-02]]`.
+
+Keep the vault color-coded: pages orange, decisions green, log blue, hub notes (index, Roadmap, Architecture) gold, raw purple. The colors are in `.obsidian/snippets/tickerkite-colors.css` and the `colorGroups` in `.obsidian/graph.json`. A new folder or hub note gets its own color in both places. Quit Obsidian before editing `graph.json` (it overwrites the file while open), then reopen it.
