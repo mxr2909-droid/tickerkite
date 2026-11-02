@@ -32,3 +32,11 @@ test("price stats from a year of closes", () => {
   assert.ok(s.fromHigh < 0);
   assert.strictEqual(S.priceStats([1, 2, 3]), null);
 });
+
+test("insider columns: buyers and net dollars; blank when the data didn't load", () => {
+  const f = { cik: 1, ticker: "AAA", name: "A", rev: 1e9, revPrev: 1e9, ni: 1e8, oi: 1e8, gp: 1e8, eq: 1e9, debt: 0, shares: 1e8 };
+  const px = { AAA: { price: 10 } };
+  assert.deepStrictEqual(["buyers", "insiderNet"].map((k) => S.rows([{ ...f, ins: { buyers: 3, buyUsd: 5e6, sellUsd: 2e6 } }], px)[0][k]), [3, 3]);
+  assert.deepStrictEqual(["buyers", "insiderNet"].map((k) => S.rows([{ ...f, ins: null }], px)[0][k]), [0, 0]); // no trades
+  assert.deepStrictEqual(["buyers", "insiderNet"].map((k) => S.rows([{ ...f }], px)[0][k]), [null, null]); // not loaded
+});

@@ -11,7 +11,8 @@
     ["mcap", "Market cap", "$B", "MKT CAP", 0], ["pe", "P/E", "×", "P/E", 1], ["ps", "Price / sales", "×", "P/S", 1],
     ["growth", "Revenue growth", "%", "REV GROWTH", 1], ["gross", "Gross margin", "%", "GROSS", 1], ["op", "Operating margin", "%", "OP MARGIN", 1],
     ["net", "Net margin", "%", "NET MARGIN", 1], ["roe", "Return on equity", "%", "ROE", 1], ["de", "Debt / equity", "×", "DEBT/EQ", 2],
-    ["ret6", "6-month return", "%", "6 MO", 1], ["ret12", "12-month return", "%", "12 MO", 1], ["fromHigh", "From 52-week high", "%", "FROM HIGH", 1]
+    ["ret6", "6-month return", "%", "6 MO", 1], ["ret12", "12-month return", "%", "12 MO", 1], ["fromHigh", "From 52-week high", "%", "FROM HIGH", 1],
+    ["buyers", "Insider buyers", "#", "INSIDER BUYERS", 0], ["insiderNet", "Net insider buying", "$M", "NET INSIDER $", 1]
   ];
   const ML = Object.fromEntries(M.map((m) => [m[0], m]));
   const PRESETS = [
@@ -20,7 +21,8 @@
     ["Quality", [["roe", ">=", 20], ["net", ">=", 15], ["de", "<=", 0.5]]],
     ["Momentum", [["ret12", ">=", 25], ["fromHigh", ">=", -5]]],
     ["Beaten down", [["ps", "<=", 1], ["ret12", "<=", -20]]],
-    ["Megacaps", [["mcap", ">=", 200]]]
+    ["Megacaps", [["mcap", ">=", 200]]],
+    ["Insider buying", [["buyers", ">=", 2], ["insiderNet", ">=", 0]]]
   ];
 
   let R = { filters: PRESETS[0][1].map(([m, op, v]) => ({ m, op, v })), sort: "mcap", desc: true, q: "" };
@@ -28,8 +30,15 @@
   const S = { active: false, data: null, saves: [], sel: null, msg: "" };
   const save = () => { try { localStorage.setItem("wire.screen", JSON.stringify(R)); } catch {} };
 
-  const fmt = (m, v) => { if (v == null || !Number.isFinite(v)) return "—"; const [, , u, , d] = ML[m]; return u === "$B" ? (v >= 1000 ? `${(v / 1000).toFixed(2)}T` : `${v.toFixed(d)}B`) : u === "%" ? `${v.toFixed(d)}%` : `${v.toFixed(d)}×`; };
-  const cls = (m, v) => (v == null ? "" : ["ret6", "ret12", "growth"].includes(m) ? (v > 0 ? "up" : v < 0 ? "dn" : "") : "");
+  const fmt = (m, v) => {
+    if (v == null || !Number.isFinite(v)) return "—";
+    const [, , u, , d] = ML[m];
+    if (u === "$B") return v >= 1000 ? `${(v / 1000).toFixed(2)}T` : `${v.toFixed(d)}B`;
+    if (u === "$M") return `${v < 0 ? "−" : v > 0 ? "+" : ""}$${Math.abs(v) >= 1000 ? (Math.abs(v) / 1000).toFixed(1) + "B" : Math.abs(v).toFixed(d) + "M"}`;
+    if (u === "#") return String(Math.round(v));
+    return u === "%" ? `${v.toFixed(d)}%` : `${v.toFixed(d)}×`;
+  };
+  const cls = (m, v) => (v == null ? "" : ["ret6", "ret12", "growth", "insiderNet"].includes(m) ? (v > 0 ? "up" : v < 0 ? "dn" : "") : m === "buyers" && v >= 2 ? "up" : "");
   const passes = (row) => R.filters.every((f) => { const x = row[f.m], v = Number(f.v); if (x == null || !Number.isFinite(x) || !Number.isFinite(v)) return false; return f.op === "<=" ? x <= v : x >= v; });
 
   function results() {
@@ -57,7 +66,7 @@
       <div class="sc2-tw"><table class="sc2-tab num"><thead><tr>${cols.map(([k, l]) => `<th data-sort="${k}" class="${R.sort === k ? "on" : ""}">${l}${R.sort === k ? (R.desc ? " ▼" : " ▲") : ""}</th>`).join("")}</tr></thead><tbody>
         ${list.slice(0, 300).map((r) => `<tr data-t="${esc(r.ticker)}" class="${r.ticker === S.sel ? "sel" : ""}"><td class="tk">${esc(r.ticker)}</td><td class="nm">${esc(r.name)}</td>${M.map(([m]) => `<td class="${cls(m, r[m])}">${fmt(m, r[m])}</td>`).join("")}</tr>`).join("")}
       </tbody></table>${list.length > 300 ? `<p class="sc2-note">Showing the first 300; narrow the filters to see the rest.</p>` : ""}${!list.length ? `<p class="sc2-note">No companies pass every filter. Loosen one.</p>` : ""}</div>
-      <p class="sc2-note">The ${d.universe} largest US-listed filers by revenue (annual revenue over $1B). Fundamentals: SEC filings for ${d.year} (calendar year). Prices: Yahoo, updated ${new Date(d.builtAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}. P/E and margins use reported net income, so one-off items can distort them. ${d.building ? "Rebuilding now…" : `<button type="button" class="sc2-link" data-act="rebuild">Rebuild now</button>`}</p>
+      <p class="sc2-note">The ${d.universe} largest US-listed filers by revenue (annual revenue over $1B). Fundamentals: SEC filings for ${d.year} (calendar year). Prices: Yahoo, updated ${new Date(d.builtAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}. Insider buyers and net insider $: open-market purchases and sales on Form 4 ${d.insiderQuarters ? `in ${esc(d.insiderQuarters.map((q) => q.toUpperCase().replace("Q", " Q")).join(" and "))} (the latest the SEC has published)` : "(not loaded)"}; grants and option exercises don't count. P/E and margins use reported net income, so one-off items can distort them. ${d.building ? "Rebuilding now…" : `<button type="button" class="sc2-link" data-act="rebuild">Rebuild now</button>`}</p>
     </div>`;
     renderDetail();
   }

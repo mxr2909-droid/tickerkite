@@ -8,6 +8,7 @@
 const { getJSON } = require("./data/http");
 const yahoo = require("./data/yahoo");
 const company = require("./company");
+const insiders = require("./insiders");
 
 const DAY = 864e5;
 const TOP = 600;
@@ -35,7 +36,10 @@ function rows(fund, prices) {
       growth: f.revPrev > 0 ? (f.rev / f.revPrev - 1) * 100 : null,
       gross: pctOf(f.gp, f.rev), op: pctOf(f.oi, f.rev), net: pctOf(f.ni, f.rev),
       roe: cap(f.eq > 0 ? (f.ni / f.eq) * 100 : null, -500, 500), de: cap(f.eq > 0 && f.debt != null ? f.debt / f.eq : null, 0, 50),
-      ret6: px.ret6, ret12: px.ret12, fromHigh: px.fromHigh
+      ret6: px.ret6, ret12: px.ret12, fromHigh: px.fromHigh,
+      // open-market insider trades over the latest published quarters (null when the data couldn't load)
+      buyers: f.ins === undefined ? null : f.ins?.buyers ?? 0,
+      insiderNet: f.ins === undefined ? null : f.ins ? (f.ins.buyUsd - f.ins.sellUsd) / 1e6 : 0
     });
   }
   return out;
@@ -95,6 +99,11 @@ function register(ctx) {
         .sort((a, b) => b.r - a.r).slice(0, TOP)
         .map(({ cik, r, t }) => ({ cik, ticker: t.ticker, name: t.name, rev: r, revPrev: pick([revP1, revP2], cik), ni: ni.get(cik) ?? null, oi: oi.get(cik) ?? null, gp: gp.get(cik) ?? null, eq: eq.get(cik) ?? null, debt: pick([debt1, debt2], cik), shares: sh.get(cik) ?? null }));
 
+      // insider buying and selling (cached per quarter; a failure just leaves the columns empty)
+      let ins = null;
+      try { ins = await insiders.latest({ headers: headers(), cache: { get: (q) => readJSON(`insiders-${q}.json`, null), set: (q, v) => writeJSON(`insiders-${q}.json`, v) } }); } catch { ins = null; }
+      for (const f of fund) f.ins = ins ? ins.map.get(f.cik) || null : undefined;
+
       // a year of prices for each, 6 at a time
       const prices = {}, priceErr = {};
       let next = 0;
@@ -110,7 +119,7 @@ function register(ctx) {
         await new Promise((r) => setTimeout(r, 400));
         try { const r = (await yahoo.chart(t, { range: "1y", interval: "1d" }, 12000)).chart.result[0]; const st = priceStats(r.indicators.quote[0].close || []); if (st) { prices[t] = st; delete priceErr[t]; } } catch {}
       }
-      data = { builtAt: Date.now(), year: Y, rows: rows(fund, prices), universe: fund.length, priceErr };
+      data = { builtAt: Date.now(), year: Y, rows: rows(fund, prices), universe: fund.length, priceErr, insiderQuarters: ins?.quarters || null };
       writeJSON("screen-data.json", data);
       lastError = null;
       report(data.rows.length > fund.length * 0.8 ? "ok" : "warn", `${data.rows.length} of ${fund.length} companies with prices · fundamentals for ${Y}`);
@@ -121,7 +130,7 @@ function register(ctx) {
     } finally { building = false; send("screen:update", meta()); }
   }
 
-  const meta = () => ({ builtAt: data?.builtAt || 0, year: data?.year || null, count: data?.rows?.length || 0, universe: data?.universe || 0, building, error: lastError });
+  const meta = () => ({ insiderQuarters: data?.insiderQuarters || null, builtAt: data?.builtAt || 0, year: data?.year || null, count: data?.rows?.length || 0, universe: data?.universe || 0, building, error: lastError });
 
   // ---------- saved screens ----------
   const saves = () => readJSON("screens.json", { screens: [] }).screens || [];

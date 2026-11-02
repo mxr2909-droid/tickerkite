@@ -218,6 +218,7 @@ A dot next to the clock in the top bar shows whether the data is fresh: **green*
 - Click a column to sort; click a company for its numbers, its Company page, chart, or to add it to the watchlist
 - **Save a screen** with "notify me of new names" and get a Mac notification after a daily rebuild when a company newly passes
 - Ratios past sane limits (P/E over 1,000, etc.) show as "—": filings occasionally carry a value in the wrong unit
+- **Insider buyers** and **net insider $**: open-market purchases (Form 4 code P) and sales (S) from the SEC's quarterly insider-transaction data sets, over the two latest quarters it has published (they lag by a quarter or two, and the dates are shown). Grants and option exercises don't count, and each insider counts once. The **Insider buying** preset finds companies where 2+ insiders bought and net buying was positive. Executives sell routinely, so buying is the rarer signal.
 
 ## Risk monitors
 
