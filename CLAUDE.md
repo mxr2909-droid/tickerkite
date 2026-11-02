@@ -16,9 +16,12 @@ The user keeps a project notebook in Obsidian at `~/Documents/Tickerkite Vault`,
 - update the affected note in `wiki/pages/`,
 - record notable choices and their reasons in `wiki/decisions/`,
 - tick off or add items in `wiki/Roadmap.md`,
-- add any new note to `wiki/index.md`.
+- add any new note to `wiki/index.md`,
+- keep frontmatter current: `updated:` on a page note when you change it; new pages get `type: page` and `code:`, new decisions `type: decision` and `date:`. `wiki/Backlog.md` (Dataview) reads these.
 **Query:** read `wiki/index.md` first, then the notes it points to; only fall back to `raw/` for detail. Save a report or answer worth keeping to `outputs/<YYYY-MM-DD> <title>.md` (generated, never source of truth) and list it in the index's Outputs section; if it proves lasting, promote it into `wiki/` instead.
 **Lint:** when asked (or now and then), look for orphan notes, broken `[[links]]`, notes missing from the index, and claims the code has since made stale.
 Use Obsidian `[[wiki links]]` between notes; link to a day with `[[log#2026-11-02|2026-11-02]]`.
 
-Keep the vault color-coded: pages orange, decisions green, log blue, hub notes (index, Roadmap, Architecture) gold, raw purple, outputs teal. The colors are in `.obsidian/snippets/tickerkite-colors.css` and the `colorGroups` in `.obsidian/graph.json`. A new folder or hub note gets its own color in both places. Quit Obsidian before editing `graph.json` (it overwrites the file while open), then reopen it.
+Keep the vault color-coded: pages orange, decisions green, log blue, hub notes (index, Roadmap, Architecture, Backlog) gold, raw purple, outputs teal. The colors are in `.obsidian/snippets/tickerkite-colors.css` and the `colorGroups` in `.obsidian/graph.json`. A new folder or hub note gets its own color in both places. Quit Obsidian before editing `graph.json` (it overwrites the file while open), then reopen it.
+
+The vault is its own git repo (local backup); after an ingest, commit it there too: `git -C ~/Documents/Tickerkite\ Vault add -A && git -C ~/Documents/Tickerkite\ Vault commit -m "<change>"`.
