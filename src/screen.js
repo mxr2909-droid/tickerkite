@@ -133,7 +133,7 @@ function register(ctx) {
       const now = data.rows.filter((r) => passes(r, s.filters)).map((r) => r.ticker);
       const fresh = s.last ? now.filter((t) => !s.last.includes(t)) : [];
       if (s.notify && fresh.length && Notification?.isSupported?.()) {
-        const n = new Notification({ title: `Screen "${s.name}": ${fresh.length} new name${fresh.length > 1 ? "s" : ""}`, body: fresh.slice(0, 8).join(", ") + (fresh.length > 8 ? "…" : "") });
+        const n = new Notification({ title: `Screen "${s.name}": ${fresh.length} new name${fresh.length > 1 ? "s" : ""}`, body: fresh.slice(0, 8).join(", ") + (fresh.length > 8 ? "…" : ""), tk: { kind: "screen", page: "screen" } });
         n.on("click", () => showPage("screen"));
         n.show();
       }

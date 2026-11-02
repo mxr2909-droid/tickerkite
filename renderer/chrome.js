@@ -32,6 +32,7 @@
   bar.innerHTML = `<div class="fb-logo" aria-hidden="true"><svg viewBox="0 0 148 90" width="26" height="16"><path fill="#F47321" d="M0 0H40V64C40 76 56 81 72 81V90C30 90 0 84 0 70Z"/><path fill="#005030" d="M148 0H108V64C108 76 92 81 76 81V90C118 90 148 84 148 70Z"/></svg><span>TICKER<br>KITE</span></div>
     <nav class="fb-codes" role="tablist" aria-label="Functions">${PAGES.map(([p, code, title, d]) =>
       `<button type="button" role="tab" data-p="${p}" aria-selected="false" title="${esc(title.charAt(0) + title.slice(1).toLowerCase())} (⌘⌥${d})">${code}</button>`).join("")}</nav>
+    <button type="button" class="fb-bell" id="fbBell" aria-haspopup="dialog" aria-expanded="false" title="Alerts inbox: every notification Tickerkite has sent"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5v2.6L2 11v1h12v-1l-1.5-2.4V6A4.5 4.5 0 0 0 8 1.5ZM6.3 13.2a1.8 1.8 0 0 0 3.4 0Z" fill="currentColor"/></svg><b id="fbBellN"></b></button>
     <button type="button" class="fb-health" id="fbHealth" aria-haspopup="dialog" aria-expanded="false" title="Data health: is each source loading and fresh?"><i></i><span>DATA</span></button>
     <span class="fb-clock num" id="fbClock"></span>`;
   $("#app").prepend(bar);
@@ -53,12 +54,55 @@
   }
   HB.addEventListener("click", (e) => {
     e.stopPropagation();
+    document.querySelector(".fb-ipop")?.setAttribute("hidden", "");
     pop.hidden = !pop.hidden; HB.setAttribute("aria-expanded", String(!pop.hidden));
     if (!pop.hidden) { const r = HB.getBoundingClientRect(); pop.style.top = `${r.bottom + 6}px`; pop.style.right = `${Math.max(8, innerWidth - r.right)}px`; }
   });
   document.addEventListener("click", (e) => { if (!pop.hidden && !pop.contains(e.target)) { pop.hidden = true; HB.setAttribute("aria-expanded", "false"); } });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !pop.hidden) { pop.hidden = true; HB.setAttribute("aria-expanded", "false"); } });
+  // ---------- alerts inbox (src/inbox.js) ----------
+  const ipop = document.createElement("div");
+  ipop.className = "fb-hpop fb-ipop"; ipop.hidden = true; ipop.setAttribute("role", "dialog"); ipop.setAttribute("aria-label", "Alerts inbox");
+  document.body.append(ipop);
+  const BB = bar.querySelector("#fbBell");
+  const KIND = { news: "NEWS", watchlist: "WATCHLIST", monitor: "RISK", release: "DATA", screen: "SCREEN", other: "ALERT" };
+  let IB = { items: [], unread: 0 }, ikind = "";
+  const when = (t) => { const d = new Date(t), now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }); };
+  function paintInbox() {
+    BB.classList.toggle("on", IB.unread > 0);
+    bar.querySelector("#fbBellN").textContent = IB.unread ? (IB.unread > 99 ? "99+" : IB.unread) : "";
+    const kinds = [...new Set(IB.items.map((i) => i.kind))];
+    const list = IB.items.filter((i) => !ikind || i.kind === ikind).slice(0, 120);
+    ipop.innerHTML = `<div class="hp-h"><b>Alerts</b><span>${IB.items.length ? `${IB.unread} unread of ${IB.items.length}` : "Nothing yet. Alerts appear here as Tickerkite sends them."}</span></div>
+      ${kinds.length > 1 ? `<div class="ib-k"><button type="button" data-ik="" aria-pressed="${!ikind}">ALL</button>${kinds.map((k) => `<button type="button" data-ik="${esc(k)}" aria-pressed="${ikind === k}">${KIND[k] || k.toUpperCase()}</button>`).join("")}</div>` : ""}
+      <div class="ib-l">${list.map((i) => `<button type="button" class="ib-i${i.read ? "" : " un"}" data-ib="${esc(i.id)}"${i.page || i.story || i.sym ? "" : ' data-noopen="1"'}><span class="ib-m"><em>${KIND[i.kind] || "ALERT"}</em><time>${esc(when(i.at))}</time></span><b>${esc(i.title)}</b>${i.body ? `<span>${esc(i.body)}</span>` : ""}</button>`).join("")}</div>
+      ${IB.items.length ? `<div class="ib-f"><button type="button" data-ia="read">MARK ALL READ</button><button type="button" data-ia="clear">CLEAR</button></div>` : ""}`;
+  }
+  BB.addEventListener("click", (e) => {
+    e.stopPropagation();
+    pop.hidden = true; HB.setAttribute("aria-expanded", "false");
+    ipop.hidden = !ipop.hidden; BB.setAttribute("aria-expanded", String(!ipop.hidden));
+    if (!ipop.hidden) { const r = BB.getBoundingClientRect(); ipop.style.top = `${r.bottom + 6}px`; ipop.style.right = `${Math.max(8, innerWidth - r.right)}px`; }
+  });
+  ipop.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const k = e.target.closest("[data-ik]"); if (k) { ikind = k.dataset.ik; paintInbox(); return; }
+    const a = e.target.closest("[data-ia]");
+    if (a) { window.wire.page.invoke(a.dataset.ia === "clear" ? "inbox:clear" : "inbox:read"); return; }
+    const it = e.target.closest("[data-ib]"); if (!it) return;
+    const item = IB.items.find((x) => x.id === it.dataset.ib); if (!item) return;
+    window.wire.page.invoke("inbox:read", [item.id]);
+    if (item.story) window.wire.showStory(item.story);
+    else if (item.sym) window.WireApp?.openInstrument(item.sym);
+    else if (item.page) window.WireApp?.setPage(item.page);
+    if (item.story || item.sym || item.page) { ipop.hidden = true; BB.setAttribute("aria-expanded", "false"); }
+  });
+  document.addEventListener("click", (e) => { if (!ipop.hidden && !ipop.contains(e.target)) { ipop.hidden = true; BB.setAttribute("aria-expanded", "false"); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !ipop.hidden) { ipop.hidden = true; BB.setAttribute("aria-expanded", "false"); } });
+
   if (window.wire?.page) {
+    window.wire.page.on("inbox:update", (d) => { IB = d; paintInbox(); });
+    window.wire.page.invoke("inbox:get").then((d) => { IB = d; paintInbox(); }).catch(() => {});
     window.wire.page.on("health:update", (h) => { H = h; paintHealth(); });
     window.wire.page.invoke("health:get").then((h) => { H = h; paintHealth(); }).catch(() => {});
   }

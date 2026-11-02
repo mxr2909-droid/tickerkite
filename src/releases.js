@@ -115,7 +115,7 @@ function register(ctx) {
 
   function notify(title, body) {
     if (!enabled() || !ctx.Notification?.isSupported?.()) return;
-    const n = new ctx.Notification({ title, body, silent: false });
+    const n = new ctx.Notification({ title, body, silent: false, tk: { kind: "release", page: "calendar" } });
     n.on("click", () => ctx.showPage("calendar"));
     n.show();
   }

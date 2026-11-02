@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Menu, Notification, nativeTheme, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, Menu, Notification: NativeNotification, nativeTheme, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const DEFAULT_FEEDS = require("./news/feeds");
@@ -229,6 +229,13 @@ function resetWeights() {
   send("score:update", scoreSnapshot());
 }
 
+// ---------- alerts inbox: every notification is also kept in a list (src/inbox.js) ----------
+const inbox = require("./inbox").create({ readJSON: (...a) => readJSON(...a), writeJSON: (...a) => writeJSON(...a), send: (...a) => send(...a) });
+const Notification = inbox.wrap(NativeNotification);
+ipcMain.handle("inbox:get", () => inbox.snapshot());
+ipcMain.handle("inbox:read", (_e, ids) => { inbox.markRead(Array.isArray(ids) ? ids.map(String) : null); return true; });
+ipcMain.handle("inbox:clear", () => { inbox.clear(); return true; });
+
 // ---------- data health: is each source fresh and loading? ----------
 // main.js measures news, quotes and the scorecard data itself; page modules report the rest through
 // ctx.reportHealth(id, { label, level: "ok"|"warn"|"bad", at, detail }).
@@ -302,7 +309,7 @@ function notifyNew() {
   const hot = state.alerts ? recent.filter((s) => s.sev === "h" && !mine.includes(s)).slice(0, 3) : [];
   for (const s of [...mine, ...hot]) {
     const title = s.watch?.length && mine.includes(s) ? `★ ${s.watch.join(" ")} · ${s.code}` : `${s.code} · ${s.signal}`;
-    const n = new Notification({ title, subtitle: s.region, body: s.title, silent: false });
+    const n = new Notification({ title, subtitle: s.region, body: s.title, silent: false, tk: { kind: s.watch?.length && mine.includes(s) ? "watchlist" : "news", story: s.id } });
     n.on("click", () => showStory(s.id));
     n.show();
   }

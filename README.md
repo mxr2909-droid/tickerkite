@@ -198,6 +198,10 @@ The Graphs page (⌘⌥6) is a charting workspace for any FRED series or market 
 
 Data: FRED's public CSV export and series page (title, units, frequency), and Yahoo daily closes, full history, cached per series in `graphs-cache/` for a day (the last copy is used offline).
 
+## Alerts inbox
+
+The bell next to the health light keeps every notification Tickerkite sends (high-impact and watchlist headlines, risk-monitor warnings, data releases with their market reaction, screener hits), with an unread count. Filter by kind, click one to open what it's about (the story, the WARN page, the Calendar, the Screener), mark all read or clear. The last 300 are kept in `inbox.json`. Under the hood, `src/inbox.js` wraps Electron's Notification, so every module's alerts are captured.
+
 ## Data health light
 
 A dot next to the clock in the top bar shows whether the data is fresh: **green** everything loading, **amber** a source failed or is late (the app shows its last good copy), **red** no data or very old. Click it for each source: news feeds, market quotes, the scorecard's FRED/Yahoo data, the risk monitors and the screener, each with when it last updated and what failed. (Terminal theme.)

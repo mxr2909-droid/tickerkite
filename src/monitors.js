@@ -118,9 +118,10 @@ function register(ctx) {
       notified[key] = Date.now();
       const n = new Notification({
         title: `${x.short}: ${(x.p * 100).toFixed(0)}% ${toWarning ? "· WARNING" : `· up ${(x.d1m * 100).toFixed(0)} points in a month`}`,
-        body: `${x.name}. Usually ${(x.base * 100).toFixed(0)}%. Driven by ${x.drivers.filter((d) => d.up).map((d) => d.name).join(", ") || "its factors"}.`
+        body: `${x.name}. Usually ${(x.base * 100).toFixed(0)}%. Driven by ${x.drivers.filter((d) => d.up).map((d) => d.name).join(", ") || "its factors"}.`,
+        tk: { kind: "monitor", page: "warn" }
       });
-      n.on("click", () => showPage("brief"));
+      n.on("click", () => showPage("warn"));
       n.show();
     }
     // forget notifications older than a year
