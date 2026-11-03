@@ -2,12 +2,20 @@
 
 A desktop news terminal that pulls headlines from about 17 live sources every 2 minutes, merges the same story reported by different outlets, and ranks what is most likely to move markets. Delayed quotes for indices, yields, FX, oil, gold and bitcoin sit in the sidebar. Free sources only, no API keys.
 
+![Top news: ranked headlines, merged coverage and a story detail pane](docs/news.png)
+
+| Markets heatmap | Fed path |
+| --- | --- |
+| ![Sector and global market heatmap](docs/markets.png) | ![Market-implied Fed funds path](docs/fed.png) |
+
+> **Source-visible, not open source.** The code is public so you can read it. No license is granted to copy, modify, redistribute or sell it; all rights are reserved.
+
 ## Run it
 
 You need Node.js 20 or newer. Check with `node -v`; if it's missing, install the LTS from https://nodejs.org.
 
 ```bash
-cd wire-terminal
+cd tickerkite
 npm install      # downloads Electron (~100 MB, first time only)
 npm start
 ```
