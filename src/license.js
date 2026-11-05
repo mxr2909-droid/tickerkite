@@ -68,7 +68,7 @@ async function call(action, fields) {
 }
 
 function register(ctx) {
-  const enforce = !!ctx.packaged && !process.argv.includes("--dev");
+  const enforce = false; // licensing is switched off: no trial, no lock. Set back to `!!ctx.packaged && !process.argv.includes("--dev")` to sell it.
   let st = ctx.readJSON("license.json", null) || {};
   if (!st.firstRun) { st.firstRun = Date.now(); ctx.writeJSON("license.json", st); }
   const save = () => ctx.writeJSON("license.json", st);
