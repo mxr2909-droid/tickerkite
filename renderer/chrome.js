@@ -23,6 +23,19 @@
     ["portfolio", "PORT", "PORTFOLIO", 7, "↑↓ MOVE · ↵ CHART · ESC DESELECT"],
     ["company", "DES", "COMPANY", 9, "1–7 / ←→ TAB · ↵ CHART · / OR ⌘K LOOK UP"]
   ];
+  // Top-level tabs and their sub-tabs (page ids). A group with one page shows no sub-row.
+  const GROUPS = [
+    ["NEWS", ["news", "brief"]],
+    ["MACRO", ["score", "calendar", "fed", "curve", "warn", "factor"]],
+    ["MARKETS", ["markets"]],
+    ["GRAPHS", ["graphs"]],
+    ["EQUITY", ["screen", "company"]],
+    ["PORTFOLIO", ["portfolio"]]
+  ];
+  // one-letter shortcut per page, pressed with ⌥ (Option); mnemonic: Top, Brief, Economic scorecard, Calendar, Fed, Yield curve, Warnings, fActor, Markets, Graphs, Screener, Company (Des), Portfolio
+  const KEYS = { news: "T", brief: "B", score: "E", calendar: "C", fed: "F", curve: "Y", warn: "W", factor: "A", markets: "M", graphs: "G", screen: "S", company: "D", portfolio: "P" };
+  const groupOf = (p) => GROUPS.findIndex((g) => g[1].includes(p));
+  const lastIn = {};   // group index -> last page opened in it
   const META = Object.fromEntries(PAGES.map((p) => [p[0], { code: p[1], title: p[2], digit: p[3], hint: p[4] }]));
   const C = { page: "news", pulled: {}, status: {} };
 
@@ -30,12 +43,15 @@
   const bar = document.createElement("header");
   bar.className = "fbar";
   bar.innerHTML = `<div class="fb-logo" aria-hidden="true"><svg viewBox="0 0 148 90" width="26" height="16"><path fill="#F47321" d="M0 0H40V64C40 76 56 81 72 81V90C30 90 0 84 0 70Z"/><path fill="#005030" d="M148 0H108V64C108 76 92 81 76 81V90C118 90 148 84 148 70Z"/></svg><span>TICKER<br>KITE</span></div>
-    <nav class="fb-codes" role="tablist" aria-label="Functions">${PAGES.map(([p, code, title, d]) =>
-      `<button type="button" role="tab" data-p="${p}" aria-selected="false" title="${esc(title.charAt(0) + title.slice(1).toLowerCase())} (⌘⌥${d})">${code}</button>`).join("")}</nav>
+    <nav class="fb-codes" role="tablist" aria-label="Sections">${GROUPS.map(([name, pages], i) =>
+      `<button type="button" role="tab" data-g="${i}" aria-selected="false" title="${esc(name)}${pages.length === 1 ? ` (⌥${KEYS[pages[0]]})` : ""}">${name}</button>`).join("")}</nav>
     <button type="button" class="fb-bell" id="fbBell" aria-haspopup="dialog" aria-expanded="false" title="Alerts inbox: every notification Tickerkite has sent"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5v2.6L2 11v1h12v-1l-1.5-2.4V6A4.5 4.5 0 0 0 8 1.5ZM6.3 13.2a1.8 1.8 0 0 0 3.4 0Z" fill="currentColor"/></svg><b id="fbBellN"></b></button>
     <button type="button" class="fb-health" id="fbHealth" aria-haspopup="dialog" aria-expanded="false" title="Data health: is each source loading and fresh?"><i></i><span>DATA</span></button>
     <span class="fb-clock num" id="fbClock"></span>`;
   $("#app").prepend(bar);
+  const sub = document.createElement("nav");
+  sub.className = "fsub"; sub.setAttribute("role", "tablist"); sub.setAttribute("aria-label", "Pages"); sub.hidden = true;
+  bar.after(sub);
 
   // ---------- data health light (src/main.js healthSnapshot) ----------
   const pop = document.createElement("div");
@@ -118,8 +134,17 @@
   $(".status #pulled").before(hint);
 
   bar.querySelector(".fb-codes").addEventListener("click", (e) => {
-    const b = e.target.closest("button[data-p]"); if (b) window.WireApp?.setPage(b.dataset.p);
+    const b = e.target.closest("button[data-g]"); if (!b) return;
+    const i = +b.dataset.g; window.WireApp?.setPage(lastIn[i] || GROUPS[i][1][0]);
   });
+  sub.addEventListener("click", (e) => { const b = e.target.closest("button[data-p]"); if (b) window.WireApp?.setPage(b.dataset.p); });
+  // ⌥ + letter jumps straight to a page (by physical key, so macOS Option characters don't interfere); the pages' own plain-letter keys stay free
+  document.addEventListener("keydown", (e) => {
+    if (!e.altKey || e.metaKey || e.ctrlKey || e.shiftKey || !/^Key[A-Z]$/.test(e.code)) return;
+    const t = e.target; if (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    const page = Object.keys(KEYS).find((p) => KEYS[p] === e.code.slice(3)); if (!page) return;
+    e.preventDefault(); window.WireApp?.setPage(page);
+  }, true);
 
   // ---------- paint ----------
   function ago(ts) {
@@ -132,7 +157,16 @@
   }
   function paint() {
     const m = META[C.page] || META.news;
-    bar.querySelectorAll("button[data-p]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.p === C.page)));
+    const gi = groupOf(C.page);
+    if (gi >= 0) lastIn[gi] = C.page;
+    bar.querySelectorAll("button[data-g]").forEach((b) => b.setAttribute("aria-selected", String(+b.dataset.g === gi)));
+    const pages = gi >= 0 ? GROUPS[gi][1] : [];
+    sub.hidden = pages.length < 2;
+    if (!sub.hidden && sub.dataset.g !== String(gi)) {
+      sub.dataset.g = gi;
+      sub.innerHTML = pages.map((p) => `<button type="button" role="tab" data-p="${p}" aria-selected="false" title="${esc(META[p].title.charAt(0) + META[p].title.slice(1).toLowerCase())} (⌥${KEYS[p]})"><b>${META[p].code}</b><i>${KEYS[p]}</i></button>`).join("");
+    }
+    sub.querySelectorAll("button[data-p]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.p === C.page)));
     $("#phCode").textContent = m.code;
     $("#phTitle").textContent = m.title;
     $("#phStatus").textContent = C.status[C.page] || "";
