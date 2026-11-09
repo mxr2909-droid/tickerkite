@@ -46,6 +46,7 @@
   bar.innerHTML = `<div class="fb-logo" aria-hidden="true"><svg viewBox="0 0 148 90" width="26" height="16"><path fill="#F47321" d="M0 0H40V64C40 76 56 81 72 81V90C30 90 0 84 0 70Z"/><path fill="#005030" d="M148 0H108V64C108 76 92 81 76 81V90C118 90 148 84 148 70Z"/></svg><span>TICKER<br>KITE</span></div>
     <nav class="fb-codes" role="tablist" aria-label="Sections">${GROUPS.map(([name, pages], i) =>
       `<button type="button" role="tab" data-g="${i}" aria-selected="false" title="${esc(name)}${pages.length === 1 ? ` (⌥${KEYS[pages[0]]})` : ""}">${name}</button>`).join("")}</nav>
+    <button type="button" class="fb-upd" id="fbUpd" hidden></button>
     <button type="button" class="fb-bell" id="fbBell" aria-haspopup="dialog" aria-expanded="false" title="Alerts inbox: every notification Tickerkite has sent"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5v2.6L2 11v1h12v-1l-1.5-2.4V6A4.5 4.5 0 0 0 8 1.5ZM6.3 13.2a1.8 1.8 0 0 0 3.4 0Z" fill="currentColor"/></svg><b id="fbBellN"></b></button>
     <button type="button" class="fb-health" id="fbHealth" aria-haspopup="dialog" aria-expanded="false" title="Data health: is each source loading and fresh?"><i></i><span>DATA</span></button>
     <span class="fb-clock num" id="fbClock"></span>`;
@@ -117,7 +118,20 @@
   document.addEventListener("click", (e) => { if (!ipop.hidden && !ipop.contains(e.target)) { ipop.hidden = true; BB.setAttribute("aria-expanded", "false"); } });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !ipop.hidden) { ipop.hidden = true; BB.setAttribute("aria-expanded", "false"); } });
 
+  // ---------- update button (src/updater.js): shown when a newer version is on GitHub ----------
+  const UB = bar.querySelector("#fbUpd");
+  function paintUpdate(u) {
+    UB.hidden = !u?.available;
+    if (!u?.available) return;
+    UB.disabled = !!u.busy;
+    UB.textContent = u.busy ? "UPDATING…" : "UPDATE AVAILABLE";
+    UB.title = u.busy ? "Downloading and installing; Tickerkite restarts when done" : `Version ${u.available.version} is ready (you have ${u.available.current}). Click to update.`;
+  }
+  UB.addEventListener("click", () => window.wire.page.invoke("update:apply").catch(() => {}));
+
   if (window.wire?.page) {
+    window.wire.page.on("update:state", paintUpdate);
+    window.wire.page.invoke("update:get").then(paintUpdate).catch(() => {});
     window.wire.page.on("inbox:update", (d) => { IB = d; paintInbox(); });
     window.wire.page.invoke("inbox:get").then((d) => { IB = d; paintInbox(); }).catch(() => {});
     window.wire.page.on("health:update", (h) => { H = h; paintHealth(); });

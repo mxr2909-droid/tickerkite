@@ -267,6 +267,11 @@
 .fb-hpop .hp-f{margin:4px 0 0;color:var(--dimmer);font-size:11px;line-height:1.45}
 
 /* alerts inbox */
+.fb-upd{-webkit-app-region:no-drag;margin-left:auto;padding:3px 9px;border:1px solid var(--accent);background:var(--accent);color:var(--sel-ink,#000);font:700 10.5px var(--mono);letter-spacing:.06em;flex:none;animation:fbupd 2.4s ease-in-out infinite}
+.fb-upd[hidden]{display:none}
+.fb-upd:disabled{animation:none;opacity:.7;cursor:progress}
+.fb-upd + .fb-bell{margin-left:6px}
+@keyframes fbupd{50%{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}}
 .fb-bell{-webkit-app-region:no-drag;display:inline-flex;align-items:center;gap:4px;margin-left:auto;padding:3px 7px;border:1px solid var(--line-2);color:var(--dim);font:600 10.5px var(--mono);flex:none}
 .fb-bell:hover{border-color:var(--accent);color:var(--fg-strong)}
 .fb-bell.on{color:var(--fg-strong)} .fb-bell b{color:#fff;background:var(--down);padding:0 4px;border-radius:7px;font-size:10px;line-height:14px}

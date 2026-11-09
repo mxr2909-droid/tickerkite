@@ -22,6 +22,10 @@ npm start
 
 The first pull takes about 10 seconds. After that the app opens instantly from its cache.
 
+### Updating
+
+When a newer version is on GitHub, an **UPDATE AVAILABLE** button appears in the top bar (Tickerkite checks at launch and every 6 hours; **Tickerkite › Check for Updates…** checks now). Click it and confirm: the app downloads the new code, replaces its own files, reinstalls packages only if they changed, and restarts. Your watchlist, notes and settings stay (they live in the app's data folder, not the code folder). A copy cloned with git updates with `git pull` instead; a built `.app` can't rewrite itself, so its button opens this page to rebuild. The check reads `version` in package.json on the `main` branch, so **an update goes out to everyone when `version` is bumped and pushed.**
+
 ### Build a real .app / .dmg
 
 ```bash
@@ -393,5 +397,5 @@ Here's what you need to fill in before the first sale:
    export APPLE_TEAM_ID="ABCDE12345"
    npm run dist
    ```
-4. **Auto-updates.** Set `build.publish[0].owner` in package.json to your GitHub username, and create the `tickerkite` repository. To ship an update, bump `version`, then run `GH_TOKEN=<token with repo scope> npm run release`. That uploads the .dmg, the .zip and `latest-mac.yml` to a GitHub release. Installed copies pick the update up within 6 hours, or straight away from **Tickerkite › Check for Updates…**. Only signed builds can update themselves.
+4. **Auto-updates for the signed app.** `build.publish[0].owner` in package.json is the GitHub account that owns the `tickerkite` repository. To ship an update, bump `version`, then run `GH_TOKEN=<token with repo scope> npm run release`. That uploads the .dmg, the .zip and `latest-mac.yml` to a GitHub release. Installed copies pick the update up within 6 hours, or straight away from **Tickerkite › Check for Updates…**. Only signed builds can update themselves.
 5. **Optional:** add an app icon at `build/icon.icns`, an `"author"` field, and a `"homepage"` field in package.json.

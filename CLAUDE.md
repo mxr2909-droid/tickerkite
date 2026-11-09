@@ -2,6 +2,7 @@
 
 - Electron app, plain JS. Read README.md for features and layout.
 - `npm test` must pass; rebuild the installed app with `npm run update`; back up with `git push` (private repo, branch `main`).
+- Shipping an update to other people: bump `"version"` in package.json (patch for fixes, minor for features) in the same commit you push to `main`. Copies run from source see an UPDATE AVAILABLE button once main's version is higher than theirs (`src/updater.js`); with no bump they see nothing.
 - Test with a separate copy so the user's data stays untouched: `npx electron . --user-data-dir=<scratch dir> --remote-debugging-port=9333`, driven by `scripts/cdp.mjs`.
 
 ## Obsidian project notebook (LLM wiki)
