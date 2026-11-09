@@ -34,3 +34,11 @@ test("comparisons pick the row on or before the date; inversion streaks", () => 
   assert.strictEqual(p.cmp["1D"].date, "2026-10-19");
   assert.deepStrictEqual(p.history[0], ["2026-09-18", -20, -40, null, 4.1]);
 });
+
+test("surface: every nth session back from the newest, oldest first, incomplete days dropped", () => {
+  const rows = ["2026-10-20", "2026-10-19", "2026-10-16", "2026-10-15", "2026-10-14"].map((date, i) => ({ date, y: { "2Y": 4 + i / 10, "10Y": 4.5 } }));
+  delete rows[2].y["2Y"];
+  assert.deepStrictEqual(C.surface(rows, 1, ["2Y", "10Y"]), { tenors: ["2Y", "10Y"], rows: [["2026-10-14", 4.4, 4.5], ["2026-10-15", 4.3, 4.5], ["2026-10-19", 4.1, 4.5], ["2026-10-20", 4, 4.5]] });
+  assert.deepStrictEqual(C.surface(rows, 2, ["2Y", "10Y"]).rows.map((r) => r[0]), ["2026-10-14", "2026-10-20"]);
+  assert.deepStrictEqual(C.surface([], 3).rows, []);
+});

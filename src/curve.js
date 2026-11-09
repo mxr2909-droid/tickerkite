@@ -9,6 +9,8 @@ const { fetchText } = require("./news/fetcher");
 const TTL = 3 * 3600e3;
 const NOMINAL = ["1M", "2M", "3M", "4M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "20Y", "30Y"];
 const REAL = ["5Y", "7Y", "10Y", "20Y", "30Y"];
+// the 3D surface leaves out the 2- and 4-month bills, which crowd the short end
+const SURFACE = ["1M", "3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "20Y", "30Y"];
 // years to maturity, for spacing the chart
 const YEARS = { "1M": 1 / 12, "2M": 2 / 12, "3M": 0.25, "4M": 4 / 12, "6M": 0.5, "1Y": 1, "2Y": 2, "3Y": 3, "5Y": 5, "7Y": 7, "10Y": 10, "20Y": 20, "30Y": 30 };
 const SPREADS = [["2s10s", "10Y", "2Y", "10-year minus 2-year: the classic recession signal when negative"],
@@ -86,6 +88,17 @@ function inversion(rows, key) {
   return { inverted, since: rows[Math.min(i, rows.length) - 1]?.date || null, sessions: i, full: i >= rows.length };
 }
 
+/** Curves over time for the 3D surface: every `step`-th session counting back from the newest, oldest first.
+ *  { tenors, rows: [[date, ...yields in tenor order]] }; days missing any of the tenors are left out. */
+function surface(nom, step = 3, tenors = SURFACE) {
+  const rows = [];
+  for (let i = 0; i < (nom || []).length; i += step) {
+    const r = nom[i], ys = tenors.map((t) => r.y[t]);
+    if (ys.every((v) => v != null)) rows.push([r.date, ...ys]);
+  }
+  return { tenors, rows: rows.reverse() };
+}
+
 function payload(cache) {
   const nom = cache?.nominal || [], real = cache?.real || [];
   if (!nom.length) return { at: cache?.at || 0, error: cache?.error || null, empty: true };
@@ -95,6 +108,7 @@ function payload(cache) {
     now: nom[0], cmp, real: { now: real[0] || null, "1M": ago(real, 30), "1Y": ago(real, 365) }, breakevens: breakevens(nom, real),
     spreads: { now: spreads(nom[0]), ...Object.fromEntries(Object.entries(cmp).map(([k, r]) => [k, spreads(r)])) },
     inversion: { "2s10s": inversion(nom, "2s10s"), "3m10y": inversion(nom, "3m10y") },
+    surface: surface(nom),
     // daily history for the spread chart, oldest first: [date, 2s10s, 3m10y, 5s30s, 10Y]
     history: nom.slice().reverse().map((r) => { const s = spreads(r); return [r.date, s["2s10s"] ?? null, s["3m10y"] ?? null, s["5s30s"] ?? null, r.y["10Y"] ?? null]; })
   };
@@ -133,4 +147,4 @@ function register(ctx) {
   setInterval(() => refresh(false), 3600e3);
 }
 
-module.exports = { register, parseCurveCsv, tenorKey, merge, ago, spreads, breakevens, inversion, payload, NOMINAL, REAL };
+module.exports = { register, parseCurveCsv, tenorKey, merge, ago, spreads, breakevens, inversion, payload, surface, NOMINAL, REAL };

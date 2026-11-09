@@ -6,7 +6,8 @@
   const api = window.wire;
   const $ = (s) => document.querySelector(s);
   const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const Y = { active: false, data: null, show: { "1W": false, "1M": true, "1Y": true }, span: "1Y" };
+  const Y = { active: false, data: null, show: { "1W": false, "1M": true, "1Y": true }, span: "1Y", surf: "2Y", cam: { yaw: 32, pitch: 34 } };
+  try { Y.surf = localStorage.getItem("wire.curve.surf") || "2Y"; } catch {}
   try { Object.assign(Y.show, JSON.parse(localStorage.getItem("wire.curve.show") || "{}")); Y.span = localStorage.getItem("wire.curve.span") || "1Y"; } catch {}
   const CMP_STYLE = { "1W": ["#a3aab8", "5 3"], "1M": ["#7cc4f5", "4 3"], "1Y": ["#e88ac0", "2 3"] };
 
@@ -64,6 +65,25 @@
     return g + line(2, "#7cc4f5") + line(1, "var(--accent)") + "</svg>";
   }
 
+  /** The 3D card's grid: the curves inside the chosen span, thinned to about 70 rows, oldest first. */
+  function surfaceData(d) {
+    const s = d.surface;
+    if (!s?.rows?.length) return null;
+    const days = { "6M": 182, "1Y": 365, "2Y": 730, "3Y": 99999 }[Y.surf] || 730;
+    const cut = new Date(Date.parse(d.now.date) - days * 864e5).toISOString().slice(0, 10);
+    const inSpan = s.rows.filter((r) => r[0] >= cut), step = Math.max(1, Math.ceil(inSpan.length / 70));
+    const rows = inSpan.filter((_, i) => (inSpan.length - 1 - i) % step === 0); // counting back from the newest, so today is always the front edge
+    const i3 = s.tenors.indexOf("3M"), i10 = s.tenors.indexOf("10Y"), i2 = s.tenors.indexOf("2Y");
+    return rows.length < 4 ? null : { cols: s.tenors, unit: "%", rows: rows.map((r) => {
+      const z = r.slice(1), inv = z[i10] < z[i3];
+      return { label: day(r[0]), short: short(r[0]).replace(" ", " ’"), z, flag: inv, note: `2s10s ${bp((z[i10] - z[i2]) * 100)}bp${inv ? " · inverted (10Y below 3M)" : ""}` };
+    }) };
+  }
+  function mountSurface() {
+    const cv = $("#curve .yc-surf canvas"), data = Y.data && !Y.data.empty && surfaceData(Y.data);
+    if (cv && data) window.TkSurface.mount(cv, $("#curve .yc-surf .sm-tip"), data, Y.cam);
+  }
+
   function render() {
     if (!Y.active) return;
     const el = $("#curve"), d = Y.data;
@@ -86,11 +106,16 @@
         <div class="yc-togs">${toggles}<button type="button" class="yc-btn" data-ref title="Refresh">↻</button></div></div>
       <div class="yc-card">${curveChart(d)}<div class="yc-leg"><span><i style="border-color:var(--accent)"></i>Today</span>${Object.keys(CMP_STYLE).filter((k) => Y.show[k] && d.cmp[k]).map((k) => `<span><i style="border-color:${CMP_STYLE[k][0]};border-top-style:dashed"></i>${k} ago (${day(d.cmp[k].date)})</span>`).join("")}</div></div>
       <div class="yc-sps">${tiles}</div>
+      ${d.surface?.rows?.length > 8 ? `<div class="yc-card"><div class="yc-ct"><b>The curve over time</b><span class="dim">drag to turn · hover for a reading</span>
+        <span class="yc-spans">${["6M", "1Y", "2Y", "3Y"].map((s) => `<button type="button" data-surf="${s}" aria-pressed="${s === Y.surf}">${s}</button>`).join("")}</span></div>
+        <div class="yc-surf"><canvas aria-label="Yield curve over time, in 3D"></canvas><div class="sm-tip" hidden></div></div>
+        <p class="yc-note">Each line across is one day's curve: oldest at the back, today the bright line at the front. Height and color are the yield (blue low, orange high). The strip along the side turns red on days the 10-year yielded less than the 3-month, an inverted curve.</p></div>` : ""}
       <div class="yc-card"><div class="yc-ct"><b>Spread history</b><span class="yc-legi"><i style="border-color:var(--accent)"></i>2s10s</span><span class="yc-legi"><i style="border-color:#7cc4f5"></i>3m10y</span>
         <span class="yc-spans">${["6M", "1Y", "2Y", "MAX"].map((s) => `<button type="button" data-span="${s}" aria-pressed="${s === Y.span}">${s}</button>`).join("")}</span></div>${spreadChart(d)}
         <p class="yc-note">Below zero (shaded) the curve is inverted: short rates above long ones, which has come before most US recessions.</p></div>
       <div class="yc-card"><div class="yc-ct"><b>Every tenor</b><span class="dim">changes in basis points (1bp = 0.01%)</span></div>${table}</div>
       <p class="yc-src">Source: US Treasury daily par yield curve and real yield curve rates (public domain). Updated after each trading day.</p></div>`;
+    mountSurface();
   }
 
   function story(d) {
@@ -128,6 +153,7 @@
   $("#curve").addEventListener("click", (e) => {
     const c = e.target.closest("[data-cmp]"); if (c) { Y.show[c.dataset.cmp] = !Y.show[c.dataset.cmp]; save(); return render(); }
     const s = e.target.closest("[data-span]"); if (s) { Y.span = s.dataset.span; save(); return render(); }
+    const sf = e.target.closest("[data-surf]"); if (sf) { Y.surf = sf.dataset.surf; try { localStorage.setItem("wire.curve.surf", Y.surf); } catch {} return render(); }
     if (e.target.closest("[data-ref]")) api.page.invoke("curve:refresh").then(apply);
   });
   if (api?.page) api.page.on("curve:update", apply);

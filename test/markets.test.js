@@ -135,3 +135,28 @@ test("chart bars: daily for 1Y, weekly beyond, ends at the live price", () => {
   assert.equal(chartBars(d, w, "MAX", 123)[0][0], Date.parse("2015-01-05"));
   assert.equal(chartBars(d, null, "10Y", 5).length, d.length);
 });
+
+test("sector rotation: strength and momentum against a benchmark", () => {
+  const { rotation, quadrant } = require("../src/markets");
+  const W = 7 * 86400000, t0 = Date.parse("2025-01-06"); // a Monday
+  const weeks = (n, f) => Array.from({ length: n }, (_, i) => ({ t: t0 + i * W, close: f(i) }));
+  const bench = weeks(60, () => 100);
+  // moving with the benchmark: dead center
+  const same = rotation(weeks(60, () => 50), bench);
+  assert.equal(same.length, 12);
+  near(same[11][1], 100); near(same[11][2], 100);
+  // steadily outperforming: strength above 100; at a constant pace its momentum settles just above 100 too
+  const up = rotation(weeks(60, (i) => 50 * 1.01 ** i), bench).at(-1);
+  assert.ok(up[1] > 105 && up[2] >= 100, `${up}`);
+  assert.equal(quadrant(up[1], up[2]), "leading");
+  // outperformed, then started slipping: still strong, momentum below 100
+  const turn = rotation(weeks(60, (i) => (i < 56 ? 50 * 1.01 ** i : 50 * 1.01 ** 56 * 0.985 ** (i - 56))), bench).at(-1);
+  assert.equal(quadrant(turn[1], turn[2]), "weakening");
+  assert.equal(quadrant(95, 101), "improving"); assert.equal(quadrant(95, 99), "lagging");
+  // the week in progress is stamped mid-week on one side: still matched to the same week
+  const b2 = weeks(40, () => 100); b2[39] = { t: b2[39].t + 3 * 86400000 + 3600e3, close: 100 };
+  assert.equal(rotation(weeks(40, () => 10), b2, { tail: 4 }).length, 4);
+  // too little history for the averages: nothing, not NaN
+  assert.deepEqual(rotation(weeks(20, () => 1), weeks(20, () => 1)), []);
+  assert.deepEqual(rotation(null, bench), []);
+});

@@ -24,6 +24,7 @@ const GROUPS = [
 const PERIODS = ["1D", "1W", "1M", "3M", "YTD", "1Y", "3Y", "5Y", "10Y"];
 const ANNUAL_YEARS = { "3Y": 3, "5Y": 5, "10Y": 10 };
 const LONG_TTL = 24 * 3600 * 1000;
+const ROTATION_BENCH = "SPY";
 
 function symbols() {
   const out = [];
@@ -126,6 +127,33 @@ function chartBars(daily, weekly, range, live) {
   return out;
 }
 
+/** Average of the last n values ending at index i, or null when any is missing. */
+function sma(a, n, i) {
+  if (i < n - 1) return null;
+  let s = 0;
+  for (let k = i - n + 1; k <= i; k++) { if (a[k] == null) return null; s += a[k]; }
+  return s / n;
+}
+// weeks are matched by number (Monday-based), because a week still in progress is stamped with its latest trade
+const weekNo = (t) => Math.floor((t / 86400000 + 3) / 7);
+
+/** Relative rotation of one series against a benchmark, from weekly bars [{ t, close }] (ascending).
+ *  The relative line is series ÷ benchmark. Strength = 100 × its `fast`-week average ÷ its `slow`-week average
+ *  (above 100: beating the benchmark lately). Momentum = 100 × strength ÷ its own `mom`-week average
+ *  (above 100: strength is rising). Returns the last `tail` weeks as [[t, strength, momentum]]. */
+function rotation(series, bench, { fast = 4, slow = 26, mom = 8, tail = 12 } = {}) {
+  const mine = new Map((series || []).map((b) => [weekNo(b.t), b.close]));
+  const t = [], r = [];
+  for (const b of bench || []) { const c = mine.get(weekNo(b.t)); if (c > 0 && b.close > 0) { t.push(b.t); r.push(c / b.close); } }
+  const x = r.map((_, i) => { const f = sma(r, fast, i), s = sma(r, slow, i); return f != null && s ? (100 * f) / s : null; });
+  const y = x.map((v, i) => { const m = sma(x, mom, i); return v != null && m ? (100 * v) / m : null; });
+  const out = [];
+  for (let i = Math.max(0, t.length - tail); i < t.length; i++) if (x[i] != null && y[i] != null) out.push([t[i], +x[i].toFixed(3), +y[i].toFixed(3)]);
+  return out;
+}
+/** Which quarter of the rotation chart a point is in. */
+const quadrant = (x, y) => (x >= 100 ? (y >= 100 ? "leading" : "weakening") : y >= 100 ? "improving" : "lagging");
+
 /** Is the US cash session open right now (Mon–Fri 9:30–16:00 New York; holidays ignored)? */
 function usMarketOpen(now = new Date()) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "numeric", hourCycle: "h23" })
@@ -154,7 +182,12 @@ function register(ctx) {
   let hist = readJSON("markets-history-cache.json", null) || { weekly: {}, daily: {} };
   let inflight = null, timer = null;
 
-  const snapshot = () => ({ groups: GROUPS, periods: PERIODS, ...state, open: usMarketOpen() });
+  // sector rotation against the S&P 500 (SPY), from the weekly history already kept for the long periods
+  const rotations = () => {
+    const bench = hist.weekly[ROTATION_BENCH]?.bars;
+    return { bench: ROTATION_BENCH, sectors: GROUPS[0].items.map(([sym, name]) => ({ sym, name, pts: rotation(hist.weekly[sym]?.bars, bench) })).filter((s) => s.pts.length) };
+  };
+  const snapshot = () => ({ groups: GROUPS, periods: PERIODS, ...state, open: usMarketOpen(), rotation: rotations() });
   const interval = () => (usMarketOpen() ? 5 : 30) * 60000;
 
   async function refresh() {
@@ -202,4 +235,4 @@ function register(ctx) {
   ipcMain.handle("markets:refresh", async () => { await refresh(); return snapshot(); });
 }
 
-module.exports = { register, GROUPS, PERIODS, symbols, barsFromChart, summarize, chartBars, annualize, closeOnOrBefore, usMarketOpen };
+module.exports = { register, GROUPS, PERIODS, symbols, barsFromChart, summarize, chartBars, annualize, closeOnOrBefore, usMarketOpen, rotation, quadrant };

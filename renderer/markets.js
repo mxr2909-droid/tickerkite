@@ -7,8 +7,12 @@
   const SCALE = { "1D": 2, "1W": 4, "1M": 8, "3M": 15, YTD: 25, "1Y": 35, "3Y": 70, "5Y": 110, "10Y": 200 };
   const ANNUAL = { "3Y": 3, "5Y": 5, "10Y": 10 };
   const RANGES = ["1Y", "3Y", "5Y", "10Y", "MAX"];
-  const M = { snap: null, period: "1D", sel: null, visible: false, range: "1Y", hist: null };
-  try { M.period = localStorage.getItem("wire.markets.period") || "1D"; } catch {}
+  const M = { snap: null, period: "1D", sel: null, visible: false, range: "1Y", hist: null, tail: 8 };
+  try { M.period = localStorage.getItem("wire.markets.period") || "1D"; M.tail = +localStorage.getItem("wire.markets.tail") || 8; } catch {}
+  // sector rotation chart: the four quarters, clockwise from top right
+  const QUAD = { leading: ["#3ecf8e", "Leading", "beating the S&P 500 and still gaining on it"], weakening: ["#f2b34a", "Weakening", "still ahead, but losing ground"],
+    lagging: ["#f2706b", "Lagging", "behind and falling further back"], improving: ["#5ec2f2", "Improving", "still behind, but catching up"] };
+  const quad = (x, y) => (x >= 100 ? (y >= 100 ? "leading" : "weakening") : y >= 100 ? "improving" : "lagging");
 
   const pct = (v, d = 2) => (v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(d) + "%");
   // terminal theme: pale for a small move, deep for a big one, dark text on the pale end (returns [background, ink])
@@ -35,6 +39,47 @@
       <span class="mn">${esc(name)}</span><span class="mp">${pct(v)}</span><span class="ms"><span>${esc(sub || sym)}</span>${last != null ? `<span>${num(last)}</span>` : ""}</span></button>`;
   }
 
+  /** Sector rotation: each sector's strength against the S&P 500 (across) and whether that strength is rising (up), with a tail of past weeks. */
+  function rotationSection(rot) {
+    const secs = (rot?.sectors || []).map((s) => ({ ...s, pts: s.pts.slice(-M.tail) })).filter((s) => s.pts.length > 1);
+    if (!secs.length) return "";
+    const W = 660, H = 430, pl = 40, pr = 14, pt = 12, pb = 34, pw = W - pl - pr, ph = H - pt - pb;
+    const dev = Math.max(1.5, ...secs.flatMap((s) => s.pts.flatMap((p) => [Math.abs(p[1] - 100), Math.abs(p[2] - 100)]))) * 1.12;
+    const X = (v) => pl + ((v - (100 - dev)) / (2 * dev)) * pw, Y = (v) => pt + (1 - (v - (100 - dev)) / (2 * dev)) * ph;
+    const tint = (k, x, y) => `<rect x="${x}" y="${y}" width="${pw / 2}" height="${ph / 2}" fill="${QUAD[k][0]}" opacity=".07"/>`;
+    const corner = (k, x, y, anchor) => `<text x="${x}" y="${y}" text-anchor="${anchor}" class="rot-q" fill="${QUAD[k][0]}">${QUAD[k][1].toUpperCase()}</text>`;
+    let g = `<svg viewBox="0 0 ${W} ${H}" class="rot-svg" role="img" aria-label="Sector rotation against the S&amp;P 500">
+      ${tint("improving", pl, pt)}${tint("leading", pl + pw / 2, pt)}${tint("lagging", pl, pt + ph / 2)}${tint("weakening", pl + pw / 2, pt + ph / 2)}
+      <rect x="${pl}" y="${pt}" width="${pw}" height="${ph}" fill="none" class="rot-box"/>
+      <line x1="${X(100)}" x2="${X(100)}" y1="${pt}" y2="${pt + ph}" class="rot-axis"/><line x1="${pl}" x2="${pl + pw}" y1="${Y(100)}" y2="${Y(100)}" class="rot-axis"/>
+      ${corner("improving", pl + 8, pt + 16, "start")}${corner("leading", pl + pw - 8, pt + 16, "end")}${corner("lagging", pl + 8, pt + ph - 8, "start")}${corner("weakening", pl + pw - 8, pt + ph - 8, "end")}`;
+    const tick = dev > 12 ? 5 : dev > 5 ? 2 : 1;
+    for (let v = Math.ceil((100 - dev) / tick) * tick; v <= 100 + dev; v += tick) {
+      g += `<text x="${X(v)}" y="${pt + ph + 13}" text-anchor="middle" class="rot-ax">${v}</text><text x="${pl - 6}" y="${Y(v) + 3}" text-anchor="end" class="rot-ax">${v}</text>`;
+    }
+    g += `<text x="${pl + pw / 2}" y="${H - 4}" text-anchor="middle" class="rot-ax">STRENGTH VS S&amp;P 500 (100 = IN LINE) →</text>
+      <text transform="translate(10 ${pt + ph / 2}) rotate(-90)" text-anchor="middle" class="rot-ax">MOMENTUM (ABOVE 100 = GAINING) →</text>`;
+    // selected sector last, so it sits on top
+    for (const s of [...secs].sort((a, b) => (a.sym === M.sel) - (b.sym === M.sel))) {
+      const n = s.pts.length, head = s.pts[n - 1], k = quad(head[1], head[2]), col = QUAD[k][0], on = s.sym === M.sel;
+      for (let i = 1; i < n; i++) g += `<line x1="${X(s.pts[i - 1][1]).toFixed(1)}" y1="${Y(s.pts[i - 1][2]).toFixed(1)}" x2="${X(s.pts[i][1]).toFixed(1)}" y2="${Y(s.pts[i][2]).toFixed(1)}" stroke="${col}" stroke-width="${on ? 2.6 : 1.5}" stroke-linecap="round" opacity="${(0.18 + 0.82 * (i / (n - 1))).toFixed(2)}"/>`;
+      for (let i = 0; i < n - 1; i++) g += `<circle cx="${X(s.pts[i][1]).toFixed(1)}" cy="${Y(s.pts[i][2]).toFixed(1)}" r="1.7" fill="${col}" opacity="${(0.25 + 0.6 * (i / (n - 1))).toFixed(2)}"/>`;
+      const hx = X(head[1]), hy = Y(head[2]), left = hx > pl + pw - 44;
+      g += `<g class="rot-dot${on ? " sel" : ""}" data-rot="${esc(s.sym)}"><circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="${on ? 7 : 5.5}" fill="${col}"/>
+        <text x="${(hx + (left ? -9 : 9)).toFixed(1)}" y="${(hy + 3.5).toFixed(1)}" text-anchor="${left ? "end" : "start"}" class="rot-lb">${esc(s.sym)}</text>
+        <title>${esc(s.name)}: ${QUAD[k][1].toLowerCase()}, ${QUAD[k][2]} (strength ${head[1].toFixed(1)}, momentum ${head[2].toFixed(1)})</title></g>`;
+    }
+    g += "</svg>";
+    const lists = Object.keys(QUAD).map((k) => {
+      const names = secs.filter((s) => quad(s.pts[s.pts.length - 1][1], s.pts[s.pts.length - 1][2]) === k);
+      return `<div class="rot-l"><b style="color:${QUAD[k][0]}">${QUAD[k][1]}</b><span class="dim">${QUAD[k][2]}</span><div>${names.length ? names.map((s) => `<button type="button" data-rot="${esc(s.sym)}"${s.sym === M.sel ? ' class="sel"' : ""}>${esc(s.name)}</button>`).join("") : `<span class="dim">none</span>`}</div></div>`;
+    }).join("");
+    return `<section class="msec"><h3>Sector rotation · against the S&amp;P 500, weekly
+        <span class="mrange rot-tail" title="How many past weeks each tail shows">${[4, 8, 12].map((t) => `<button type="button" data-tail="${t}" aria-pressed="${t === M.tail}">${t}W</button>`).join("")}</span></h3>
+      <div class="rot"><div class="rot-chart">${g}</div><div class="rot-side">${lists}
+        <p class="dim">Each dot is a sector today and its tail is where it was in past weeks. Sectors usually travel clockwise: improving, leading, weakening, lagging.</p></div></div></section>`;
+  }
+
   function render() {
     if (!M.visible) return;
     const s = M.snap;
@@ -57,7 +102,7 @@
         const items = [...g.items].sort((x, y) => (ret(y[0]) ?? -1e9) - (ret(x[0]) ?? -1e9));
         body = `<div class="mgrid">${items.map((it) => tile(it[0], it[1], it[2])).join("")}</div>`;
       }
-      return `<section class="msec"><h3>${esc(g.title)}</h3>${body}</section>`;
+      return `<section class="msec"><h3>${esc(g.title)}</h3>${body}</section>` + (g.id === "sectors" ? rotationSection(s.rotation) : "");
     }).join("");
     const errs = Object.keys(s.errors || {}).filter((k) => !s.data[k]);
     $("#markets").innerHTML = bar + sections + (errs.length ? `<div class="empty">No data for ${esc(errs.join(", "))}.</div>` : "");
@@ -130,6 +175,10 @@
   $("#markets").addEventListener("click", (e) => {
     const per = e.target.closest("[data-per]"); if (per) return setPeriod(per.dataset.per);
     if (e.target.closest("[data-ref]")) { api.page.invoke("markets:refresh").then((s) => { M.snap = s; render(); renderDetail(); }); return; }
+    const tl = e.target.closest("[data-tail]");
+    if (tl) { M.tail = +tl.dataset.tail; try { localStorage.setItem("wire.markets.tail", M.tail); } catch {} return render(); }
+    const rd = e.target.closest("[data-rot]");
+    if (rd) { M.sel = rd.dataset.rot; if (window.WireInstrument?.isOpen()) window.WireInstrument.close(); render(); renderDetail(); return; }
     const t = e.target.closest(".mtile"); if (!t) return;
     if (M.sel === t.dataset.sym && !window.WireInstrument?.isOpen()) return window.WireApp.openInstrument(t.dataset.sym);
     M.sel = t.dataset.sym;
