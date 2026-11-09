@@ -47,6 +47,7 @@ Tickerkite opens in the **Terminal** theme: near-black background, cyan accents,
 | ECST | Scorecards (outlook, decile board, recession odds) | ⌘⌥2 |
 | ECO | Calendar | ⌘⌥3 |
 | WEI | Markets heatmap | ⌘⌥4 |
+| MAP | Sector map (sectors that open into their companies, 2D or 3D) | ⌥H |
 | FX | Currencies (megatrends and a two-currency compare) | ⌘⌥X |
 | FED | Fed path | ⌘⌥5 |
 | GC | Yield curve | ⌘⌥8 |
@@ -166,6 +167,19 @@ The Markets page (⌘⌥4) is a heatmap of what's leading and lagging, in three 
 Tiles are green or red by return, darker the bigger the move relative to the period. Switch periods with the buttons or keys 1–9 (1D, 1W, 1M, 3M, YTD, 1Y, 3Y, 5Y, 10Y); each period has its own color scale. Click a tile for the right pane: a RETURNS table (TOTAL, plus PER YEAR annualized for 3Y/5Y/10Y), how far back the history goes, the 52-week high with its date and your distance from it, and a PRICE HISTORY chart (1Y/3Y/5Y/10Y/MAX, daily closes for 1Y, weekly beyond, last point at the live price, dashed line at the 52-week high). Click the tile again, press Enter, or use "Open chart" for the full price chart. A period longer than a symbol's history shows —.
 
 Tickerkite downloads one year of daily prices per symbol from Yahoo Finance and computes every period locally; the full weekly history (for 3Y+ and the long chart) is downloaded once a day and kept in `markets-history-cache.json` (long returns are measured from the last weekly close before the start date). It refreshes every 5 minutes while the US market is open and every 30 minutes otherwise (only after you first open the page), and keeps the last result in `markets-cache.json` in the app's data folder so the page opens instantly. Returns are price returns in each market's own currency, ignoring dividends.
+
+## Sector map (MAP)
+
+Under **MARKETS** (⌥H, or `MAP` in ⌘K). A treemap of 11 US sectors: each rectangle's **area is market value** and its **color is the return** over the period you pick (1D, 1W, 1M, 3M, YTD, 1Y; keys 1–6), green up and red down. **Click a sector** (or scroll in over it, or click its row on the right) and it opens into its 40 largest companies, sized and colored the same way; **Esc**, scrolling out or **‹ ALL SECTORS** comes back, and ← → step through the sectors. Click a company for its price, market value, share of the sector and return over every period; click it again (or Enter) for the full chart, or open its Company page. ↑ ↓ walk the companies best to worst.
+
+**3D** (the 2D / 3D switch, or key D) stands the map up into blocks: height is the size of the move, up or down, so the big movers stick out even when they are small companies. Drag to turn and tilt it.
+
+- **Who is on the map:** Nasdaq's stock screener (free, no key, one download twice a day) lists every US-listed stock with its sector, industry and market value. Tickerkite keeps the 40 largest per sector (440 companies, about $78 trillion), counts two share classes of one company once (GOOGL and GOOG), drops preferreds, notes, units and warrants, and includes foreign companies listed in the US (TSM, ASML, Toyota). The sectors are Nasdaq's own, which differ from the S&P ones on the Markets page: Visa and Procter & Gamble sit in Consumer Discretionary, Tesla in Industrials. Berkshire Hathaway has no Nasdaq sector and is placed in Finance by hand; Nasdaq's small "Miscellaneous" group is left out.
+- **Prices:** Yahoo Finance (delayed), 20 companies a request: the latest price and prior close on every refresh (5 minutes while the US market is open, 30 otherwise, only after you first open the page), and the closes a week to a year back once a day (`map-refs-cache.json`). Market values are Nasdaq's, scaled by the price change since its list was made.
+- **Sector return:** the companies' combined value now against their combined value at the start of the period, so big companies count for more. It covers the 40 shown, not the whole sector.
+- Colors saturate at a ±3% move for a company over 1D (±6% 1W, ±12% 1M, ±20% 3M, ±35% YTD, ±50% 1Y) and at half that for a sector; the scale is printed under the map.
+
+The code is `src/sectormap.js` (data), `renderer/map.js` (drawing) and `renderer/treemap.js` (the squarified layout and 3D drawing order).
 
 ## Currencies (FX)
 

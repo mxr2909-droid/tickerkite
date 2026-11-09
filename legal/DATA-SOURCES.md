@@ -25,5 +25,5 @@ Tickerkite downloads all of its data directly to your Mac from the sources below
 - **US Treasury** (home.treasury.gov): daily yield curves.
 - **Federal Reserve Board** (federalreserve.gov): FOMC calendar and projections.
 - **BLS, BEA and the Census Bureau**: release schedules.
-- **Nasdaq** (nasdaq.com): economic calendar forecasts and actuals, earnings dates and institutional holders.
+- **Nasdaq** (nasdaq.com): economic calendar forecasts and actuals, earnings dates, institutional holders, and the stock screener list (sector, industry and market value) behind the Sector map.
 - **SEC EDGAR** (sec.gov): company filings, financial statements and insider trades. Public domain.

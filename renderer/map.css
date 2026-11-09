@@ -1,0 +1,42 @@
+/* Tickerkite Sector map page. The toolbar reuses .mbar / .mperiods / .mrange and the pane .msum / .mret from markets.css. */
+.app:not([data-page="map"]) .map-only{display:none!important}
+#map{display:flex;flex-direction:column;overflow:hidden}
+.sm-bar{position:static;flex:none}
+.sm-crumb{display:flex;align-items:center;gap:8px;font-size:12px;white-space:nowrap}
+.sm-crumb b{color:var(--fg-strong);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.sm-crumb button{font:inherit;font-size:11.5px;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:var(--r);padding:4px 9px;cursor:pointer}
+.sm-crumb button:hover{border-color:var(--accent);color:var(--fg-strong)}
+.sm-mode{margin:0}
+.sm-stage{position:relative;flex:1;min-height:0;overflow:hidden;user-select:none}
+.sm-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.sm-wait{position:absolute;inset:0;padding:14px;background:var(--bg);overflow:hidden}
+.sm-wait[hidden]{display:none}
+.sm-tip{position:absolute;z-index:2;pointer-events:none;max-width:270px;padding:7px 10px;background:var(--panel);border:1px solid var(--line-2);border-radius:var(--r);box-shadow:0 6px 22px rgba(0,0,0,.5);font-size:12px;line-height:1.5;color:var(--fg)}
+.sm-tip b{color:var(--fg-strong)}
+.sm-tip .dim{font-size:11px}
+.sm-legend{position:absolute;left:10px;right:10px;bottom:7px;display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--dim);pointer-events:none;white-space:nowrap;overflow:hidden}
+.sm-legend i{width:150px;height:8px;flex:none;border:1px solid var(--line-2)}
+.sm-key{margin-left:10px;letter-spacing:.05em;overflow:hidden;text-overflow:ellipsis}
+.sm-big{font-size:22px;font-weight:650;margin:12px 0 2px}
+.sm-big .dim{font-size:12px;font-weight:400}
+.sm-how{font-size:12px!important;line-height:1.55!important;margin-top:16px!important}
+.sm-card{padding-bottom:12px;margin-bottom:6px;border-bottom:1px solid var(--line)}
+.sm-card p{margin:10px 0 0;font-size:14px}
+.sm-card p .dim{font-size:12px}
+.sm-rows{display:flex;flex-direction:column;margin:4px -8px 0}
+.sm-row{display:grid;grid-template-columns:minmax(0,1fr) 84px 62px 58px;align-items:center;gap:8px;padding:5px 8px;font:inherit;font-size:12.5px;color:var(--fg);background:none;border:0;border-radius:var(--r);text-align:left;cursor:pointer}
+.sm-row:hover{background:var(--surface-2)}
+.sm-row.sel{background:var(--row-hi);box-shadow:inset 2px 0 0 var(--accent)}
+.sm-n{display:flex;gap:8px;align-items:baseline;min-width:0;white-space:nowrap}
+.sm-n b{font-weight:600;color:var(--fg-strong);flex:none}
+.sm-n span{color:var(--dim);font-size:11.5px;overflow:hidden;text-overflow:ellipsis}
+.sm-b{position:relative;height:8px;background:linear-gradient(var(--line-2),var(--line-2)) center/1px 100% no-repeat}
+.sm-b i{position:absolute;top:0;bottom:0;min-width:1px}
+.sm-b i.up{background:var(--up)} .sm-b i.dn{background:var(--down)}
+.sm-v{text-align:right;font-variant-numeric:tabular-nums}
+.sm-c{text-align:right;color:var(--dim);font-size:11.5px;font-variant-numeric:tabular-nums}
+[data-theme="terminal"] .sm-bar{padding:6px 14px;background:var(--bg)}
+[data-theme="terminal"] .sm-crumb{font-size:11px}
+[data-theme="terminal"] .sm-crumb button{font-size:10.5px;letter-spacing:.05em;padding:3px 7px}
+[data-theme="terminal"] .sm-row{font-size:11.5px;padding:4px 8px}
+[data-theme="terminal"] .sm-legend{font-size:10px}

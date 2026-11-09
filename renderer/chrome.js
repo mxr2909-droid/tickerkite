@@ -15,6 +15,7 @@
     ["calendar", "ECO", "ECONOMIC CALENDAR", 3, "1–5 REGION · ←→ WEEK · ↑↓ MOVE · T TODAY · / SEARCH · R RELOAD"],
     ["fx", "FX", "CURRENCIES AND THE DOLLAR", "X", "↵ CHART ROW · R RELOAD · YAHOO FINANCE, DELAYED"],
     ["markets", "WEI", "WORLD INDICES AND SECTORS", 4, "1–9 PERIOD · ↵ CHART · YAHOO FINANCE, DELAYED"],
+    ["map", "MAP", "SECTOR MAP: SECTORS AND THEIR LARGEST COMPANIES", "H", "1–6 PERIOD · CLICK A SECTOR TO OPEN · ESC BACK · D 2D/3D · ←→ SECTOR · ↑↓ COMPANY · ↵ CHART · NASDAQ + YAHOO, DELAYED"],
     ["fed", "FED", "FED FUNDS PATH, MARKET-IMPLIED", 5, "↑↓ MOVE · R RELOAD · CME / FRED"],
     ["curve", "GC", "TREASURY YIELD CURVE", 8, "R RELOAD · US TREASURY"],
     ["graphs", "GP", "GRAPHS", 6, "/ ADD SERIES · ESC CANCEL TOOL"],
@@ -28,13 +29,13 @@
   const GROUPS = [
     ["NEWS", ["news", "brief"]],
     ["MACRO", ["score", "calendar", "fed", "curve", "warn", "factor"]],
-    ["MARKETS", ["markets", "fx"]],
+    ["MARKETS", ["markets", "map", "fx"]],
     ["GRAPHS", ["graphs"]],
     ["EQUITY", ["screen", "company"]],
     ["PORTFOLIO", ["portfolio"]]
   ];
-  // one-letter shortcut per page, pressed with ⌥ (Option); mnemonic: Top, Brief, Economic scorecard, Calendar, Fed, Yield curve, Warnings, fActor, Markets, fX, Graphs, Screener, Company (Des), Portfolio
-  const KEYS = { news: "T", brief: "B", score: "E", calendar: "C", fed: "F", curve: "Y", warn: "W", factor: "A", markets: "M", fx: "X", graphs: "G", screen: "S", company: "D", portfolio: "P" };
+  // one-letter shortcut per page, pressed with ⌥ (Option); mnemonic: Top, Brief, Economic scorecard, Calendar, Fed, Yield curve, Warnings, fActor, Markets, sector map (Heat), fX, Graphs, Screener, Company (Des), Portfolio
+  const KEYS = { news: "T", brief: "B", score: "E", calendar: "C", fed: "F", curve: "Y", warn: "W", factor: "A", markets: "M", map: "H", fx: "X", graphs: "G", screen: "S", company: "D", portfolio: "P" };
   const groupOf = (p) => GROUPS.findIndex((g) => g[1].includes(p));
   const lastIn = {};   // group index -> last page opened in it
   const META = Object.fromEntries(PAGES.map((p) => [p[0], { code: p[1], title: p[2], digit: p[3], hint: p[4] }]));

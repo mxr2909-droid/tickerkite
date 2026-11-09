@@ -12,4 +12,7 @@ const earnings = (date, timeoutMs) => get(`/calendar/earnings?date=${encodeURICo
 const earningsDate = (sym, timeoutMs = 8000) => get(`/analyst/${encodeURIComponent(sym)}/earnings-date`, timeoutMs);
 const holdings = (sym, timeoutMs) => get(`/company/${encodeURIComponent(sym)}/institutional-holdings?limit=15&type=TOTAL&sortColumn=marketValue&sortOrder=DESC`, timeoutMs);
 
-module.exports = { economicEvents, earnings, earningsDate, holdings };
+/** Every US-listed stock in one reply: symbol, name, last sale, day change, market cap, country, sector and industry. */
+const screener = (timeoutMs = 30000) => get("/screener/stocks?tableonly=true&download=true", timeoutMs);
+
+module.exports = { economicEvents, earnings, earningsDate, holdings, screener };

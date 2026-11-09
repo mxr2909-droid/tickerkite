@@ -27,4 +27,12 @@ async function search(q, timeoutMs = 6000) {
   return JSON.parse(await getText(`${BASE}/v1/finance/search?${qs({ q, quotesCount: 8, newsCount: 0, listsCount: 0 })}`, { timeoutMs, headers: { Accept: "application/json" } }));
 }
 
-module.exports = { chart, chartUrl, dailyCloses, search };
+/** Batch chart: up to 20 symbols in one request. Returns { SYM: chart-result-shaped object } (same shape as chart().chart.result[0]). */
+async function spark(symbols, params, timeoutMs = 20000) {
+  const j = JSON.parse(await getText(`${BASE}/v7/finance/spark?symbols=${symbols.map(encodeURIComponent).join(",")}&${qs(params)}`, { timeoutMs, headers: { Accept: "application/json" } }));
+  const out = {};
+  for (const r of j?.spark?.result || []) if (r?.response?.[0]) out[r.symbol] = r.response[0];
+  return out;
+}
+
+module.exports = { chart, chartUrl, dailyCloses, search, spark };
