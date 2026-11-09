@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="brief.css">
 <link rel="stylesheet" href="portfolio.css">
 <link rel="stylesheet" href="curve.css">
+<link rel="stylesheet" href="fx.css">
 <link rel="stylesheet" href="factor.css">
 <link rel="stylesheet" href="warn.css">
 <link rel="stylesheet" href="screen.css">
@@ -55,6 +56,7 @@
           <button type="button" class="gbtn" aria-haspopup="menu" aria-expanded="false"><span>Markets</span><i>▾</i></button>
           <div class="gmenu" role="menu" hidden>
             <button type="button" role="menuitemradio" data-p="markets" aria-selected="false">Markets<kbd>⌘⌥4</kbd></button>
+            <button type="button" role="menuitemradio" data-p="fx" aria-selected="false">Currencies<kbd>⌘⌥X</kbd></button>
             <button type="button" role="menuitemradio" data-p="curve" aria-selected="false">Yield curve<kbd>⌘⌥8</kbd></button>
             <button type="button" role="menuitemradio" data-p="fed" aria-selected="false">Fed path<kbd>⌘⌥5</kbd></button>
             <button type="button" role="menuitemradio" data-p="graphs" aria-selected="false">Graphs<kbd>⌘⌥6</kbd></button>
@@ -92,6 +94,7 @@
     <div class="list num brief-only" id="brief" aria-label="Brief"></div>
     <div class="list num portfolio-only" id="portfolio" aria-label="Portfolio"></div>
     <div class="list num curve-only" id="curve" aria-label="Yield curve"></div>
+    <div class="list num fx-only" id="fx" aria-label="Currencies"></div>
     <div class="list num factor-only" id="factor" aria-label="Factor probabilities"></div>
     <div class="list num warn-only" id="warn" aria-label="Warning history"></div>
     <div class="list num screen-only" id="screen" aria-label="Stock screener"></div>
@@ -123,6 +126,7 @@
   <aside class="detail brief-only" id="bdetail" aria-label="Today"></aside>
   <aside class="detail portfolio-only" id="pdetail" aria-label="Holding detail"></aside>
   <aside class="detail curve-only" id="ydetail" aria-label="Yield curve detail"></aside>
+  <aside class="detail fx-only" id="fxdetail" aria-label="Currencies detail"></aside>
   <aside class="detail factor-only" id="fadetail" aria-label="Factor probabilities detail"></aside>
   <aside class="detail warn-only" id="wndetail" aria-label="Warning history detail"></aside>
   <aside class="detail screen-only" id="scdetail" aria-label="Screener detail"></aside>
@@ -141,6 +145,7 @@
 <script src="brief.js"></script>
 <script src="portfolio.js"></script>
 <script src="curve.js"></script>
+<script src="fx.js"></script>
 <script src="factor.js"></script>
 <script src="warn.js"></script>
 <script src="screen.js"></script>

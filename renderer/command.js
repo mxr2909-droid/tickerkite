@@ -9,7 +9,7 @@
   // [mnemonic(s), label, page]
   const PAGES = [
     [["BRIEF", "BRF", "B"], "Brief", "brief"], [["N", "TOP", "NEWS"], "News", "news"], [["PORT", "PF"], "Portfolio", "portfolio"],
-    [["SC", "ECST", "SCORE"], "Scorecards", "score"], [["ECO", "CAL"], "Calendar", "calendar"], [["WEI", "MKT", "HEAT"], "Markets heatmap", "markets"],
+    [["SC", "ECST", "SCORE"], "Scorecards", "score"], [["ECO", "CAL"], "Calendar", "calendar"], [["WEI", "MKT", "HEAT"], "Markets heatmap", "markets"], [["FX", "CCY", "DXY"], "Currencies", "fx"],
     [["FED", "WIRP"], "Fed rate path", "fed"], [["GC", "CURVE", "YC"], "Yield curve", "curve"], [["G", "GP", "GRAPH"], "Graphs", "graphs"], [["COMPANY", "DES"], "Company", "company"]
   ];
   // [mnemonic(s), label, company-page tab or special action]

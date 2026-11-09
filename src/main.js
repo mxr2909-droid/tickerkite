@@ -18,7 +18,7 @@ const PAGE_MODULES = {
   calendar: require("./calendar"), markets: require("./markets"), 
   fed: require("./fed"), graphs: require("./graphs"), recession: require("./recession"),
   board: require("./board"), releases: require("./releases"), portfolio: require("./portfolio"), brief: require("./brief"),
-  companypage: require("./companypage"), curve: require("./curve"), command: require("./command"), factor: require("./factor"), monitors: require("./monitors"), screen: require("./screen")
+  companypage: require("./companypage"), curve: require("./curve"), fx: require("./fx"), command: require("./command"), factor: require("./factor"), monitors: require("./monitors"), screen: require("./screen")
 };
 const bus = new EventEmitter(); // "news" | "quotes" | "scores" after each refresh, for page modules
 const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");
@@ -594,6 +594,7 @@ function buildMenu() {
         { label: "Fed", accelerator: "CmdOrCtrl+Alt+5", click: () => setPageInFocused("fed") },
         { label: "Graphs", accelerator: "CmdOrCtrl+Alt+6", click: () => setPageInFocused("graphs") },
         { label: "Portfolio", accelerator: "CmdOrCtrl+Alt+7", click: () => setPageInFocused("portfolio") },
+        { label: "Currencies", accelerator: "CmdOrCtrl+Alt+X", click: () => setPageInFocused("fx") },
         { label: "Yield Curve", accelerator: "CmdOrCtrl+Alt+8", click: () => setPageInFocused("curve") },
         { label: "Factor Probabilities", accelerator: "CmdOrCtrl+Alt+R", click: () => setPageInFocused("factor") },
         { label: "Warning History", accelerator: "CmdOrCtrl+Alt+W", click: () => setPageInFocused("warn") },

@@ -43,6 +43,7 @@ Tickerkite opens in the **Terminal** theme: near-black background, cyan accents,
 | ECST | Scorecards (outlook, decile board, recession odds) | ⌘⌥2 |
 | ECO | Calendar | ⌘⌥3 |
 | WEI | Markets heatmap | ⌘⌥4 |
+| FX | Currencies (megatrends and a two-currency compare) | ⌘⌥X |
 | FED | Fed path | ⌘⌥5 |
 | GC | Yield curve | ⌘⌥8 |
 | GP | Graphs | ⌘⌥6 |
@@ -161,6 +162,10 @@ The Markets page (⌘⌥4) is a heatmap of what's leading and lagging, in three 
 Tiles are green or red by return, darker the bigger the move relative to the period. Switch periods with the buttons or keys 1–9 (1D, 1W, 1M, 3M, YTD, 1Y, 3Y, 5Y, 10Y); each period has its own color scale. Click a tile for the right pane: a RETURNS table (TOTAL, plus PER YEAR annualized for 3Y/5Y/10Y), how far back the history goes, the 52-week high with its date and your distance from it, and a PRICE HISTORY chart (1Y/3Y/5Y/10Y/MAX, daily closes for 1Y, weekly beyond, last point at the live price, dashed line at the 52-week high). Click the tile again, press Enter, or use "Open chart" for the full price chart. A period longer than a symbol's history shows —.
 
 Tickerkite downloads one year of daily prices per symbol from Yahoo Finance and computes every period locally; the full weekly history (for 3Y+ and the long chart) is downloaded once a day and kept in `markets-history-cache.json` (long returns are measured from the last weekly close before the start date). It refreshes every 5 minutes while the US market is open and every 30 minutes otherwise (only after you first open the page), and keeps the last result in `markets-cache.json` in the app's data folder so the page opens instantly. Returns are price returns in each market's own currency, ignoring dividends.
+
+## Currencies (FX)
+
+Under **MARKETS**, next to the heatmap. The top shows plain-language megatrend cards: where the dollar index sits in its range since 1985, how many currencies are above their 200-day average against the dollar, the five-year winners and losers, and currencies stretched near the bottom or top of their history. **Compare** charts any two currencies (or USD) from 1 month to the full history as a cross rate (how much of B one A buys) or as both against the dollar rebased to 100; the right pane gives the change, high, low and where the rate sits in its range. The table lists the dollar index and 17 currencies with returns, annualized 5Y and 10Y, and distance from the 200-day average; click a row to chart it. Data is Yahoo Finance's free daily and weekly closes (unofficial, delayed). Keys: **⌥X** opens the page, **R** reloads.
 
 ## Calendar
 

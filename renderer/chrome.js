@@ -13,6 +13,7 @@
     ["brief", "BRF", "MORNING BRIEF", 0, "R RELOAD · ⌘K GO TO"],
     ["score", "ECST", "MACRO SCORECARD", 2, "1–6 ASSET · B BOARD · ↑↓ MOVE · ↵ CHART"],
     ["calendar", "ECO", "ECONOMIC CALENDAR", 3, "1–5 REGION · ←→ WEEK · ↑↓ MOVE · T TODAY · / SEARCH · R RELOAD"],
+    ["fx", "FX", "CURRENCIES AND THE DOLLAR", "X", "↵ CHART ROW · R RELOAD · YAHOO FINANCE, DELAYED"],
     ["markets", "WEI", "WORLD INDICES AND SECTORS", 4, "1–9 PERIOD · ↵ CHART · YAHOO FINANCE, DELAYED"],
     ["fed", "FED", "FED FUNDS PATH, MARKET-IMPLIED", 5, "↑↓ MOVE · R RELOAD · CME / FRED"],
     ["curve", "GC", "TREASURY YIELD CURVE", 8, "R RELOAD · US TREASURY"],
@@ -27,13 +28,13 @@
   const GROUPS = [
     ["NEWS", ["news", "brief"]],
     ["MACRO", ["score", "calendar", "fed", "curve", "warn", "factor"]],
-    ["MARKETS", ["markets"]],
+    ["MARKETS", ["markets", "fx"]],
     ["GRAPHS", ["graphs"]],
     ["EQUITY", ["screen", "company"]],
     ["PORTFOLIO", ["portfolio"]]
   ];
-  // one-letter shortcut per page, pressed with ⌥ (Option); mnemonic: Top, Brief, Economic scorecard, Calendar, Fed, Yield curve, Warnings, fActor, Markets, Graphs, Screener, Company (Des), Portfolio
-  const KEYS = { news: "T", brief: "B", score: "E", calendar: "C", fed: "F", curve: "Y", warn: "W", factor: "A", markets: "M", graphs: "G", screen: "S", company: "D", portfolio: "P" };
+  // one-letter shortcut per page, pressed with ⌥ (Option); mnemonic: Top, Brief, Economic scorecard, Calendar, Fed, Yield curve, Warnings, fActor, Markets, fX, Graphs, Screener, Company (Des), Portfolio
+  const KEYS = { news: "T", brief: "B", score: "E", calendar: "C", fed: "F", curve: "Y", warn: "W", factor: "A", markets: "M", fx: "X", graphs: "G", screen: "S", company: "D", portfolio: "P" };
   const groupOf = (p) => GROUPS.findIndex((g) => g[1].includes(p));
   const lastIn = {};   // group index -> last page opened in it
   const META = Object.fromEntries(PAGES.map((p) => [p[0], { code: p[1], title: p[2], digit: p[3], hint: p[4] }]));
