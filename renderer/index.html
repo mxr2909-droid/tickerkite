@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="portfolio.css">
 <link rel="stylesheet" href="curve.css">
 <link rel="stylesheet" href="fx.css">
+<link rel="stylesheet" href="mc.css">
 <link rel="stylesheet" href="map.css">
 <link rel="stylesheet" href="factor.css">
 <link rel="stylesheet" href="warn.css">
@@ -75,6 +76,7 @@
         </div>
         <button type="button" role="tab" data-p="screen" aria-selected="false" title="Stock screener (⌘⌥S)">Screener</button>
         <button type="button" role="tab" data-p="company" aria-selected="false" title="Company (⌘⌥9) · ⌘K to look one up">Company</button>
+        <button type="button" role="tab" data-p="mc" aria-selected="false" title="Portfolio Monte Carlo (⌥O)">Monte Carlo</button>
       </div>
       <div class="tabs news-only" id="tabs"><span class="pg"><span id="pgView">All</span><b>News</b></span></div>
       <div class="tabs score-only" id="atabs"></div>
@@ -102,6 +104,7 @@
     <div class="list num warn-only" id="warn" aria-label="Warning history"></div>
     <div class="list num screen-only" id="screen" aria-label="Stock screener"></div>
     <div class="list num company-only" id="company" aria-label="Company"></div>
+    <div class="list num mc-only" id="mc" aria-label="Portfolio Monte Carlo"></div>
     <div class="secbar news-only">
       <div class="l"><b>Top Ranked News</b><span>|</span><em id="more">More »</em></div>
       <div class="toggle" id="mode">
@@ -135,6 +138,7 @@
   <aside class="detail warn-only" id="wndetail" aria-label="Warning history detail"></aside>
   <aside class="detail screen-only" id="scdetail" aria-label="Screener detail"></aside>
   <aside class="detail company-only" id="codetail" aria-label="Company detail"></aside>
+  <aside class="detail mc-only" id="mcdetail" aria-label="Portfolio Monte Carlo detail"></aside>
 </div>
 <script src="ui.js"></script>
 <script src="company.js"></script>
@@ -157,6 +161,7 @@
 <script src="warn.js"></script>
 <script src="screen.js"></script>
 <script src="companypage.js"></script>
+<script src="mc.js"></script>
 <script src="command.js"></script>
 <script src="chrome.js"></script>
 <script src="app.js"></script>

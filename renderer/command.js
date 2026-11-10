@@ -10,7 +10,7 @@
   const PAGES = [
     [["BRIEF", "BRF", "B"], "Brief", "brief"], [["N", "TOP", "NEWS"], "News", "news"], [["PORT", "PF"], "Portfolio", "portfolio"],
     [["SC", "ECST", "SCORE"], "Scorecards", "score"], [["ECO", "CAL"], "Calendar", "calendar"], [["WEI", "MKT", "HEAT"], "Markets heatmap", "markets"], [["MAP", "IMAP", "TREE"], "Sector map", "map"], [["FX", "CCY", "DXY"], "Currencies", "fx"],
-    [["FED", "WIRP"], "Fed rate path", "fed"], [["GC", "CURVE", "YC"], "Yield curve", "curve"], [["G", "GP", "GRAPH"], "Graphs", "graphs"], [["COMPANY", "DES"], "Company", "company"]
+    [["FED", "WIRP"], "Fed rate path", "fed"], [["GC", "CURVE", "YC"], "Yield curve", "curve"], [["G", "GP", "GRAPH"], "Graphs", "graphs"], [["COMPANY", "DES"], "Company", "company"], [["MC", "MONTE", "SIM"], "Portfolio Monte Carlo", "mc"]
   ];
   // [mnemonic(s), label, company-page tab or special action]
   const TICKER = [

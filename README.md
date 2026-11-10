@@ -54,6 +54,7 @@ Tickerkite opens in the **Terminal** theme: near-black background, cyan accents,
 | GP | Graphs | ⌘⌥6 |
 | PORT | Portfolio | ⌘⌥7 |
 | DES | Company | ⌘⌥9 |
+| MC | Portfolio Monte Carlo (10,000 simulated futures against a benchmark) | ⌥O |
 
 Each page has a header strip (code, title and status on the left, **PULLED N MINUTES AGO** on the right) and a footer with its keys. The same codes work in the ⌘K bar. The older slate/indigo look is still there as **Classic**: switch with **View › Switch Theme** (⌘⌥T) or **Settings › Appearance**. The choice is remembered on this Mac. In Classic, the top bar works as described next.
 
@@ -266,6 +267,16 @@ A dot next to the clock in the top bar shows whether the data is fresh: **green*
 - Ratios past sane limits (P/E over 1,000, etc.) show as "—": filings occasionally carry a value in the wrong unit
 - **Insider buyers** and **net insider $**: open-market purchases (Form 4 code P) and sales (S) from the SEC's quarterly insider-transaction data sets, over the two latest quarters it has published (they lag by a quarter or two, and the dates are shown). Grants and option exercises don't count, and each insider counts once. The **Insider buying** preset finds companies where 2+ insiders bought and net buying was positive. Executives sell routinely, so buying is the rarer signal.
 
+## Portfolio Monte Carlo (MC)
+
+**MC** (Equity › MC, ⌥O) runs 10,000 possible futures for your Portfolio holdings at today's weights and compares them with a benchmark (SPY unless you type another ticker). Pick a time frame (6M, 1Y, 3Y, 5Y, 10Y, or keys 1–5), a starting capital (empty = your portfolio's value today) and press **Run** (R).
+
+- **Three headline stats:** median ending value, chance of beating the benchmark, chance of ending below where you started.
+- **Simulated Portfolio Paths:** portfolio value over time, every path starting at your capital. Bold line = median, darker band = 25th–75th percentile, lighter band = 5th–95th, dashed line = the benchmark's median, flat line = starting capital, thin lines = a fixed sample of 100 runs (toggle with **Individual runs** or P). Switch the vertical axis between dollars and cumulative return (V). Hover a date for the median, the 5th–95th range and the benchmark's median; the median ending values are labelled at the right edge.
+- **Ending Outperformance vs. Benchmark:** a histogram of each run's ending return minus the benchmark's, in percentage points, with zero marked and the share of runs ahead, behind and tied (within ±0.05 points).
+
+How it works: each run stitches a future together from 20-day stretches of real past trading days (up to ten years of Yahoo dividend-adjusted daily closes), and the portfolio and benchmark always take the same days, so correlations and crashes come from history. The random numbers are seeded: the same holdings, prices and settings give the same result. Holdings with under a year of prices are left out (cash is held flat instead); the weights stay at today's mix; no deposits, withdrawals, fees or taxes; foreign holdings are simulated in their own currency. It shows what the last decade makes plausible. It is not a forecast.
+
 ## Risk monitors
 
 The Brief page (BRF) opens with **risk monitors**: the chance of five major events, each from a model whose factors were chosen by cross-validation (`scripts/select-factors.js`), refreshed on launch and every 6 hours.
@@ -373,6 +384,7 @@ src/watchlist.js     your tickers: symbol cleanup and which stories mention them
 src/markets.js       market heatmap: sectors, global indexes, style pairs
 src/company.js       company panel: SEC EDGAR fundamentals, valuation, next earnings date
 src/graphs.js        graph workspace: FRED/Yahoo downloads, cache, saved charts, exports
+src/montecarlo.js    portfolio Monte Carlo: block-bootstrap simulation, percentile paths, outperformance histogram
 src/macro/           scorecards: indicators, data downloads, scoring, default weights
 
 src/macro/           scorecards: indicators, data downloads, scoring, default weights, decile board math

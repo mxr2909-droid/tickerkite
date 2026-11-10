@@ -1,0 +1,59 @@
+/* Tickerkite Portfolio Monte Carlo page. Shares the .yc-* card, chart and table styles from curve.css. */
+.app:not([data-page="mc"]) .mc-only{display:none!important}
+.mc{--mc-port:var(--accent);--mc-bench:var(--fg)}
+.mc-busy .yc-card,.mc-busy .mc-tiles{opacity:.55;transition:opacity .15s}
+.mc-ctl{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;font-size:12.5px;color:var(--dim)}
+.mc-ctl .mc-h{margin-left:0}
+.mc-ctl label{display:inline-flex;align-items:center;gap:7px}
+.mc-ctl input{font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:var(--r);width:110px}
+.mc-ctl input.mc-b{width:72px;text-transform:uppercase}
+.mc-in{position:relative;display:inline-flex;align-items:center}
+.mc-in i{position:absolute;left:8px;font-style:normal;color:var(--dim);pointer-events:none}
+.mc-in input{padding-left:19px}
+.mc-run{color:var(--fg)!important}
+.mc-run:disabled{opacity:.6}
+.mc-ct{gap:8px 14px}
+.mc-meta{font-size:12px;color:var(--dim)}
+.mc-meta b{font-size:12px!important;color:var(--fg)!important}
+.mc-ct .yc-tog::before{content:"";width:9px;height:9px;border:1px solid currentColor;border-radius:2px}
+.mc-ct .yc-tog[aria-pressed="true"]::before{background:currentColor}
+.mc-plot{position:relative}
+.mc-b90{fill:var(--mc-port);opacity:.13}
+.mc-b50{fill:var(--mc-port);opacity:.2}
+.mc-runs polyline{fill:none;stroke:var(--fg);stroke-width:.7;opacity:.14;stroke-linejoin:round}
+.mc-med{fill:none;stroke:var(--mc-port);stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round}
+.mc-bench{fill:none;stroke:var(--mc-bench);stroke-width:1.6;stroke-dasharray:6 4;stroke-linejoin:round}
+.mc-lead{stroke-width:1!important;stroke-dasharray:none!important;opacity:.7}
+.mc-start{stroke:var(--dim);stroke-width:1}
+.mc-startl{fill:var(--fg);paint-order:stroke;stroke:var(--surface);stroke-width:3px}
+.mc-med-dot{fill:var(--mc-port)} .mc-bench-dot{fill:var(--mc-bench)}
+.mc-ring{stroke:var(--surface);stroke-width:2}
+.mc-endv{fill:var(--fg-strong);font-size:12.5px;font-weight:600;font-family:var(--sans)}
+.mc-leg{gap:4px 18px;margin-top:6px}
+.mc-leg i{flex:none}
+i.mc-k-med{border-top:3px solid var(--mc-port)!important;width:16px;display:inline-block}
+i.mc-k-bench{border-top:2px dashed var(--mc-bench)!important;width:16px;display:inline-block}
+i.mc-k-start{border-top:1px solid var(--dim)!important;width:16px;display:inline-block}
+i.mc-k-run{border-top:1px solid var(--fg)!important;opacity:.45;width:16px;display:inline-block}
+i.mc-k-b50,i.mc-k-b90,i.mc-k-pos,i.mc-k-neg{border:0!important;width:12px;height:10px;border-radius:2px;display:inline-block}
+i.mc-k-b50{background:var(--mc-port);opacity:.4} i.mc-k-b90{background:var(--mc-port);opacity:.2}
+i.mc-k-pos{background:var(--up)} i.mc-k-neg{background:var(--down)}
+.mc-tip{position:absolute;top:10px;z-index:2;pointer-events:none;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r);padding:7px 10px;font-size:12px;line-height:1.55;color:var(--fg);white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.mc-tip[hidden]{display:none}
+.mc-tip .mc-tt{color:var(--fg-strong);font-weight:600;margin-bottom:2px}
+.mc-tip div:not(.mc-tt){display:flex;align-items:center;gap:7px}
+.mc-tip div span:first-of-type{color:var(--dim);margin-right:auto;padding-right:14px}
+.mc-tip b{color:var(--fg-strong);font-weight:600}
+.mc-pos{fill:var(--up)} .mc-neg{fill:var(--down)}
+.mc-pos,.mc-neg{opacity:.8} .mc-pos.on,.mc-neg.on{opacity:1}
+.mc-zero{stroke:var(--fg-strong);stroke-width:1.5}
+.mc-zl{fill:var(--fg-strong);font-size:11px;font-weight:700;font-family:var(--sans)}
+.mc-side{fill:var(--dim);font-size:11.5px;font-family:var(--sans)}
+.mc-sn{fill:var(--fg-strong);font-weight:600;font-size:13px}
+.mc-split b{color:var(--fg-strong);font-weight:600}
+.mc-split em{font-style:normal}
+.mc-tab{margin:10px 0 4px;font-size:12.5px}
+.mc-tab td span{font-size:11px;margin-left:3px}
+.mc-tab td span.up{color:var(--up)} .mc-tab td span.dn{color:var(--down)}
+.mc-kv{grid-template-columns:90px minmax(0,1fr);gap:8px 0}
+[data-theme="terminal"] .mc-ctl input{border-radius:0;font-family:var(--mono);font-size:11.5px}

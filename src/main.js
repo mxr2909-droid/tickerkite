@@ -18,7 +18,7 @@ const PAGE_MODULES = {
   calendar: require("./calendar"), markets: require("./markets"), 
   fed: require("./fed"), graphs: require("./graphs"), recession: require("./recession"),
   board: require("./board"), releases: require("./releases"), portfolio: require("./portfolio"), brief: require("./brief"),
-  companypage: require("./companypage"), curve: require("./curve"), fx: require("./fx"), sectormap: require("./sectormap"), command: require("./command"), factor: require("./factor"), monitors: require("./monitors"), screen: require("./screen")
+  companypage: require("./companypage"), curve: require("./curve"), fx: require("./fx"), sectormap: require("./sectormap"), command: require("./command"), factor: require("./factor"), monitors: require("./monitors"), screen: require("./screen"), montecarlo: require("./montecarlo")
 };
 const bus = new EventEmitter(); // "news" | "quotes" | "scores" after each refresh, for page modules
 const { INDICATORS, SECTIONS, RECESSIONS } = require("./macro/indicators");
@@ -601,6 +601,7 @@ function buildMenu() {
         { label: "Warning History", accelerator: "CmdOrCtrl+Alt+W", click: () => setPageInFocused("warn") },
         { label: "Stock Screener", accelerator: "CmdOrCtrl+Alt+S", click: () => setPageInFocused("screen") },
         { label: "Company", accelerator: "CmdOrCtrl+Alt+9", click: () => setPageInFocused("company") },
+        { label: "Portfolio Monte Carlo", click: () => setPageInFocused("mc") },
         { label: "Go To…", accelerator: "CmdOrCtrl+K", click: () => { showStory(null); send("cmd:open"); } },
         { type: "separator" },
         { label: "Show Main Window", accelerator: "CmdOrCtrl+1", click: () => showStory(null) },
