@@ -1,6 +1,7 @@
 // Portfolio Monte Carlo (MC): main-process side. main.js calls register(ctx) once at startup.
-// ctx: { ipcMain, expose } — reads the holdings and their values through ctx.expose.portfolio()
+// ctx: { ipcMain, expose, readJSON, writeJSON } — reads the holdings and their values through ctx.expose.portfolio()
 //  - IPC channels must start with "mc:" (the preload only forwards those)
+//  - custom portfolios (a name plus tickers and weights) are kept in userData/mc-portfolios.json
 //
 // What it does: takes the portfolio at today's weights and a benchmark (SPY unless changed), downloads up to ten years of
 // daily dividend-adjusted closes for each from Yahoo, and builds one daily return series for the portfolio and one for the
@@ -16,7 +17,7 @@ const RUNS = 10000, SAMPLE = 100, BLOCK = 20, SEED = 20260101, MAX_POINTS = 126;
 const MIN_DAYS = 250;       // a holding needs about a year of prices to be simulated
 const TIE = 0.05;           // percentage points: a run within ±0.05 of the benchmark counts as tied
 const TTL = 6 * 3600e3, YEARS = 10, DAY = 864e5;
-const DEFAULT_BENCH = "SPY", DEFAULT_CAPITAL = 10000;
+const DEFAULT_BENCH = "SPY", DEFAULT_CAPITAL = 10000, MAX_ITEMS = 30;
 
 /** Small seeded random generator (mulberry32): same seed, same numbers. Returns a function giving [0, 1). */
 function rng(seed) {
@@ -79,7 +80,7 @@ function alignReturns(series, weights, bench) {
     start = Math.max(start, first);
   }
   const total = used.reduce((a, u) => a + u.weight, 0);
-  if (!used.some((u) => u.vals) || !(total > 0)) return { error: "None of your holdings has enough price history to simulate.", excluded };
+  if (!used.some((u) => u.vals) || !(total > 0)) return { error: "None of your holdings has enough price history to simulate (each needs about a year).", excluded };
   const len = n - start - 1;
   const port = new Float64Array(len), b = new Float64Array(len);
   for (let i = 0; i < len; i++) {
@@ -189,9 +190,25 @@ function closesFromChart(json) {
   return { pts, name: r.meta?.shortName || r.meta?.longName || r.meta?.symbol || "" };
 }
 
+/** Clean up a custom portfolio read from disk or sent by the page: [{ id, name, items: [{ sym, weight }] }]. */
+function sanitizeMix(m) {
+  const seen = new Set(), items = [];
+  for (const it of Array.isArray(m?.items) ? m.items : []) {
+    const sym = WL.normalizeSymbol(it?.sym), weight = Number(it?.weight);
+    if (!sym || seen.has(sym) || !(weight > 0) || !isFinite(weight) || items.length >= MAX_ITEMS) continue;
+    seen.add(sym);
+    items.push({ sym, name: String(it.name || sym).slice(0, 120), weight });
+  }
+  const name = String(m?.name || "").trim().slice(0, 40);
+  if (!items.length) return null;
+  return { id: /^[a-z0-9]{4,20}$/.test(m?.id || "") ? m.id : null, name: name || items.slice(0, 3).map((x) => x.sym).join(" + "), items };
+}
+
 // ---------- wiring ----------
 function register(ctx) {
   const cache = new Map(); // sym -> { at, pts, name }
+  let mixes = (ctx.readJSON("mc-portfolios.json", []) || []).map(sanitizeMix).filter((m) => m?.id);
+  const saveMixes = () => ctx.writeJSON("mc-portfolios.json", mixes);
 
   async function history(sym) {
     const hit = cache.get(sym);
@@ -203,43 +220,73 @@ function register(ctx) {
     cache.set(sym, rec);
     return rec;
   }
-
-  async function run(opts = {}) {
-    const horizon = HORIZONS.find((h) => h[0] === opts.horizon) || HORIZONS[1];
-    const benchSym = WL.normalizeSymbol(opts.benchmark) || DEFAULT_BENCH;
-    let pf = ctx.expose.portfolio?.();
-    if (pf?.rows?.length && !pf.rows.some((r) => r.value != null)) { await ctx.expose.refreshPortfolio?.(); pf = ctx.expose.portfolio(); }
-    const rows = (pf?.rows || []).filter((r) => r.value > 0);
-    const base = { horizons: HORIZONS.map(([k, label]) => [k, label]), horizon: horizon[0], horizonLabel: horizon[1], benchmark: benchSym };
-    if (!pf?.rows?.length) return { ...base, ok: false, empty: true };
-    if (!rows.length) return { ...base, ok: false, error: "Your holdings have no prices yet. Give the quotes a moment to load, then run it again." };
-
-    const syms = [...new Set([benchSym, ...rows.map((r) => r.sym)])];
+  /** Histories for many symbols, four at a time. Returns { got: { SYM: rec }, failed: [SYM] }. */
+  async function histories(syms) {
     const got = {}, failed = [];
     let i = 0;
     const worker = async () => { while (i < syms.length) { const s = syms[i++]; try { got[s] = await history(s); } catch { failed.push(s); } } };
     await Promise.all(Array.from({ length: 4 }, worker));
-    if (!got[benchSym]) return { ...base, ok: false, error: `No price history for the benchmark ${benchSym}. Check the ticker or try again in a minute.` };
+    return { got, failed };
+  }
 
-    const value = rows.reduce((a, r) => a + r.value, 0);
-    const weights = rows.map((r) => ({ sym: r.sym, name: r.name, weight: r.value, flat: r.cls === "cash" }));
+  async function run(opts = {}) {
+    const horizon = HORIZONS.find((h) => h[0] === opts.horizon) || HORIZONS[1];
+    const benchSym = WL.normalizeSymbol(opts.benchmark) || DEFAULT_BENCH;
+    const mix = mixes.find((m) => m.id === opts.source) || null;
+    const base = {
+      horizons: HORIZONS.map(([k, label]) => [k, label]), horizon: horizon[0], horizonLabel: horizon[1], benchmark: benchSym,
+      mixes, source: mix ? mix.id : "holdings", sourceName: mix ? mix.name : "My holdings"
+    };
+    let weights, value = null, noPrice = [];
+    if (mix) weights = mix.items.map((it) => ({ sym: it.sym, name: it.name, weight: it.weight, flat: false }));
+    else {
+      let pf = ctx.expose.portfolio?.();
+      if (pf?.rows?.length && !pf.rows.some((r) => r.value != null)) { await ctx.expose.refreshPortfolio?.(); pf = ctx.expose.portfolio(); }
+      const rows = (pf?.rows || []).filter((r) => r.value > 0);
+      if (!pf?.rows?.length) return { ...base, ok: false, empty: true };
+      if (!rows.length) return { ...base, ok: false, error: "Your holdings have no prices yet. Give the quotes a moment to load, then run it again." };
+      value = rows.reduce((a, r) => a + r.value, 0);
+      weights = rows.map((r) => ({ sym: r.sym, name: r.name, weight: r.value, flat: r.cls === "cash" }));
+      noPrice = pf.rows.filter((r) => !(r.value > 0)).map((r) => ({ sym: r.sym, why: "no price" }));
+    }
+    const { got } = await histories([...new Set([benchSym, ...weights.map((w) => w.sym)])]);
+    if (!got[benchSym]) return { ...base, ok: false, error: `No price history for the benchmark ${benchSym}. Check the ticker or try again in a minute.` };
+    for (const w of weights) if (got[w.sym]?.name) w.name = got[w.sym].name;
+
     const series = Object.fromEntries(Object.entries(got).map(([s, h]) => [s, h.pts]));
     const al = alignReturns(series, weights, got[benchSym].pts);
-    if (al.error) return { ...base, ok: false, error: al.error };
+    if (al.error) return { ...base, ok: false, error: mix ? al.error.replace("your holdings", "the tickers in this portfolio") : al.error };
 
-    const capital = Number(opts.capital) > 0 && isFinite(opts.capital) ? Math.min(Number(opts.capital), 1e12) : Math.round(value) || DEFAULT_CAPITAL;
+    const typed = Number(opts.capital) > 0 && isFinite(opts.capital);
+    const capital = typed ? Math.min(Number(opts.capital), 1e12) : Math.round(value) || DEFAULT_CAPITAL;
     const t0 = Date.now();
     const sim = simulate({ port: al.port, bench: al.bench, days: horizon[2], capital });
-    const noPrice = (pf.rows || []).filter((r) => !(r.value > 0)).map((r) => ({ sym: r.sym, why: "no price" }));
     return {
-      ...base, ok: true, ...sim, benchName: got[benchSym].name, portfolioValue: value, capitalIsPortfolio: !(Number(opts.capital) > 0),
+      ...base, ok: true, ...sim, benchName: got[benchSym].name, portfolioValue: value, capitalIsPortfolio: !typed && value != null,
       holdings: al.used.sort((a, b) => b.weight - a.weight), excluded: [...al.excluded, ...noPrice],
       history: { from: al.dates[0], to: al.dates[al.dates.length - 1], days: al.dates.length, limitedBy: al.used.filter((u) => u.from).sort((a, b) => b.from - a.from)[0]?.sym || null },
       at: Date.now(), tookMs: Date.now() - t0
     };
   }
 
-  ctx.ipcMain.handle("mc:run", (_e, opts) => run(opts && typeof opts === "object" ? opts : {}).catch((e) => ({ ok: false, error: String(e.message || e) })));
+  /** Save a custom portfolio (new when it has no id). Every ticker must have price history on Yahoo. */
+  async function saveMix(raw) {
+    const m = sanitizeMix(raw);
+    if (!m) return { ok: false, error: "Add at least one ticker with a weight above 0." };
+    const { got, failed } = await histories(m.items.map((x) => x.sym));
+    if (failed.length) return { ok: false, error: `No price history on Yahoo Finance for ${failed.join(", ")}. Check the ticker (indexes start with ^, like ^GSPC).`, failed };
+    for (const it of m.items) it.name = got[it.sym].name || it.sym;
+    const at = mixes.findIndex((x) => x.id === m.id);
+    if (at >= 0) mixes[at] = m;
+    else { m.id = Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36).padStart(2, "0"); mixes.push(m); }
+    saveMixes();
+    return { ok: true, id: m.id, mixes };
+  }
+
+  ctx.ipcMain.handle("mc:run", (_e, opts) => run(opts && typeof opts === "object" ? opts : {}).catch((e) => ({ ok: false, error: String(e.message || e), mixes })));
+  ctx.ipcMain.handle("mc:mixes", () => mixes);
+  ctx.ipcMain.handle("mc:save", (_e, m) => saveMix(m).catch((e) => ({ ok: false, error: String(e.message || e) })));
+  ctx.ipcMain.handle("mc:delete", (_e, id) => { mixes = mixes.filter((m) => m.id !== String(id)); saveMixes(); return { ok: true, mixes }; });
 }
 
-module.exports = { register, rng, pctl, addTradingDays, alignReturns, histogram, simulate, closesFromChart, HORIZONS, RUNS, SAMPLE, TIE };
+module.exports = { register, sanitizeMix, rng, pctl, addTradingDays, alignReturns, histogram, simulate, closesFromChart, HORIZONS, RUNS, SAMPLE, TIE };

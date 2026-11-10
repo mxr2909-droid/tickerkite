@@ -147,3 +147,21 @@ test("closesFromChart prefers dividend-adjusted closes and drops gaps", () => {
   assert.deepStrictEqual(MC.closesFromChart(j).pts, [[1000, 10], [3000, 12]]);
   assert.strictEqual(MC.closesFromChart({}), null);
 });
+
+test("sanitizeMix cleans tickers and weights, drops junk and duplicates", () => {
+  const m = MC.sanitizeMix({ id: "abc123", name: "  Growth  ", items: [{ sym: " qqq ", weight: "60" }, { sym: "^gspc", weight: 30 }, { sym: "QQQ", weight: 5 }, { sym: "TLT", weight: 0 }, { sym: "", weight: 5 }, { sym: "GLD", weight: "x" }] });
+  assert.deepStrictEqual(m, { id: "abc123", name: "Growth", items: [{ sym: "QQQ", name: "QQQ", weight: 60 }, { sym: "^GSPC", name: "^GSPC", weight: 30 }] });
+  assert.strictEqual(MC.sanitizeMix({ name: "x", items: [] }), null);
+  assert.strictEqual(MC.sanitizeMix(null), null);
+  const auto = MC.sanitizeMix({ id: "../etc", items: [{ sym: "VOO", weight: 1 }, { sym: "AGG", weight: 1 }] });
+  assert.strictEqual(auto.id, null); assert.strictEqual(auto.name, "VOO + AGG");
+  assert.strictEqual(MC.sanitizeMix({ items: Array.from({ length: 50 }, (_, i) => ({ sym: "T" + i, weight: 1 })) }).items.length, 30);
+});
+
+test("every renderer script parses (a syntax error leaves its page blank)", () => {
+  const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
+  const dir = path.join(__dirname, "..", "renderer");
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".js"))) {
+    assert.doesNotThrow(() => new vm.Script(fs.readFileSync(path.join(dir, f), "utf8"), { filename: f }), `renderer/${f}`);
+  }
+});

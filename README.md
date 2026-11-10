@@ -269,7 +269,7 @@ A dot next to the clock in the top bar shows whether the data is fresh: **green*
 
 ## Portfolio Monte Carlo (MC)
 
-**MC** (Equity › MC, ⌥O) runs 10,000 possible futures for your Portfolio holdings at today's weights and compares them with a benchmark (SPY unless you type another ticker). Pick a time frame (6M, 1Y, 3Y, 5Y, 10Y, or keys 1–5), a starting capital (empty = your portfolio's value today) and press **Run** (R).
+**MC** (Equity › MC, ⌥O) runs 10,000 possible futures for a portfolio and compares them with a benchmark (SPY unless you type another ticker). The portfolio is your Portfolio holdings at today's weights, or one you build: **+ New portfolio** takes any tickers Yahoo Finance carries (stocks, ETFs and funds, indexes such as ^GSPC, crypto; bonds through bond funds such as AGG or TLT) with a weight for each, checks them, and saves it under a name in the **Portfolio** menu, where it can be edited or deleted. Weights that don't add to 100% are scaled. Pick a time frame (6M, 1Y, 3Y, 5Y, 10Y, or keys 1–5), a starting capital (empty = your portfolio's value today) and press **Run** (R).
 
 - **Three headline stats:** median ending value, chance of beating the benchmark, chance of ending below where you started.
 - **Simulated Portfolio Paths:** portfolio value over time, every path starting at your capital. Bold line = median, darker band = 25th–75th percentile, lighter band = 5th–95th, dashed line = the benchmark's median, flat line = starting capital, thin lines = a fixed sample of 100 runs (toggle with **Individual runs** or P). Switch the vertical axis between dollars and cumulative return (V). Hover a date for the median, the 5th–95th range and the benchmark's median; the median ending values are labelled at the right edge.
@@ -384,7 +384,7 @@ src/watchlist.js     your tickers: symbol cleanup and which stories mention them
 src/markets.js       market heatmap: sectors, global indexes, style pairs
 src/company.js       company panel: SEC EDGAR fundamentals, valuation, next earnings date
 src/graphs.js        graph workspace: FRED/Yahoo downloads, cache, saved charts, exports
-src/montecarlo.js    portfolio Monte Carlo: block-bootstrap simulation, percentile paths, outperformance histogram
+src/montecarlo.js    portfolio Monte Carlo: block-bootstrap simulation, percentile paths, outperformance histogram, saved custom portfolios
 src/macro/           scorecards: indicators, data downloads, scoring, default weights
 
 src/macro/           scorecards: indicators, data downloads, scoring, default weights, decile board math

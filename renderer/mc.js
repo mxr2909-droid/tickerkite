@@ -6,9 +6,9 @@
   const api = window.wire;
   const $ = (s) => document.querySelector(s);
   const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const M = { active: false, res: null, busy: false, seq: 0, horizon: "1Y", capital: null, benchmark: "SPY", paths: true, mode: "usd" };
+  const M = { active: false, res: null, busy: false, seq: 0, horizon: "1Y", capital: null, benchmark: "SPY", paths: true, mode: "usd", source: "holdings", mixes: [], edit: null, emsg: "", saving: false };
   try { Object.assign(M, JSON.parse(localStorage.getItem("wire.mc") || "{}")); } catch {}
-  const save = () => { try { localStorage.setItem("wire.mc", JSON.stringify({ horizon: M.horizon, capital: M.capital, benchmark: M.benchmark, paths: M.paths, mode: M.mode })); } catch {} };
+  const save = () => { try { localStorage.setItem("wire.mc", JSON.stringify({ horizon: M.horizon, capital: M.capital, benchmark: M.benchmark, paths: M.paths, mode: M.mode, source: M.source })); } catch {} };
   const HORIZONS = [["6M", "6 months"], ["1Y", "1 year"], ["3Y", "3 years"], ["5Y", "5 years"], ["10Y", "10 years"]];
 
   const usd = (v) => (v == null || !isFinite(v) ? "—" : (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 }));
@@ -32,25 +32,61 @@
   }
 
   // ---------- page ----------
+  /** The portfolio builder: a name plus rows of ticker and weight. M.edit = { id, name, rows: [{ sym, weight }] }. */
+  function editor() {
+    const ed = M.edit; if (!ed) return "";
+    const total = ed.rows.reduce((a, x) => a + (Number(x.weight) > 0 ? Number(x.weight) : 0), 0);
+    const rows = ed.rows.map((x, i) => `<div class="mc-row"><input name="sym${i}" value="${esc(x.sym)}" placeholder="Ticker" spellcheck="false" maxlength="15" aria-label="Ticker ${i + 1}">
+        <span class="mc-in mc-pc"><input name="w${i}" value="${esc(x.weight)}" placeholder="0" inputmode="decimal" aria-label="Weight of ticker ${i + 1} in percent"><i>%</i></span>
+        <button type="button" class="mc-x" data-rmrow="${i}" title="Remove this row" aria-label="Remove row ${i + 1}">×</button></div>`).join("");
+    return `<form class="yc-card mc-ed" id="mcEdit" autocomplete="off">
+      <div class="yc-ct mc-ct"><b>${ed.id ? "Edit portfolio" : "New portfolio"}</b>
+        <input name="name" class="mc-name" value="${esc(ed.name)}" placeholder="Name, e.g. 60/40 or All tech" maxlength="40" aria-label="Portfolio name"></div>
+      <div class="mc-rows">${rows}</div>
+      <div class="mc-edf"><button type="button" class="yc-btn" data-addrow>+ Add ticker</button>
+        ${M.holdW?.length ? `<button type="button" class="yc-btn" data-fromholdings title="Fill the rows with your holdings at today's weights, then change them">Start from my holdings</button>` : ""}
+        <button type="button" class="yc-btn" data-equal title="Give every ticker the same weight">Equal weights</button>
+        <span class="mc-tot num ${Math.abs(total - 100) < 0.05 ? "" : "off"}">Total <b>${+total.toFixed(1)}%</b>${Math.abs(total - 100) < 0.05 || !total ? "" : " · scaled to 100% when it runs"}</span></div>
+      <div class="mc-edf"><button type="submit" class="yc-btn mc-save" ${M.saving ? "disabled" : ""}>${M.saving ? "Checking tickers…" : "Save and run"}</button>
+        <button type="button" class="yc-btn" data-cancel>Cancel</button>
+        ${ed.id ? `<button type="button" class="yc-btn mc-del" data-del>Delete</button>` : ""}
+        <span class="pf-msg" role="alert">${esc(M.emsg)}</span></div>
+      <p class="yc-note">Any ticker Yahoo Finance carries: stocks (AAPL), ETFs and funds (VOO, VXUS), indexes with a ^ (^GSPC, ^NDX, ^RUT), crypto (BTC-USD). For bonds use a bond fund (AGG, TLT, LQD, HYG, BND): single bonds and yield indexes like ^TNX have no price history to simulate.</p></form>`;
+  }
+  /** Copy what is typed in the builder back into M.edit, so a redraw keeps it. */
+  function syncEdit() {
+    const f = $("#mcEdit"); if (!f || !M.edit) return;
+    M.edit.name = f.elements.name.value;
+    M.edit.rows = M.edit.rows.map((x, i) => ({ sym: f.elements["sym" + i]?.value ?? x.sym, weight: f.elements["w" + i]?.value ?? x.weight }));
+  }
+
   function render() {
     if (!M.active) return;
-    const el = $("#mc"), r = M.res;
-    if (!r) { el.innerHTML = window.WireUI.skeleton("chart", { label: "Running 10,000 simulations of your portfolio…" }); return; }
-    if (r.empty) {
-      el.innerHTML = window.WireUI.empty("Add your holdings first", "The simulation runs on what you own. Add holdings on the Portfolio page, then come back.", `<button type="button" class="es-btn" data-go="portfolio">Open Portfolio</button>`);
-      return;
-    }
+    syncEdit();
+    const el = $("#mc"), r = M.res, a = document.activeElement, focus = el.contains(a) && a.name ? `#${a.form?.id} [name="${a.name}"]` : null;
     const cap = M.capital != null ? String(M.capital) : "";
+    const custom = M.mixes.find((m) => m.id === M.source);
     const head = `<div class="yc-head"><div><h2>Portfolio Monte Carlo</h2>
-        <p class="dim">10,000 possible futures for your holdings at today's weights, against a benchmark · resampled from real trading days</p></div></div>
+        <p class="dim">10,000 possible futures for a portfolio, against a benchmark · resampled from real trading days</p></div></div>
+      <div class="mc-ctl mc-src"><label>Portfolio <select id="mcSrc" aria-label="Portfolio to simulate">
+          <option value="holdings"${custom ? "" : " selected"}>My holdings (today's weights)</option>
+          ${M.mixes.map((m) => `<option value="${esc(m.id)}"${m.id === M.source ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select></label>
+        ${custom ? `<button type="button" class="yc-btn" data-edit title="Change this portfolio's tickers and weights">Edit</button>` : ""}
+        <button type="button" class="yc-btn" data-new title="Build a portfolio from any tickers and weights">+ New portfolio</button>
+        ${custom ? `<span class="dim mc-mix">${custom.items.map((x) => `${esc(x.sym)} ${+x.weight.toFixed(1)}`).join(" · ")}</span>` : ""}</div>
+      ${editor()}
       <form class="mc-ctl" id="mcForm" autocomplete="off">
         <span class="mc-lab">Time frame</span>
         <span class="yc-spans mc-h">${HORIZONS.map(([k, l]) => `<button type="button" data-h="${k}" aria-pressed="${k === M.horizon}" title="${l}">${k}</button>`).join("")}</span>
-        <label>Starting capital <span class="mc-in"><i>$</i><input name="capital" value="${esc(cap)}" placeholder="${r.portfolioValue ? esc(Math.round(r.portfolioValue).toLocaleString("en-US")) : "10,000"}" inputmode="decimal" aria-label="Starting capital in dollars" title="Leave empty to start from your portfolio's value today"></span></label>
+        <label>Starting capital <span class="mc-in"><i>$</i><input name="capital" value="${esc(cap)}" placeholder="${r?.portfolioValue ? esc(Math.round(r.portfolioValue).toLocaleString("en-US")) : "10,000"}" inputmode="decimal" aria-label="Starting capital in dollars" title="${custom ? "Leave empty to start from $10,000" : "Leave empty to start from your portfolio's value today"}"></span></label>
         <label>Benchmark <input name="bench" class="mc-b" value="${esc(M.benchmark)}" spellcheck="false" maxlength="15" aria-label="Benchmark ticker" title="Any ticker Yahoo Finance carries: SPY, QQQ, VT, AGG…"></label>
         <button type="submit" class="yc-btn mc-run" ${M.busy ? "disabled" : ""}>${M.busy ? "Running…" : "↻ Run"}</button>
       </form>`;
-    if (!r.ok) { el.innerHTML = `<div class="yc mc">${head}${window.WireUI.error(r.error || "The simulation didn't run.", "data-run")}</div>`; return; }
+    const refocus = () => { if (focus) { const t = el.querySelector(focus); if (t && t !== document.activeElement) t.focus(); } };
+    const shell = (body) => { el.innerHTML = `<div class="yc mc">${head}${body}</div>`; refocus(); };
+    if (!r) return shell(window.WireUI.skeleton("chart", { label: "Running 10,000 simulations…" }));
+    if (r.empty) return shell(window.WireUI.empty("No holdings yet", "Add what you own on the Portfolio page, or build a portfolio here from any tickers and weights.", `<button type="button" class="es-btn" data-new>+ New portfolio</button> <button type="button" class="es-btn" data-go="portfolio">Open Portfolio</button>`));
+    if (!r.ok) return shell(window.WireUI.error(r.error || "The simulation didn't run.", "data-run"));
     const e = r.end, o = r.out, c = r.capital, med = e.port.p50, bn = esc(r.benchmark);
     const tiles = `<div class="yc-sps mc-tiles">
       <div class="yc-sp"><span>Median ending value</span><b>${usd(med)}</b><em><i class="${cls(med - c)}">${pct((med / c - 1) * 100)}</i><i>${bn} ${usd(e.bench.p50)}</i></em></div>
@@ -67,8 +103,8 @@
         <div class="yc-ct mc-ct"><b>Ending Outperformance vs. Benchmark</b>
           <span class="mc-meta">each run's ending return minus ${bn}'s, in percentage points</span></div>
         <div class="mc-plot" id="mcHist"></div></div>
-      <p class="yc-src">History used: ${date(r.history.from)} to ${date(r.history.to)} (${r.history.days.toLocaleString("en-US")} trading days of Yahoo Finance dividend-adjusted closes). Weights are held at today's mix. Same holdings, prices and settings give the same result. A simulation of what history makes plausible, not a forecast and not investment advice.</p></div>`;
-    drawCharts();
+      <p class="yc-src">Simulated: ${esc(r.sourceName)}. History used: ${date(r.history.from)} to ${date(r.history.to)} (${r.history.days.toLocaleString("en-US")} trading days of Yahoo Finance dividend-adjusted closes). Weights are held fixed. Same holdings, prices and settings give the same result. A simulation of what history makes plausible, not a forecast and not investment advice.</p></div>`;
+    refocus(); drawCharts();
   }
   function drawCharts() { lastW = chartW(); drawPaths(); drawHist(); }
 
@@ -187,8 +223,8 @@
       const i = +hit.dataset.i, b = bins[i];
       if (on) on.classList.remove("on");
       on = svg.querySelector(`path[data-i="${i}"]`); on?.classList.add("on");
-      const e = (v) => pts(v, o.width >= 1 ? 0 : 1) + " pts";
-      const edge = i === 0 && o.under ? `${e(b.hi)} or worse` : i === bins.length - 1 && o.over ? `${e(b.lo)} or better` : `${e(b.lo)} to ${e(b.hi)}`;
+      const ed = (v) => pts(v, o.width >= 1 ? 0 : 1) + " pts";
+      const edge = i === 0 && o.under ? `${ed(b.hi)} or worse` : i === bins.length - 1 && o.over ? `${ed(b.lo)} or better` : `${ed(b.lo)} to ${ed(b.hi)}`;
       tip.show(`<div class="mc-tt">${edge}</div><div><i class="${b.hi <= 0 ? "mc-k-neg" : "mc-k-pos"}"></i><span>${b.hi <= 0 ? "Behind" : "Ahead of"} ${esc(r.benchmark)}</span><b>${b.n.toLocaleString("en-US")} runs</b> <span class="dim">${share((b.n / r.runs) * 100)}</span></div>`, (X(b.lo) + bw / 2) / W);
     });
     svg.addEventListener("mouseleave", clear);
@@ -205,7 +241,7 @@
       <p class="dim">Where ${usd(c)} ends up across ${r.runs.toLocaleString("en-US")} runs</p>
       <table class="yc-tab mc-tab num"><thead><tr><th>Outcome</th><th>Portfolio</th><th>${esc(r.benchmark)}</th></tr></thead><tbody>
         ${row("Good (95th)", "p95")}${row("75th", "p75")}${row("Median", "p50")}${row("25th", "p25")}${row("Bad (5th)", "p5")}</tbody></table>
-      <div class="isec">WHAT WAS SIMULATED</div>
+      <div class="isec">WHAT WAS SIMULATED: ${esc(r.sourceName.toUpperCase())}</div>
       <dl class="kv num mc-kv">${r.holdings.map((h) => `<dt title="${esc(h.name || h.sym)}">${esc(h.sym)}</dt><dd><b>${h.weight.toFixed(1)}%</b>${h.flat ? ' <span class="dim">· held flat (cash)</span>' : ""}</dd>`).join("")}
         <dt>Benchmark</dt><dd>${esc(r.benchmark)} <span class="dim">· ${esc(r.benchName || "")}</span></dd></dl>
       ${r.excluded.length ? `<p class="yc-note"><b>Left out:</b> ${r.excluded.map((x) => `${esc(x.sym)} (${esc(x.why)})`).join(", ")}. The other holdings were scaled up to 100%.</p>` : ""}
@@ -213,7 +249,7 @@
       <div class="isec">HOW TO READ IT</div>
       <p class="yc-note">Each run builds a possible future out of 20-day stretches of real past trading days, picked at random. Your portfolio and the benchmark always get the same days, so they rise and fall together the way they really have.</p>
       <p class="yc-note">The bold line is the middle run at each date. Half of all runs sit inside the darker band and nine in ten inside the lighter one. The thin lines are ${r.sample} individual runs, the same ${r.sample} every time.</p>
-      <p class="yc-note">It assumes the future draws from the last ${(r.history.days / 252).toFixed(0)} years, that you keep today's mix (rebalanced daily), and no deposits, withdrawals, fees or taxes. Foreign holdings are simulated in their own currency.</p>`;
+      <p class="yc-note">It assumes the future draws from the last ${(r.history.days / 252).toFixed(0)} years, that the weights stay fixed (rebalanced daily), and no deposits, withdrawals, fees or taxes. Foreign holdings are simulated in their own currency.</p>`;
   }
 
   // ---------- running ----------
@@ -221,10 +257,13 @@
     const seq = ++M.seq;
     M.busy = true; render();
     window.WireChrome?.pulled("mc", "RUNNING…");
-    const res = await api.page.invoke("mc:run", { horizon: M.horizon, capital: M.capital, benchmark: M.benchmark }).catch((e) => ({ ok: false, error: String(e.message || e) }));
+    const res = await api.page.invoke("mc:run", { horizon: M.horizon, capital: M.capital, benchmark: M.benchmark, source: M.source }).catch((e) => ({ ok: false, error: String(e.message || e) }));
     if (seq !== M.seq) return;
     M.busy = false; M.res = res;
     if (res.benchmark) M.benchmark = res.benchmark;
+    if (res.mixes) M.mixes = res.mixes;
+    if (res.source) M.source = res.source;
+    if (res.ok && res.source === "holdings") M.holdW = res.holdings.filter((h) => !h.flat).map((h) => ({ sym: h.sym, weight: String(+h.weight.toFixed(1)) }));
     window.WireChrome?.pulled("mc", res.ok ? res.at : null);
     window.WireChrome?.status("mc", res.ok ? `${res.horizon} · ${res.runs.toLocaleString("en-US")} RUNS` : "");
     render(); renderDetail();
@@ -234,6 +273,7 @@
   const togglePaths = () => { M.paths = !M.paths; save(); render(); };
 
   $("#mc").addEventListener("submit", (e) => {
+    if (e.target.id === "mcEdit") { e.preventDefault(); return void saveEdit(); }
     if (e.target.id !== "mcForm") return;
     e.preventDefault();
     const f = new FormData(e.target), cap = Number(String(f.get("capital") || "").replace(/[$,\s]/g, ""));
@@ -241,7 +281,46 @@
     M.benchmark = String(f.get("bench") || "").trim().toUpperCase() || "SPY";
     save(); run();
   });
+  const blank = () => ({ sym: "", weight: "" });
+  const openEditor = (mix) => {
+    M.emsg = "";
+    M.edit = mix ? { id: mix.id, name: mix.name, rows: mix.items.map((x) => ({ sym: x.sym, weight: String(+x.weight.toFixed(2)) })) } : { id: null, name: "", rows: [blank(), blank(), blank()] };
+    render(); $("#mcEdit")?.scrollIntoView({ block: "nearest" }); $(mix ? "#mcEdit [name=name]" : "#mcEdit [name=sym0]")?.focus();
+  };
+  async function saveEdit() {
+    syncEdit();
+    const ed = M.edit, items = ed.rows.map((x) => ({ sym: x.sym.trim(), weight: Number(String(x.weight).replace(/[%,\s]/g, "")) })).filter((x) => x.sym);
+    if (!items.length) { M.emsg = "Type at least one ticker."; return render(); }
+    const bad = items.find((x) => !(x.weight > 0));
+    if (bad) { M.emsg = `Give ${bad.sym.toUpperCase()} a weight above 0.`; return render(); }
+    M.saving = true; M.emsg = ""; render();
+    const r = await api.page.invoke("mc:save", { id: ed.id, name: ed.name, items }).catch((e) => ({ ok: false, error: String(e.message || e) }));
+    M.saving = false;
+    if (!r.ok) { M.emsg = r.error || "Couldn't save it."; return render(); }
+    M.mixes = r.mixes; M.source = r.id; M.edit = null; save(); run();
+  }
+  $("#mc").addEventListener("change", (e) => { if (e.target.id === "mcSrc") { M.source = e.target.value; M.edit = null; save(); run(); } });
+  $("#mc").addEventListener("input", (e) => {
+    // keep the running total honest while weights are typed, without redrawing the inputs
+    if (!e.target.closest("#mcEdit") || !/^w\d+$/.test(e.target.name)) return;
+    syncEdit();
+    const t = M.edit.rows.reduce((a, x) => a + (Number(x.weight) > 0 ? Number(x.weight) : 0), 0), el = $("#mcEdit .mc-tot");
+    if (el) { el.classList.toggle("off", Math.abs(t - 100) >= 0.05); el.innerHTML = `Total <b>${+t.toFixed(1)}%</b>${Math.abs(t - 100) < 0.05 || !t ? "" : " · scaled to 100% when it runs"}`; }
+  });
   $("#mc").addEventListener("click", (e) => {
+    if (e.target.closest("[data-new]")) return openEditor(null);
+    if (e.target.closest("[data-edit]")) return openEditor(M.mixes.find((m) => m.id === M.source));
+    if (e.target.closest("[data-cancel]")) { M.edit = null; M.emsg = ""; $("#mcEdit")?.remove(); return render(); }
+    if (e.target.closest("[data-addrow]")) { syncEdit(); M.edit.rows.push(blank()); render(); return $(`#mcEdit [name=sym${M.edit.rows.length - 1}]`)?.focus(); }
+    const rm = e.target.closest("[data-rmrow]");
+    if (rm) { syncEdit(); M.edit.rows.splice(+rm.dataset.rmrow, 1); if (!M.edit.rows.length) M.edit.rows.push(blank()); $("#mcEdit")?.remove(); return render(); }
+    if (e.target.closest("[data-fromholdings]")) { syncEdit(); M.edit.rows = M.holdW.map((x) => ({ ...x })); $("#mcEdit")?.remove(); return render(); }
+    if (e.target.closest("[data-equal]")) { syncEdit(); const n = M.edit.rows.filter((x) => x.sym.trim()).length; if (n) M.edit.rows = M.edit.rows.filter((x) => x.sym.trim()).map((x) => ({ sym: x.sym, weight: String(+(100 / n).toFixed(2)) })); $("#mcEdit")?.remove(); return render(); }
+    const del = e.target.closest("[data-del]");
+    if (del) {
+      if (!del.dataset.confirm) { del.dataset.confirm = "1"; del.textContent = "Delete for good?"; return; }
+      return void api.page.invoke("mc:delete", M.edit.id).then((r) => { M.mixes = r.mixes; M.source = "holdings"; M.edit = null; save(); run(); });
+    }
     const h = e.target.closest("[data-h]"); if (h) return setHorizon(h.dataset.h);
     const m = e.target.closest("[data-mode]"); if (m) return setMode(m.dataset.mode);
     if (e.target.closest("[data-paths]")) return togglePaths();
@@ -250,7 +329,7 @@
   });
 
   (window.WirePages ||= {}).mc = {
-    show() { M.active = true; render(); renderDetail(); if (!M.busy && (!M.res?.ok || Date.now() - M.res.at > 5 * 60e3)) run(); },
+    show() { M.active = true; render(); renderDetail(); api.page.invoke("mc:mixes").then((m) => { if (Array.isArray(m) && !M.mixes.length && m.length) { M.mixes = m; render(); } }).catch(() => {}); if (!M.busy && (!M.res?.ok || Date.now() - M.res.at > 5 * 60e3)) run(); },
     hide() { M.active = false; },
     key(e) {
       if (e.metaKey || e.ctrlKey || e.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
