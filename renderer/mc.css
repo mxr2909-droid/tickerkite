@@ -80,3 +80,14 @@ i.mc-k-pos{background:var(--up)} i.mc-k-neg{background:var(--down)}
 .mc-ed .pf-msg{color:var(--down);font-size:12px}
 .mc-ed .yc-note{margin:0}
 [data-theme="terminal"] :is(.mc-src select,.mc-ed input){border-radius:0;font-family:var(--mono);font-size:11.5px}
+.mc-ac{position:fixed;z-index:60;overflow-y:auto;overscroll-behavior:contain;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.45);padding:3px;font-size:12.5px;font-family:var(--sans)}
+.mc-ac[hidden]{display:none}
+.mc-ach{padding:5px 8px 4px;font-size:11px;color:var(--dim)}
+.mc-aci{display:flex;align-items:baseline;gap:9px;padding:5px 8px;border-radius:calc(var(--r) - 2px);cursor:pointer;white-space:nowrap}
+.mc-aci b{color:var(--fg-strong);font-weight:600;min-width:64px;font-family:var(--mono);font-size:12px}
+.mc-aci span{color:var(--fg);overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.mc-aci em{font-style:normal;font-size:11px;color:var(--dim)}
+.mc-aci[aria-selected="true"]{background:var(--sel);}
+.mc-aci[aria-selected="true"] :is(b,span,em){color:var(--sel-ink)}
+[data-theme="terminal"] .mc-ac{border-radius:0;font-family:var(--mono);font-size:11.5px}
+.mc-row>input::placeholder,.mc-ctl input.mc-b::placeholder{text-transform:none}

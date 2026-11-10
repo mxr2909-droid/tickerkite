@@ -1,7 +1,7 @@
 {
   "name": "tickerkite",
   "productName": "Tickerkite",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Desktop market news terminal for Mac: ranks the biggest US and global market-moving headlines from live feeds.",
   "main": "src/main.js",
   "private": true,

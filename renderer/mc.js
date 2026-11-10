@@ -36,7 +36,7 @@
   function editor() {
     const ed = M.edit; if (!ed) return "";
     const total = ed.rows.reduce((a, x) => a + (Number(x.weight) > 0 ? Number(x.weight) : 0), 0);
-    const rows = ed.rows.map((x, i) => `<div class="mc-row"><input name="sym${i}" value="${esc(x.sym)}" placeholder="Ticker" spellcheck="false" maxlength="15" aria-label="Ticker ${i + 1}">
+    const rows = ed.rows.map((x, i) => `<div class="mc-row"><input name="sym${i}" data-ac value="${esc(x.sym)}" placeholder="Ticker or name" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" maxlength="40" aria-label="Ticker ${i + 1}: type a ticker or a company or fund name">
         <span class="mc-in mc-pc"><input name="w${i}" value="${esc(x.weight)}" placeholder="0" inputmode="decimal" aria-label="Weight of ticker ${i + 1} in percent"><i>%</i></span>
         <button type="button" class="mc-x" data-rmrow="${i}" title="Remove this row" aria-label="Remove row ${i + 1}">×</button></div>`).join("");
     return `<form class="yc-card mc-ed" id="mcEdit" autocomplete="off">
@@ -62,7 +62,7 @@
 
   function render() {
     if (!M.active) return;
-    syncEdit();
+    AC.close(); syncEdit();
     const el = $("#mc"), r = M.res, a = document.activeElement, focus = el.contains(a) && a.name ? `#${a.form?.id} [name="${a.name}"]` : null;
     const cap = M.capital != null ? String(M.capital) : "";
     const custom = M.mixes.find((m) => m.id === M.source);
@@ -79,10 +79,10 @@
         <span class="mc-lab">Time frame</span>
         <span class="yc-spans mc-h">${HORIZONS.map(([k, l]) => `<button type="button" data-h="${k}" aria-pressed="${k === M.horizon}" title="${l}">${k}</button>`).join("")}</span>
         <label>Starting capital <span class="mc-in"><i>$</i><input name="capital" value="${esc(cap)}" placeholder="${r?.portfolioValue ? esc(Math.round(r.portfolioValue).toLocaleString("en-US")) : "10,000"}" inputmode="decimal" aria-label="Starting capital in dollars" title="${custom ? "Leave empty to start from $10,000" : "Leave empty to start from your portfolio's value today"}"></span></label>
-        <label>Benchmark <input name="bench" class="mc-b" value="${esc(M.benchmark)}" spellcheck="false" maxlength="15" aria-label="Benchmark ticker" title="Any ticker Yahoo Finance carries: SPY, QQQ, VT, AGG…"></label>
+        <label>Benchmark <input name="bench" data-ac class="mc-b" value="${esc(M.benchmark)}" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" maxlength="15" aria-label="Benchmark ticker" title="Any ticker Yahoo Finance carries: SPY, QQQ, VT, AGG…"></label>
         <button type="submit" class="yc-btn mc-run" ${M.busy ? "disabled" : ""}>${M.busy ? "Running…" : "↻ Run"}</button>
       </form>`;
-    const refocus = () => { if (focus) { const t = el.querySelector(focus); if (t && t !== document.activeElement) t.focus(); } };
+    const refocus = () => { if (focus) { const t = el.querySelector(focus); if (t && t !== document.activeElement) { M.quiet = true; t.focus(); M.quiet = false; } } };
     const shell = (body) => { el.innerHTML = `<div class="yc mc">${head}${body}</div>`; refocus(); };
     if (!r) return shell(window.WireUI.skeleton("chart", { label: "Running 10,000 simulations…" }));
     if (r.empty) return shell(window.WireUI.empty("No holdings yet", "Add what you own on the Portfolio page, or build a portfolio here from any tickers and weights.", `<button type="button" class="es-btn" data-new>+ New portfolio</button> <button type="button" class="es-btn" data-go="portfolio">Open Portfolio</button>`));
@@ -281,6 +281,95 @@
     M.benchmark = String(f.get("bench") || "").trim().toUpperCase() || "SPY";
     save(); run();
   });
+  // ---------- ticker suggestions ----------
+  // Any input marked data-ac gets a scrollable list under it: common picks and your holdings when it is empty, then
+  // matches from Yahoo's symbol search (by ticker or by name) as you type. ↑↓ move, Enter or a click picks, Esc closes.
+  const COMMON = [
+    ["SPY", "S&P 500 (SPDR)", "ETF"], ["VOO", "S&P 500 (Vanguard)", "ETF"], ["QQQ", "Nasdaq 100", "ETF"], ["VTI", "Total US stock market", "ETF"], ["IWM", "US small companies (Russell 2000)", "ETF"],
+    ["VXUS", "International stocks", "ETF"], ["VT", "World stocks", "ETF"], ["SCHD", "US dividend stocks", "ETF"],
+    ["AGG", "US bonds, all investment grade", "Bond ETF"], ["BND", "Total US bond market", "Bond ETF"], ["TLT", "Treasuries, 20+ years", "Bond ETF"], ["IEF", "Treasuries, 7–10 years", "Bond ETF"],
+    ["SHY", "Treasuries, 1–3 years", "Bond ETF"], ["LQD", "Corporate bonds, investment grade", "Bond ETF"], ["HYG", "High-yield corporate bonds", "Bond ETF"], ["TIP", "Inflation-protected Treasuries", "Bond ETF"], ["BIL", "Treasury bills, 1–3 months", "Bond ETF"],
+    ["^GSPC", "S&P 500 index", "Index"], ["^NDX", "Nasdaq 100 index", "Index"], ["^DJI", "Dow Jones Industrial Average", "Index"], ["^RUT", "Russell 2000 index", "Index"],
+    ["GLD", "Gold", "ETF"], ["VNQ", "US real estate", "ETF"], ["BTC-USD", "Bitcoin", "Crypto"],
+    ["AAPL", "Apple", "Stock"], ["MSFT", "Microsoft", "Stock"], ["NVDA", "NVIDIA", "Stock"], ["AMZN", "Amazon", "Stock"], ["GOOGL", "Alphabet", "Stock"]
+  ].map(([sym, name, kind]) => ({ sym, name, kind }));
+  const AC = (() => {
+    const box = document.createElement("div");
+    box.className = "mc-ac"; box.id = "mcAc"; box.setAttribute("role", "listbox"); box.hidden = true;
+    document.body.appendChild(box);
+    let input = null, items = [], at = -1, seq = 0, timer = 0;
+    const local = (q) => {
+      const mine = (M.holdW || []).map((h) => ({ sym: h.sym, name: "In your holdings", kind: "" }));
+      const all = [...mine, ...COMMON.filter((c) => !mine.some((m) => m.sym === c.sym))];
+      if (!q) return all;
+      const u = q.toUpperCase();
+      return all.filter((x) => x.sym.includes(u) || x.name.toUpperCase().includes(u)).sort((a, b) => (b.sym.startsWith(u) ? 1 : 0) - (a.sym.startsWith(u) ? 1 : 0));
+    };
+    function place() {
+      const r = input.getBoundingClientRect(), w = Math.max(r.width, 300), below = innerHeight - r.bottom;
+      box.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px"; box.style.width = w + "px";
+      const up = below < 190 && r.top > below;
+      box.style.maxHeight = Math.max(120, Math.min(280, (up ? r.top : below) - 12)) + "px";
+      box.style.top = up ? "" : r.bottom + 3 + "px"; box.style.bottom = up ? innerHeight - r.top + 3 + "px" : "";
+    }
+    function paint(head) {
+      if (!input) return;
+      if (!items.length && !head) return close();
+      box.innerHTML = (head ? `<div class="mc-ach">${esc(head)}</div>` : "") + items.map((x, i) => `<div class="mc-aci" role="option" id="mcAc${i}" data-i="${i}" aria-selected="${i === at}"><b>${esc(x.sym)}</b><span>${esc(x.name || "")}</span><em>${esc(x.kind || "")}</em></div>`).join("");
+      box.hidden = false; input.setAttribute("aria-expanded", "true"); input.setAttribute("aria-controls", "mcAc");
+      place();
+    }
+    function mark(i) {
+      at = i;
+      box.querySelectorAll(".mc-aci").forEach((el) => el.setAttribute("aria-selected", String(+el.dataset.i === at)));
+      const el = box.querySelector(`[data-i="${at}"]`);
+      if (el) { el.scrollIntoView({ block: "nearest" }); input.setAttribute("aria-activedescendant", el.id); } else input.removeAttribute("aria-activedescendant");
+    }
+    function open(el) {
+      input = el; at = -1;
+      const q = el.value.trim(), mySeq = ++seq;
+      items = local(q);
+      paint(q ? (items.length ? "" : "Searching…") : "Common picks · type a ticker or a name to search everything");
+      clearTimeout(timer);
+      if (!q) return;
+      timer = setTimeout(async () => {
+        const found = await api.page.invoke("cmd:search", q).catch(() => []);
+        if (mySeq !== seq || input !== el) return;
+        const seen = new Set(), merged = [];
+        for (const x of [...items, ...(found || []).filter((f) => f.kind !== "Future" && f.kind !== "Currency")]) if (!seen.has(x.sym)) { seen.add(x.sym); merged.push(x); }
+        items = merged.slice(0, 40);
+        paint(items.length ? "" : `Nothing found for “${q}”. You can still type the exact ticker.`);
+        if (at >= 0) mark(Math.min(at, items.length - 1));
+      }, 160);
+    }
+    function close() { seq++; clearTimeout(timer); box.hidden = true; if (input) { input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); } input = null; items = []; at = -1; }
+    function pick(i) {
+      const x = items[i], el = input; if (!x || !el) return;
+      el.value = x.sym; close();
+      el.dispatchEvent(new Event("input", { bubbles: true })); // the listener below reopens the list; shut it again
+      close();
+      const w = el.closest(".mc-row")?.querySelector(".mc-pc input");
+      if (w) { w.focus(); w.select(); }
+    }
+    function key(e) {
+      if (box.hidden) { if (e.key === "ArrowDown") { e.preventDefault(); open(e.target); } return; }
+      if (e.key === "ArrowDown") { e.preventDefault(); mark(Math.min(items.length - 1, at + 1)); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); mark(Math.max(0, at - 1)); }
+      else if (e.key === "Enter" && at >= 0) { e.preventDefault(); pick(at); }
+      else if (e.key === "Tab" && at >= 0) pick(at);
+      else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
+    }
+    box.addEventListener("mousedown", (e) => { e.preventDefault(); const el = e.target.closest(".mc-aci"); if (el) pick(+el.dataset.i); }); // mousedown: before the input loses focus
+    box.addEventListener("mousemove", (e) => { const el = e.target.closest(".mc-aci"); if (el && +el.dataset.i !== at) { at = +el.dataset.i; box.querySelectorAll(".mc-aci").forEach((n) => n.setAttribute("aria-selected", String(n === el))); } });
+    $("#mc").addEventListener("focusin", (e) => { if (!M.quiet && e.target.matches?.("[data-ac]")) open(e.target); });
+    $("#mc").addEventListener("input", (e) => { if (e.target.matches?.("[data-ac]")) open(e.target); });
+    $("#mc").addEventListener("focusout", (e) => { if (e.target === input) close(); });
+    $("#mc").addEventListener("keydown", (e) => { if (e.target.matches?.("[data-ac]")) key(e); }, true);
+    $("#mc").addEventListener("scroll", () => { if (input) place(); }, { passive: true });
+    window.addEventListener("resize", () => { if (input) close(); });
+    return { close };
+  })();
+
   const blank = () => ({ sym: "", weight: "" });
   const openEditor = (mix) => {
     M.emsg = "";
