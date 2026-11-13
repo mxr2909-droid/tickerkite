@@ -15,6 +15,8 @@
 <link rel="stylesheet" href="curve.css">
 <link rel="stylesheet" href="fx.css">
 <link rel="stylesheet" href="mc.css">
+<link rel="stylesheet" href="mna.css">
+<link rel="stylesheet" href="mnacharts.css">
 <link rel="stylesheet" href="map.css">
 <link rel="stylesheet" href="factor.css">
 <link rel="stylesheet" href="warn.css">
@@ -60,6 +62,7 @@
             <button type="button" role="menuitemradio" data-p="markets" aria-selected="false">Markets<kbd>⌘⌥4</kbd></button>
             <button type="button" role="menuitemradio" data-p="map" aria-selected="false">Sector map<kbd>⌥H</kbd></button>
             <button type="button" role="menuitemradio" data-p="fx" aria-selected="false">Currencies<kbd>⌘⌥X</kbd></button>
+            <button type="button" role="menuitemradio" data-p="mna" aria-selected="false">M&amp;A<kbd>⌥Q</kbd></button>
             <button type="button" role="menuitemradio" data-p="curve" aria-selected="false">Yield curve<kbd>⌘⌥8</kbd></button>
             <button type="button" role="menuitemradio" data-p="fed" aria-selected="false">Fed path<kbd>⌘⌥5</kbd></button>
             <button type="button" role="menuitemradio" data-p="graphs" aria-selected="false">Graphs<kbd>⌘⌥6</kbd></button>
@@ -105,6 +108,7 @@
     <div class="list num screen-only" id="screen" aria-label="Stock screener"></div>
     <div class="list num company-only" id="company" aria-label="Company"></div>
     <div class="list num mc-only" id="mc" aria-label="Portfolio Monte Carlo"></div>
+    <div class="list num mna-only" id="mna" aria-label="Mergers and acquisitions"></div>
     <div class="secbar news-only">
       <div class="l"><b>Top Ranked News</b><span>|</span><em id="more">More »</em></div>
       <div class="toggle" id="mode">
@@ -139,6 +143,7 @@
   <aside class="detail screen-only" id="scdetail" aria-label="Screener detail"></aside>
   <aside class="detail company-only" id="codetail" aria-label="Company detail"></aside>
   <aside class="detail mc-only" id="mcdetail" aria-label="Portfolio Monte Carlo detail"></aside>
+  <aside class="detail mna-only" id="mnadetail" aria-label="Mergers and acquisitions detail"></aside>
 </div>
 <script src="ui.js"></script>
 <script src="company.js"></script>
@@ -162,6 +167,9 @@
 <script src="screen.js"></script>
 <script src="companypage.js"></script>
 <script src="mc.js"></script>
+<script src="mnastats.js"></script>
+<script src="mnacharts.js"></script>
+<script src="mna.js"></script>
 <script src="command.js"></script>
 <script src="chrome.js"></script>
 <script src="app.js"></script>

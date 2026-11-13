@@ -49,6 +49,7 @@ Tickerkite opens in the **Terminal** theme: near-black background, cyan accents,
 | WEI | Markets heatmap | ⌘⌥4 |
 | MAP | Sector map (sectors that open into their companies, 2D or 3D) | ⌥H |
 | FX | Currencies (megatrends and a two-currency compare) | ⌘⌥X |
+| MA | Mergers and acquisitions (deals for US-listed targets, filters and market charts) | ⌥Q |
 | FED | Fed path | ⌘⌥5 |
 | GC | Yield curve | ⌘⌥8 |
 | GP | Graphs | ⌘⌥6 |
@@ -185,6 +186,28 @@ Under **MARKETS** (⌥H, or `MAP` in ⌘K). A treemap of 11 US sectors: each rec
 - Colors saturate at a ±3% move for a company over 1D (±6% 1W, ±12% 1M, ±20% 3M, ±35% YTD, ±50% 1Y) and at half that for a sector; the scale is printed under the map.
 
 The code is `src/sectormap.js` (data), `renderer/map.js` (drawing) and `renderer/treemap.js` (the squarified layout and 3D drawing order).
+
+## Mergers and acquisitions (MA)
+
+**Markets › M&A** (⌥Q) lists the deals for US-listed companies over the last three years and charts the state of the deal market. Everything comes from SEC EDGAR (public domain, no key).
+
+**What counts as a deal.** A company listed in the US has to file with the SEC when it is being bought: a tender offer (Schedule TO-T), a merger proxy (PREM14A, then DEFM14A when the vote is set) or a going-private statement (Schedule 13E-3). Tickerkite finds those with EDGAR's full-text search and folds every filing about one target into one deal. Deals where neither side files with the SEC (a private company buying a private company) are not here.
+
+**Filters.** Date frame (3M to 3Y, or custom dates), sector, sub-sector, size, deal type (merger, tender offer, going private, SPAC merger), status (in progress or past) and a search box for target, buyer, ticker or industry. SPAC mergers are left out unless you switch them on. Filters are remembered.
+- **Sector** is Tickerkite's grouping of the target's SIC industry code into 11 sectors; **sub-sector** is the SEC's own name for that code (for example "Pharmaceutical Preparations").
+- **Size** is the *transaction valuation* in the filing's fee exhibit: the SEC charges a fee on the value of the deal, so the filing has to state it. It is the value of the shares being bought (equity value), not enterprise value, and it needs the contact email the Company page asks for, because www.sec.gov refuses apps that don't give one. Sizes are read in the background, newest deals first, about two deals a second the first time.
+- **Date** is the deal's first SEC filing, usually days to weeks after the announcement.
+- **Stage** is read from the filings (preliminary proxy, vote scheduled, tender offer filed). **In progress** means a filing in the last 90 days. The page cannot tell a completed deal from an abandoned one.
+
+**Charts** (all follow the filters except the last):
+- **Market pulse:** five measures (new deals a month, disclosed value, deals of $1B+, the typical deal size, closings reported), each placed inside its own three-year range with a marker for a year ago, and a one-line reading: busy, about normal or quiet.
+- **New deals by month:** three years of monthly bars by deal type, with a 3-month average and the number of closings reported in 8-Ks (Item 2.01, all sectors). **Value** switches the bars to disclosed dollars. Click a month to show only its deals.
+- **Every deal in your date frame:** one circle per deal by date and size (each gridline is ten times the one below), colored by sector, with deals of undisclosed size along the bottom. Click a circle to open the deal.
+- **How big the deals are:** the share of deals in each size step against the period before.
+- **Where the deals are:** sectors by quarter, darker for more; click a square to filter to it. It names the sector gaining the most ground.
+- **What companies spend on acquisitions:** cash paid for acquisitions by every SEC filer, by fiscal year since 2010, from the XBRL frames API, with the number of companies spending $1B+. This one is not filtered, counts cash deals when they close, and includes purchases of private companies.
+
+Click a deal for the right pane: buyer, size, offer price per share, sector, and every filing with a link. The data is cached in `mna-cache.json` and re-checked every 6 hours (only the last few days are re-read). The code is `src/mna.js` (EDGAR, deal grouping, fee exhibit), `renderer/mnastats.js` (filters and statistics, tested), `renderer/mna.js` (page) and `renderer/mnacharts.js` (charts).
 
 ## Currencies (FX)
 
@@ -390,6 +413,7 @@ src/watchlist.js     your tickers: symbol cleanup and which stories mention them
 src/markets.js       market heatmap: sectors, global indexes, style pairs
 src/company.js       company panel: SEC EDGAR fundamentals, valuation, next earnings date
 src/graphs.js        graph workspace: FRED/Yahoo downloads, cache, saved charts, exports
+src/mna.js           mergers and acquisitions: SEC deal filings folded into deals, deal size from fee exhibits, closings and acquisition spending
 src/montecarlo.js    portfolio Monte Carlo: block-bootstrap simulation, percentile paths, outperformance histogram, saved custom portfolios
 src/macro/           scorecards: indicators, data downloads, scoring, default weights
 
