@@ -5,7 +5,8 @@
   const api = window.wire;
   const $ = (s) => document.querySelector(s);
   const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const P = { active: false, data: null, sel: null, msg: "", busy: false };
+  const P = { active: false, data: null, sel: null, msg: "", busy: false, mapBy: "day", mapSeen: false };
+  try { P.mapBy = localStorage.getItem("wire.pf.mapby") || "day"; } catch {}
 
   const usd = (v, d = 0) => (v == null ? "—" : (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }));
   const sgnUsd = (v, d = 0) => (v == null ? "—" : (v > 0 ? "+" : "") + usd(v, d));
@@ -36,6 +37,38 @@
       <span class="pf-msg ${P.msg.startsWith("✓") ? "ok" : ""}" role="status">${esc(P.msg)}</span></form>`;
   }
 
+  /** Holdings map: one block per holding, sized by its value and grouped by asset class; color is today's move or the total gain. */
+  function holdingsMap(d) {
+    const T = window.TkTreemap, rows = d.rows.filter((r) => r.value > 0);
+    if (!T || rows.length < 2) return "";
+    const W = 1000, H = 400, by = P.mapBy === "gain" && rows.some((r) => r.gainPct != null) ? "gain" : "day", full = by === "gain" ? 40 : 3;
+    const val = (r) => (by === "gain" ? r.gainPct : r.pct);
+    const color = (v) => {
+      if (v == null) return ["#232a35", "var(--fg)"];
+      const k = Math.min(1, Math.abs(v) / full) ** 0.7, t = v >= 0 ? [38, 166, 91] : [214, 64, 69], base = [30, 36, 46];
+      return [`rgb(${base.map((c, i) => Math.round(c + (t[i] - c) * k)).join(",")})`, "#fff"];
+    };
+    const groups = d.mix.map((m) => ({ ...m, rows: rows.filter((r) => r.cls === m.cls) })).filter((g) => g.rows.length);
+    const outer = T.squarify(groups.map((g) => g.value), { x: 0, y: 0, w: W, h: H });
+    let n = 0;
+    const tiles = groups.map((g, gi) => {
+      const o = outer[gi], head = o.h > 46 && o.w > 70 ? 16 : 0;
+      const inner = T.squarify(g.rows.map((r) => r.value), { x: o.x + 2, y: o.y + head + 2, w: Math.max(0, o.w - 4), h: Math.max(0, o.h - head - 4) });
+      const pc = (v, of) => ((v / of) * 100).toFixed(3) + "%";
+      return (head ? `<span class="pfm-g" style="left:${pc(o.x + 2, W)};top:${pc(o.y + 2, H)};width:${pc(o.w - 4, W)};color:${MIX_COLORS[g.cls]}">${esc(g.label)} · ${g.weight.toFixed(0)}%</span>` : "")
+        + g.rows.map((r, i) => {
+          const b = inner[i], v = val(r), [bg, ink] = color(v), big = b.w > 90 && b.h > 76, mid = b.w > 46 && b.h > 42;
+          return `<button type="button" class="pfm-t${r.sym === P.sel ? " sel" : ""}${big ? " big" : mid ? "" : " tiny"}" data-sym="${esc(r.sym)}" style="left:${pc(b.x, W)};top:${pc(b.y, H)};width:${pc(b.w, W)};height:${pc(b.h, H)};background:${bg};color:${ink};--d:${n++}"
+            title="${esc(r.name)} · ${usd(r.value)} · ${r.weight.toFixed(1)}% of portfolio · today ${pct(r.pct)}${r.gainPct != null ? " · total " + pct(r.gainPct, 1) : ""}">
+            ${mid ? `<b>${esc(r.sym)}</b><span>${pct(v, by === "gain" ? 1 : 2)}</span>` : b.w > 90 && b.h > 20 ? `<b>${esc(r.sym)} <span>${pct(v, by === "gain" ? 1 : 2)}</span></b>` : b.w > 40 && b.h > 20 ? `<b>${esc(r.sym)}</b>` : ""}${big ? `<em>${usd(r.value)} · ${r.weight.toFixed(0)}%</em>` : ""}</button>`;
+        }).join("");
+    }).join("");
+    const anim = !P.mapSeen; P.mapSeen = true;
+    return `<div class="pfm-card"><div class="pfm-h"><b>Holdings map</b><span class="dim">size = value · color = ${by === "gain" ? "total gain since you bought" : "today's move"}</span>
+        <span class="pfm-by">${[["day", "Today"], ["gain", "Total gain"]].map(([k, l]) => `<button type="button" data-mapby="${k}" aria-pressed="${k === by}">${l}</button>`).join("")}</span></div>
+      <div class="pfm${anim ? " pfm-anim" : ""}">${tiles}</div></div>`;
+  }
+
   function render() { if (P.active) keep($("#portfolio"), draw); }
   function draw() {
     const el = $("#portfolio"), d = P.data;
@@ -63,7 +96,7 @@
       <span>${usd(r.value)}</span>
       <span class="dim">${r.weight == null ? "—" : r.weight.toFixed(1) + "%"}</span>
       <span class="${cls(r.gain)}">${r.gain == null ? '<em class="dim">—</em>' : `${sgnUsd(r.gain)} <em>${pct(r.gainPct, 1)}</em>`}</span></button>`).join("");
-    el.innerHTML = `<div class="pf">${tiles}${bar}${addForm()}
+    el.innerHTML = `<div class="pf">${tiles}${bar}${holdingsMap(d)}${addForm()}
       <div class="pf-cols"><span>Holding</span><span>Shares</span><span>Price</span><span>Today</span><span>Today $</span><span>Value</span><span>Weight</span><span>Total gain</span></div>
       ${rows}
       ${d.missing.length ? `<p class="pf-note">No price yet for ${esc(d.missing.join(", "))}. ${d.loading ? "Loading…" : "Yahoo Finance may not carry it."}</p>` : ""}
@@ -134,7 +167,11 @@
       $("#pfadd input[name=sym]")?.focus();
     });
   });
-  $("#portfolio").addEventListener("click", (e) => { const r = e.target.closest(".pf-row"); if (r) select(r.dataset.sym); });
+  $("#portfolio").addEventListener("click", (e) => {
+    const by = e.target.closest("[data-mapby]");
+    if (by) { P.mapBy = by.dataset.mapby; try { localStorage.setItem("wire.pf.mapby", P.mapBy); } catch {} return render(); }
+    const r = e.target.closest(".pf-row, .pfm-t"); if (r) select(r.dataset.sym);
+  });
   $("#pdetail").addEventListener("submit", (e) => {
     if (e.target.id !== "pfedit") return;
     e.preventDefault();

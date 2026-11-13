@@ -76,7 +76,7 @@ test("US market hours in New York time", () => {
 test("symbol list covers all three sections without duplicates", () => {
   const s = symbols();
   assert.equal(new Set(s).size, s.length);
-  for (const x of ["XLK", "XLRE", "^GSPC", "^BSESN", "EEM", "IWF", "RSP", "SPY"]) assert.ok(s.includes(x), x);
+  for (const x of ["XLK", "XLRE", "^GSPC", "^BSESN", "EEM", "IWF", "RSP", "SPY", "TLT", "BTC-USD", "IWM"]) assert.ok(s.includes(x), x);
 });
 
 // weekly bars (Mondays) from `from` to `to`, close = f(date)
@@ -159,4 +159,32 @@ test("sector rotation: strength and momentum against a benchmark", () => {
   // too little history for the averages: nothing, not NaN
   assert.deepEqual(rotation(weeks(20, () => 1), weeks(20, () => 1)), []);
   assert.deepEqual(rotation(null, bench), []);
+});
+
+test("correlations: shared calendar, weekend bars ignored, matrix symmetric", () => {
+  const { alignedReturns, pearson, correlations, pairDetail } = require("../src/markets");
+  const D = 86400000, t0 = Date.parse("2026-01-05T00:00:00Z"); // a Monday
+  const days = [];
+  for (let i = 0; i < 120; i++) { const t = t0 + i * D, wd = new Date(t).getUTCDay(); if (wd !== 0 && wd !== 6) days.push(t); }
+  const wig = (i) => Math.sin(i * 1.7) * 0.01 + Math.cos(i * 0.6) * 0.006;
+  let a = 100, b = 50, c = 80;
+  const A = [], B = [], C = [];
+  days.forEach((t, i) => { a *= 1 + wig(i); b *= 1 + 2 * wig(i); c *= 1 - wig(i); A.push({ t, close: a }); B.push({ t, close: b }); C.push({ t, close: c }); });
+  // B also trades at weekends: those bars must not shift its returns
+  const Bw = [...B, { t: t0 + 5 * D, close: 1 }, { t: t0 + 6 * D, close: 9999 }].sort((x, y) => x.t - y.t);
+  const al = alignedReturns({ A, B: Bw, C }, ["A", "B", "C", "ZZ"], "A");
+  assert.equal(al.t.length, days.length);
+  assert.equal(al.r.A[0], null);
+  assert.ok(Math.abs(al.r.B[5] - 2 * wig(5)) < 1e-9); // Monday's move is Friday → Monday
+  const m = correlations(al, ["A", "B", "C", "ZZ"], 63);
+  assert.equal(m.days, 63);
+  assert.equal(m.m[0][0], 1);
+  assert.ok(m.m[0][1] > 0.999 && m.m[0][2] < -0.999);
+  assert.equal(m.m[0][1], m.m[1][0]);
+  assert.equal(m.m[0][3], null); assert.equal(m.m[3][3], null);
+  assert.equal(pearson([1, 2, 3], [1, 2, 3]), null); // too few pairs
+  const p = pairDetail(al, "A", "C", 21);
+  assert.equal(p.dots.length, 21);
+  assert.ok(p.rolling.length > 30 && p.rolling.every(([, r]) => r < -0.99));
+  assert.equal(p.rolling[p.rolling.length - 1][0], days[days.length - 1]);
 });

@@ -190,7 +190,7 @@ function scoreSnapshot() {
     failed: Object.keys(macro.errors).length,
     sections: SECTIONS, assets: SC.ASSETS,
     defs: INDICATORS.map(({ id, section, name, unit, dec, desc, factor, sign, src, freq, good }) => ({ id, section, name, unit, dec, desc, factor, sign, src, freq, good })),
-    ind: r?.ind || {}, scores: r?.assets || {}, regime: r?.regime || null, mode: r?.mode || null, history: r?.history || []
+    ind: r?.ind || {}, scores: r?.assets || {}, regime: r?.regime || null, mode: r?.mode || null, history: r?.history || [], regimePath: r?.regimePath || []
   };
 }
 

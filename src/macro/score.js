@@ -141,6 +141,7 @@ function label(score) {
   return score >= 70 ? "Bullish" : score >= 58 ? "Leaning bullish" : score > 42 ? "Neutral" : score > 30 ? "Leaning bearish" : "Bearish";
 }
 
+const REGIME_MONTHS = 24;
 const REGIMES = {
   goldilocks: { name: "Goldilocks", text: "Growth improving, inflation cooling. Historically the best mix for stocks and credit." },
   reflation: { name: "Reflation", text: "Growth and inflation both rising. Historically good for commodities and cyclical stocks, hard on bonds." },
@@ -260,6 +261,11 @@ function scorecard(defs, raw, weights, now = Date.now()) {
     history.push({ t: at, scores: Object.fromEntries(ASSETS.map(([a]) => [a, e.assets[a].score])), alpha: e.mode.alpha });
   }
   history.push({ t: now, scores: Object.fromEntries(ASSETS.map(([a]) => [a, cur.assets[a].score])), alpha: cur.mode.alpha });
+  // regime path: where growth and inflation were heading at each month-end for two years, oldest first, ending today
+  const point = (t, e) => ({ t, key: e.regime.key, growth: +e.regime.growth.toFixed(3), inflation: +e.regime.inflation.toFixed(3) });
+  const regimePath = [];
+  for (let k = REGIME_MONTHS; k >= 1; k--) { const at = now - k * 30.44 * DAY; regimePath.push(point(at, evaluate(defs, prepared, weights, at))); }
+  regimePath.push(point(now, cur));
   for (const [a] of ASSETS) {
     cur.assets[a].m1 = cur.assets[a].score - history[11].scores[a];
     cur.assets[a].m3 = cur.assets[a].score - history[9].scores[a];
@@ -270,7 +276,7 @@ function scorecard(defs, raw, weights, now = Date.now()) {
   const w1 = changes(cur, week), mo1 = changes(cur, month);
   for (const [a] of ASSETS) cur.assets[a].changes = { w1: w1[a], m1: mo1[a] };
   for (const [id, x] of Object.entries(cur.ind)) if (x) x.fresh = x.t !== week.ind[id]?.t;
-  return { ...cur, history, prepared };
+  return { ...cur, history, regimePath, prepared };
 }
 
 /** Merge a weights file with the defaults; bad values fall back to defaults. */

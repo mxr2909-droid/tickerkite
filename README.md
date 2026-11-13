@@ -107,7 +107,7 @@ Choose **Macro › Scorecards** at the top (or ⌘⌥2; ⌘⌥1 goes back to New
 - **Pushing up / pulling down** lists the biggest drivers of the score.
 - **What changed** explains a score move: the total change over the last week (**1W**) or month (**1M**) and the indicators that moved it most, with each one's value then → now and the points it added or took away. Click one to open it. Rows in the main table tagged **NEW** got a fresh data point in the last 7 days.
 - **Vs the average of all six** ranks the assets against each other. Even when everything scores low, it shows which are least and most exposed.
-- **Regime** plots growth against inflation (Goldilocks, Reflation, Slowdown, Stagflation) from the direction of the last 6 months.
+- **Regime** plots growth against inflation (Goldilocks, Reflation, Slowdown, Stagflation) from the direction of the last 6 months. Click the box for the **regime path** in the right pane: where growth and inflation were heading at each of the last 24 month-ends, drawn as one line across the four quarters that brightens toward today. It plays once when opened; **REPLAY** runs it again, and clicking a month on the strip underneath jumps to it. Past months use today's revised data.
 - **Inflation mode** shows how far the weights have shifted for an inflation-driven market (below).
 - **Click any indicator** for its history with recessions shaded, and its effect on all six outlooks. Market indicators link to the full price chart.
 
@@ -170,6 +170,8 @@ Tiles are green or red by return, darker the bigger the move relative to the per
 **Sector rotation** sits under the sector tiles: a chart of the 11 sector ETFs against the S&P 500 (SPY), from weekly closes. Across is *strength*: the sector's price ÷ SPY's, its 4-week average as a percentage of its 26-week average, so above 100 means it has been beating the index lately. Up is *momentum*: that strength as a percentage of its own 8-week average, so above 100 means the strength is still rising. The four quarters are **Leading** (ahead and gaining), **Weakening** (ahead, losing ground), **Lagging** (behind and falling back) and **Improving** (behind, catching up); sectors tend to travel clockwise through them. Each dot is a sector today and its tail is the last 4, 8 or 12 weeks; the lists beside the chart name the sectors in each quarter. Click a dot or a name to select the sector. This is a plain version of a relative rotation graph, not the commercial RRG formula, and it uses the weekly history the page already keeps. The math is `rotation()` in `src/markets.js`.
 
 Tickerkite downloads one year of daily prices per symbol from Yahoo Finance and computes every period locally; the full weekly history (for 3Y+ and the long chart) is downloaded once a day and kept in `markets-history-cache.json` (long returns are measured from the last weekly close before the start date). It refreshes every 5 minutes while the US market is open and every 30 minutes otherwise (only after you first open the page), and keeps the last result in `markets-cache.json` in the app's data folder so the page opens instantly. Returns are price returns in each market's own currency, ignoring dividends.
+
+**Across assets** adds a row of tiles for long Treasuries, high-yield credit, gold, oil, broad commodities, the dollar, bitcoin and real estate (TLT, HYG, GLD, USO, DBC, UUP, BTC-USD, VNQ), and under it **How they move together**: a correlation matrix of daily moves. Warm squares moved together, cool squares moved opposite, dark ones ignored each other. Switch between **Assets** (11 funds across stocks, bonds, credit, commodities, the dollar, bitcoin and real estate) and **Sectors** (the 11 sector funds), and between the last month, 3 months and year. Hover a square for a plain-English reading. Click one for the pair in the right pane: the reading for each window, the rolling 3-month correlation through the year, and a dot for each day's pair of moves with the line of best fit. Beside the matrix: what moves most with the selected asset, its best offsets, and the pairs whose relationship changed most between the last year and the last month. All funds are US-listed so their days line up; bitcoin's day ends at midnight UTC, so its readings are approximate. The math is `alignedReturns()`, `correlations()` and `pairDetail()` in `src/markets.js`.
 
 ## Sector map (MAP)
 
@@ -266,6 +268,10 @@ A dot next to the clock in the top bar shows whether the data is fresh: **green*
 - **Save a screen** with "notify me of new names" and get a Mac notification after a daily rebuild when a company newly passes
 - Ratios past sane limits (P/E over 1,000, etc.) show as "—": filings occasionally carry a value in the wrong unit
 - **Insider buyers** and **net insider $**: open-market purchases (Form 4 code P) and sales (S) from the SEC's quarterly insider-transaction data sets, over the two latest quarters it has published (they lag by a quarter or two, and the dates are shown). Grants and option exercises don't count, and each insider counts once. The **Insider buying** preset finds companies where 2+ insiders bought and net buying was positive. Executives sell routinely, so buying is the rarer signal.
+
+## Portfolio (PORT)
+
+Your holdings with today's gain or loss, total gain against what you paid, the asset mix and the Scorecards outlook for your mix. The **holdings map** draws one block per holding, sized by its value and grouped by asset class, colored by **Today**'s move or by **Total gain** since you bought (needs your average cost). Click a block to open that holding in the right pane. The drawing is in `renderer/portfolio.js` and reuses the treemap layout in `renderer/treemap.js`.
 
 ## Portfolio Monte Carlo (MC)
 

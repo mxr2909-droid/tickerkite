@@ -17,6 +17,9 @@
 
   const K = { data: null, asset: "stocks", sel: null, active: false, series: new Map(), seq: 0, rec: null };
   const REC = "@recession"; // K.sel value when the recession model is shown in the right pane
+  const REG = "@regime"; // K.sel value when the regime path is shown in the right pane
+  const REG_COL = { goldilocks: "#3ecf8e", reflation: "#f2b34a", stagflation: "#f2706b", slowdown: "#5ec2f2" };
+  const REG_NAME = { goldilocks: "Goldilocks", reflation: "Reflation", stagflation: "Stagflation", slowdown: "Slowdown" };
   K.win = "w1"; K.view = "outlook"; // view: "outlook" (asset scores) or "board" (decile board, renderer/board.js)
   try { K.asset = localStorage.getItem("wire.score.asset") || "stocks"; K.win = localStorage.getItem("wire.score.win") || "w1"; K.view = localStorage.getItem("wire.score.view") === "board" ? "board" : "outlook"; } catch {}
   const BOARD = () => K.view === "board" && window.WireBoard;
@@ -97,8 +100,8 @@
   function regimeBox(r) {
     if (!r) return "";
     const cell = (k, t) => `<div class="q${r.key === k ? " on" : ""}">${t}</div>`;
-    return `<div class="regime" title="Direction of growth and inflation over the last 6 months">
-      <div class="rt">REGIME · GROWTH × INFLATION</div>
+    return `<div class="regime${K.sel === REG ? " sel" : ""}" data-id="${REG}" role="button" tabindex="0" title="Direction of growth and inflation over the last 6 months. Click for the path over the last two years.">
+      <div class="rt">REGIME · GROWTH × INFLATION <span class="rgo">PATH ›</span></div>
       ${cell("goldilocks", "Goldilocks<br>growth ↑ infl ↓")}${cell("reflation", "Reflation<br>growth ↑ infl ↑")}
       ${cell("slowdown", "Slowdown<br>growth ↓ infl ↓")}${cell("stagflation", "Stagflation<br>growth ↓ infl ↑")}
       <div class="rx">${esc(r.text)}</div>
@@ -181,6 +184,8 @@
     const d = K.data;
     if (!d || !K.sel || !d.scores[K.asset]) { el.innerHTML = !d || d.refreshing ? window.WireUI.skeleton("detail") : window.WireUI.empty("Nothing selected", "Pick an indicator on the left to see its history and what it means for each asset."); return; }
     if (K.sel === REC) { el.innerHTML = recDetail(); drawRecCharts(); return; }
+    if (K.sel === REG) { el.innerHTML = regimeDetail(); regimeStep(K.rg.pts.length - 1); if (K.rgFresh) regimePlay(); K.rgFresh = false; return; }
+    clearInterval(K.rgTimer);
     const x = def(K.sel), r = d.ind[K.sel];
     if (!x) { el.innerHTML = ""; return; }
     const [kind, sym] = x.src.split(":");
@@ -277,6 +282,70 @@
     hit.addEventListener("mouseleave", () => { cross.setAttribute("visibility", "hidden"); tip.hidden = true; });
   }
 
+  // ---------- regime path: where growth and inflation have been heading, month by month ----------
+  K.rg = { pts: [] };
+  const rgMonth = (t) => new Date(t).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  function regimeDetail() {
+    const d = K.data, path = d.regimePath || [], r = d.regime;
+    if (path.length < 3 || !r) { K.rg = { pts: [] }; return window.WireUI.empty("No regime history yet", "It appears once the economic data has loaded."); }
+    const W = 400, H = 400, pl = 30, pr = 10, pt = 10, pb = 30, pw = W - pl - pr, ph = H - pt - pb;
+    const dev = Math.max(0.25, ...path.flatMap((p) => [Math.abs(p.growth), Math.abs(p.inflation)])) * 1.15;
+    const X = (v) => pl + ((v + dev) / (2 * dev)) * pw, Y = (v) => pt + (1 - (v + dev) / (2 * dev)) * ph;
+    const pts = path.map((p) => ({ x: X(p.inflation), y: Y(p.growth), key: p.key, label: rgMonth(p.t), g: p.growth, inf: p.inflation }));
+    K.rg = { pts };
+    const n = pts.length;
+    const tint = (k, x, y) => `<rect x="${x}" y="${y}" width="${pw / 2}" height="${ph / 2}" fill="${REG_COL[k]}" opacity=".08"/>`;
+    const corner = (k, x, y, anchor) => `<text x="${x}" y="${y}" text-anchor="${anchor}" class="rg-q" fill="${REG_COL[k]}">${REG_NAME[k].toUpperCase()}</text>`;
+    let g = `<svg viewBox="0 0 ${W} ${H}" class="rg-svg" role="img" aria-label="Path of growth and inflation over the last two years">
+      ${tint("goldilocks", pl, pt)}${tint("reflation", pl + pw / 2, pt)}${tint("slowdown", pl, pt + ph / 2)}${tint("stagflation", pl + pw / 2, pt + ph / 2)}
+      <rect x="${pl}" y="${pt}" width="${pw}" height="${ph}" fill="none" stroke="var(--line-2)"/>
+      <line x1="${X(0)}" x2="${X(0)}" y1="${pt}" y2="${pt + ph}" class="rg-axis"/><line x1="${pl}" x2="${pl + pw}" y1="${Y(0)}" y2="${Y(0)}" class="rg-axis"/>
+      ${corner("goldilocks", pl + 8, pt + 16, "start")}${corner("reflation", pl + pw - 8, pt + 16, "end")}${corner("slowdown", pl + 8, pt + ph - 8, "start")}${corner("stagflation", pl + pw - 8, pt + ph - 8, "end")}
+      <text x="${pl + pw / 2}" y="${H - 8}" text-anchor="middle" class="rg-ax">← INFLATION COOLING · INFLATION HEATING UP →</text>
+      <text transform="translate(12 ${pt + ph / 2}) rotate(-90)" text-anchor="middle" class="rg-ax">← GROWTH SLOWING · GROWTH PICKING UP →</text>`;
+    // a smooth curve through the months (Catmull-Rom), one piece per month so the tail can fade and the replay can reveal it
+    for (let i = 0; i < n - 1; i++) {
+      const a = pts[Math.max(0, i - 1)], b = pts[i], c = pts[i + 1], e = pts[Math.min(n - 1, i + 2)], k = (i + 1) / (n - 1);
+      g += `<path class="rg-seg" data-s="${i}" d="M${b.x.toFixed(1)} ${b.y.toFixed(1)}C${(b.x + (c.x - a.x) / 6).toFixed(1)} ${(b.y + (c.y - a.y) / 6).toFixed(1)} ${(c.x - (e.x - b.x) / 6).toFixed(1)} ${(c.y - (e.y - b.y) / 6).toFixed(1)} ${c.x.toFixed(1)} ${c.y.toFixed(1)}"
+        fill="none" stroke="${REG_COL[c.key]}" stroke-width="${(1.2 + 2.4 * k).toFixed(2)}" stroke-linecap="round" opacity="${(0.22 + 0.78 * k).toFixed(2)}"/>`;
+    }
+    pts.forEach((p, i) => { g += `<circle class="rg-dot" data-rg="${i}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(1.8 + 1.4 * (i / (n - 1))).toFixed(1)}" fill="${REG_COL[p.key]}" opacity="${(0.35 + 0.65 * (i / (n - 1))).toFixed(2)}"><title>${p.label}: ${REG_NAME[p.key]}</title></circle>`; });
+    g += `<g class="rg-head" id="rghead"><circle class="rg-ring" r="11" fill="none"/><circle r="6" stroke="#fff" stroke-width="1.6"/></g></svg>`;
+    const rib = pts.map((p, i) => `<button type="button" data-rg="${i}" style="background:${REG_COL[p.key]}" title="${p.label}: ${REG_NAME[p.key]}"></button>`).join("");
+    let run = 1; while (run < n && pts[n - 1 - run].key === r.key) run++;
+    const counts = Object.keys(REG_NAME).map((k) => [k, pts.filter((p) => p.key === k).length]).filter(([, c]) => c).sort((a, b) => b[1] - a[1]);
+    return `<div class="rg">
+      <div class="dhead"><span class="code">REGIME</span><span class="nm">GROWTH × INFLATION · LAST ${n - 1} MONTHS</span></div>
+      <h1 style="margin:4px 0 0;color:${REG_COL[r.key]}">${esc(r.name)}</h1>
+      <p style="margin:0">${esc(r.text)} ${run >= n ? `It has been the regime for the whole ${n - 1} months shown.` : `It has been the regime for ${run === 1 ? "less than a month" : `the last ${run - 1} month${run > 2 ? "s" : ""}`}.`}</p>
+      <div class="rg-bar"><button type="button" data-act="rgplay">▶ REPLAY</button><span id="rgwhen"></span></div>
+      <div class="rg-chart">${g}</div>
+      <div class="rg-rib">${rib}</div>
+      <div class="rg-yrs"><span>${pts[0].label}</span><span>click a month</span><span>today</span></div>
+      <div class="isec">MONTHS IN EACH REGIME</div>
+      <div class="rg-counts">${counts.map(([k, c]) => `<span><i style="background:${REG_COL[k]}"></i>${REG_NAME[k]} <b>${c}</b></span>`).join("")}</div>
+      <p class="ifoot">Each dot is a month-end: across is which way the inflation indicators were heading over the previous 6 months, up is the same for the growth indicators. The center is "no change". Economies usually circle this map over a cycle. Past months use today's revised data.</p>
+    </div>`;
+  }
+  /** Show the path up to month i: the head sits on that month and later months are hidden. */
+  function regimeStep(i) {
+    const pts = K.rg.pts, box = $("#sdetail");
+    if (!pts.length || !box.querySelector(".rg-svg")) return;
+    i = Math.max(0, Math.min(pts.length - 1, i));
+    box.querySelectorAll(".rg-seg").forEach((e) => { e.style.visibility = +e.dataset.s < i ? "visible" : "hidden"; });
+    box.querySelectorAll(".rg-dot").forEach((e) => { e.style.visibility = +e.dataset.rg <= i ? "visible" : "hidden"; });
+    box.querySelectorAll(".rg-rib button").forEach((e) => e.classList.toggle("on", +e.dataset.rg === i));
+    const p = pts[i], head = box.querySelector("#rghead");
+    head.style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px)`; head.style.setProperty("--c", REG_COL[p.key]);
+    box.querySelector("#rgwhen").innerHTML = `${p.label} · <b style="color:${REG_COL[p.key]}">${REG_NAME[p.key]}</b> <span class="dim">growth ${p.g >= 0 ? "picking up" : "slowing"}, inflation ${p.inf >= 0 ? "heating up" : "cooling"}</span>`;
+  }
+  function regimePlay() {
+    clearInterval(K.rgTimer);
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return regimeStep(K.rg.pts.length - 1);
+    let i = 0; regimeStep(0);
+    K.rgTimer = setInterval(() => { if (K.sel !== REG || !K.active) return clearInterval(K.rgTimer); regimeStep(++i); if (i >= K.rg.pts.length - 1) clearInterval(K.rgTimer); }, 130);
+  }
+
   // ---------- recession model (src/recession.js) ----------
   const pct = (p) => (p == null ? "—" : p < 0.01 ? "<1%" : Math.round(p * 100) + "%");
   const sgn = (v, d = 2) => (v < 0 ? "−" : "") + Math.abs(v).toFixed(d);
@@ -357,7 +426,8 @@
   // ---------- interaction ----------
   function select(id, byUser = true) {
     if (!id) return;
-    K.sel = id;
+    K.sel = id; K.rgFresh = id === REG;
+    document.querySelector("#score .regime")?.classList.toggle("sel", id === REG);
     document.querySelectorAll("#score .srow").forEach((r) => r.setAttribute("aria-selected", String(r.dataset.id === id)));
     document.querySelector(`#score .srow[data-id="${id}"]`)?.scrollIntoView({ block: "nearest" });
     renderDetail(byUser);
@@ -395,6 +465,12 @@
     const b = e.target.closest("[data-id]"); if (b) select(b.dataset.id);
   });
   $("#sdetail").addEventListener("click", (e) => { if (e.target.closest("[data-act=recref]")) api?.page.invoke("recession:refresh"); });
+  $("#sdetail").addEventListener("click", (e) => {
+    if (K.sel !== REG || window.WireInstrument?.isOpen()) return;
+    if (e.target.closest("[data-act=rgplay]")) return regimePlay();
+    const m = e.target.closest("[data-rg]"); if (m) { clearInterval(K.rgTimer); regimeStep(+m.dataset.rg); }
+  });
+  $("#score").addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".regime")) { e.preventDefault(); select(REG); } });
   $("#sref").addEventListener("click", () => { api?.refreshScores(); if (BOARD()) window.WireBoard.refresh(); });
   $("#score").addEventListener("click", (e) => { if (e.target.closest("[data-sref]")) $("#sref").click(); }); // "Try again" on a failed load
   $("#sdetail").addEventListener("click", (e) => {

@@ -15,6 +15,9 @@ const GROUPS = [
     ["^STOXX50E", "Euro Stoxx 50", "Europe"], ["^FTSE", "FTSE 100", "Europe"], ["^GDAXI", "DAX", "Europe"],
     ["^N225", "Nikkei 225", "Asia"], ["^HSI", "Hang Seng", "Asia"], ["000001.SS", "Shanghai", "Asia"], ["^BSESN", "Sensex", "Asia"],
     ["EEM", "Emerging Mkts", "EM"]] },
+  { id: "assets", title: "Across assets", items: [
+    ["TLT", "Long Treasuries", "Bonds"], ["HYG", "High-yield credit", "Credit"], ["GLD", "Gold", "Metals"], ["USO", "Crude oil", "Energy"],
+    ["DBC", "Commodities", "Broad basket"], ["UUP", "US dollar", "vs majors"], ["BTC-USD", "Bitcoin", "Crypto"], ["VNQ", "Real estate", "REITs"]] },
   // style pairs: [a, b] legs; the spread is a − b
   { id: "style", title: "Style", pairs: [
     { name: "Growth vs Value", a: ["IWF", "Growth"], b: ["IWD", "Value"] },
@@ -25,6 +28,14 @@ const PERIODS = ["1D", "1W", "1M", "3M", "YTD", "1Y", "3Y", "5Y", "10Y"];
 const ANNUAL_YEARS = { "3Y": 3, "5Y": 5, "10Y": 10 };
 const LONG_TTL = 24 * 3600 * 1000;
 const ROTATION_BENCH = "SPY";
+// correlation matrix: two sets of US-listed funds (same trading hours, so daily moves line up), and the look-back windows in trading days
+const CORR_SETS = {
+  assets: [["SPY", "US stocks"], ["IWM", "Small caps"], ["EEM", "Emerging mkts"], ["TLT", "Treasuries"], ["HYG", "High yield"], ["GLD", "Gold"],
+    ["USO", "Oil"], ["DBC", "Commodities"], ["UUP", "Dollar"], ["BTC-USD", "Bitcoin"], ["VNQ", "Real estate"]],
+  sectors: null // filled from GROUPS[0] below
+};
+const CORR_WINDOWS = { "1M": 21, "3M": 63, "1Y": 252 };
+const CORR_CALENDAR = "SPY";
 
 function symbols() {
   const out = [];
@@ -154,6 +165,55 @@ function rotation(series, bench, { fast = 4, slow = 26, mom = 8, tail = 12 } = {
 /** Which quarter of the rotation chart a point is in. */
 const quadrant = (x, y) => (x >= 100 ? (y >= 100 ? "leading" : "weakening") : y >= 100 ? "improving" : "lagging");
 
+/** Daily returns of every symbol on one shared calendar (the `calendar` symbol's trading days), so a fund that also
+ *  trades at weekends (bitcoin) is compared over the same days as the rest. bySym: { sym: [{ t, close }] } ascending.
+ *  Returns { t: [day stamps], r: { sym: [return or null per day] } }; r[sym][i] is the move from day i−1 to day i. */
+function alignedReturns(bySym, syms, calendar) {
+  const cal = (bySym[calendar] || []).map((b) => ymd(new Date(b.t)));
+  const t = (bySym[calendar] || []).map((b) => b.t);
+  const r = {};
+  for (const s of syms) {
+    const m = new Map((bySym[s] || []).map((b) => [ymd(new Date(b.t)), b.close]));
+    r[s] = cal.map((d, i) => { const a = i ? m.get(cal[i - 1]) : null, b = m.get(d); return a > 0 && b > 0 ? b / a - 1 : null; });
+  }
+  return { t, r };
+}
+
+/** Pearson correlation of two equal-length arrays over indices [from, to), skipping days either is missing; null under 10 pairs. */
+function pearson(a, b, from = 0, to = a.length) {
+  let n = 0, sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0;
+  for (let i = Math.max(0, from); i < to; i++) {
+    const x = a[i], y = b[i];
+    if (x == null || y == null) continue;
+    n++; sa += x; sb += y; saa += x * x; sbb += y * y; sab += x * y;
+  }
+  if (n < 10) return null;
+  const va = saa - (sa * sa) / n, vb = sbb - (sb * sb) / n;
+  return va > 0 && vb > 0 ? (sab - (sa * sb) / n) / Math.sqrt(va * vb) : null;
+}
+
+/** Correlation matrix of daily returns over the last `days` trading days: { syms, days, m } with m[i][j] rounded to 3 places (null without data). */
+function correlations(aligned, syms, days) {
+  const n = aligned.t.length, from = Math.max(1, n - days);
+  const m = syms.map((a, i) => syms.map((b, j) => {
+    if (i === j) return aligned.r[a]?.some((v) => v != null) ? 1 : null;
+    const c = pearson(aligned.r[a] || [], aligned.r[b] || [], from, n);
+    return c == null ? null : +c.toFixed(3);
+  }));
+  return { syms, days: n - from, m };
+}
+
+/** One pair in detail: the rolling `win`-day correlation as [[t, r]] and the last `win` days of paired returns (%) as [[a, b]]. */
+function pairDetail(aligned, a, b, win = 63) {
+  const ra = aligned.r[a], rb = aligned.r[b], n = aligned.t.length;
+  if (!ra || !rb) return null;
+  const rolling = [];
+  for (let i = win; i <= n; i++) { const c = pearson(ra, rb, i - win, i); if (c != null) rolling.push([aligned.t[i - 1], +c.toFixed(3)]); }
+  const dots = [];
+  for (let i = Math.max(1, n - win); i < n; i++) if (ra[i] != null && rb[i] != null) dots.push([+(ra[i] * 100).toFixed(3), +(rb[i] * 100).toFixed(3)]);
+  return { a, b, win, rolling, dots };
+}
+
 /** Is the US cash session open right now (Mon–Fri 9:30–16:00 New York; holidays ignored)? */
 function usMarketOpen(now = new Date()) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "numeric", hourCycle: "h23" })
@@ -187,7 +247,19 @@ function register(ctx) {
     const bench = hist.weekly[ROTATION_BENCH]?.bars;
     return { bench: ROTATION_BENCH, sectors: GROUPS[0].items.map(([sym, name]) => ({ sym, name, pts: rotation(hist.weekly[sym]?.bars, bench) })).filter((s) => s.pts.length) };
   };
-  const snapshot = () => ({ groups: GROUPS, periods: PERIODS, ...state, open: usMarketOpen(), rotation: rotations() });
+  // correlation matrices for both sets and every window, from the year of daily bars already kept
+  const corrSyms = () => [...new Set(Object.values(CORR_SETS).flat().map((x) => x[0]))];
+  const aligned = () => alignedReturns(hist.daily, corrSyms(), CORR_CALENDAR);
+  const corr = () => {
+    const al = aligned();
+    if (al.t.length < 30) return null;
+    const out = { windows: Object.keys(CORR_WINDOWS), sets: {} };
+    for (const [k, list] of Object.entries(CORR_SETS)) {
+      out.sets[k] = { labels: list, by: Object.fromEntries(Object.entries(CORR_WINDOWS).map(([w, d]) => [w, correlations(al, list.map((x) => x[0]), d)])) };
+    }
+    return out;
+  };
+  const snapshot = () => ({ groups: GROUPS, periods: PERIODS, ...state, open: usMarketOpen(), rotation: rotations(), corr: corr() });
   const interval = () => (usMarketOpen() ? 5 : 30) * 60000;
 
   async function refresh() {
@@ -232,7 +304,10 @@ function register(ctx) {
     if (!daily?.length || !symbols().includes(sym)) return null;
     return chartBars(daily, hist.weekly[sym]?.bars, range, state.data[sym]?.last);
   });
+  ipcMain.handle("markets:pair", (_e, a, b) => (corrSyms().includes(a) && corrSyms().includes(b) ? pairDetail(aligned(), a, b) : null));
   ipcMain.handle("markets:refresh", async () => { await refresh(); return snapshot(); });
 }
 
-module.exports = { register, GROUPS, PERIODS, symbols, barsFromChart, summarize, chartBars, annualize, closeOnOrBefore, usMarketOpen, rotation, quadrant };
+CORR_SETS.sectors = GROUPS[0].items.map(([sym, name]) => [sym, name]);
+
+module.exports = { register, alignedReturns, pearson, correlations, pairDetail, CORR_SETS, GROUPS, PERIODS, symbols, barsFromChart, summarize, chartBars, annualize, closeOnOrBefore, usMarketOpen, rotation, quadrant };

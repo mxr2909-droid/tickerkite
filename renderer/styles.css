@@ -388,3 +388,32 @@ button.mk:hover{background:var(--fg-strong)}
 .es-btn:hover{background:var(--surface-3)}
 .es-err .es-t{color:#ff9592}
 .detail .es{padding-top:32px}
+
+/* regime path (Scorecards right pane) */
+.regime[data-id]{cursor:pointer;border-radius:var(--r);outline-offset:3px}
+.regime[data-id]:hover .q,.regime.sel .q{border-color:var(--line-2)}
+.regime[data-id]:hover .q.on,.regime.sel .q.on{border-color:var(--accent)}
+.regime .rgo{float:right;color:var(--accent);letter-spacing:.06em}
+.rg{display:flex;flex-direction:column;gap:10px}
+.rg-bar{display:flex;align-items:center;gap:10px;font-size:12px;min-height:24px}
+.rg-bar button{font:600 11px var(--sans);letter-spacing:.05em;padding:3px 9px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--surface);color:var(--fg);flex:none}
+.rg-bar button:hover{border-color:var(--accent);color:var(--fg-strong)}
+.rg-svg{display:block;width:100%;height:auto;max-width:520px}
+.rg-axis{stroke:var(--dim);stroke-dasharray:3 3;opacity:.7}
+.rg-ax{fill:var(--dim);font-size:8.5px;letter-spacing:.05em;font-family:var(--sans)}
+.rg-q{font-size:10.5px;font-weight:700;letter-spacing:.08em;font-family:var(--sans);opacity:.9}
+.rg-dot{cursor:pointer}
+.rg-head{transition:transform .13s linear;pointer-events:none}
+.rg-head circle{fill:var(--c,#fff)}
+.rg-head .rg-ring{fill:none;stroke:var(--c,#fff);stroke-width:1.5;animation:rg-pulse 1.8s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes rg-pulse{from{transform:scale(.6);opacity:.9}to{transform:scale(1.9);opacity:0}}
+.rg-rib{display:flex;gap:2px;max-width:520px}
+.rg-rib button{flex:1;height:14px;border-radius:2px;opacity:.55;padding:0;min-width:0}
+.rg-rib button:hover{opacity:.85}
+.rg-rib button.on{opacity:1;box-shadow:0 0 0 1.5px #fff}
+.rg-yrs{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);max-width:520px;margin-top:-6px}
+.rg-counts{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--dim)}
+.rg-counts span{display:inline-flex;align-items:center;gap:6px}
+.rg-counts i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.rg-counts b{color:var(--fg-strong);font-weight:600}
+@media (prefers-reduced-motion:reduce){.rg-head .rg-ring{animation:none}.rg-head{transition:none}}

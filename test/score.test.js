@@ -177,6 +177,11 @@ test("scorecard: 1W/1M changes per asset and NEW flags for data that arrived thi
     assert.ok(r.assets[a].changes.w1 && r.assets[a].changes.m1, a);
     assert.strictEqual(typeof r.assets[a].changes.m1.score, "number");
   }
+  // regime path: 24 month-ends plus today, oldest first, the last point matching the current regime
+  assert.strictEqual(r.regimePath.length, 25);
+  assert.ok(r.regimePath[0].t < r.regimePath[1].t);
+  assert.strictEqual(r.regimePath[24].key, r.regime.key);
+  assert.ok(r.regimePath.every((p) => ["goldilocks", "reflation", "stagflation", "slowdown"].includes(p.key) && Math.abs(p.growth) <= 1 && Math.abs(p.inflation) <= 1));
   assert.strictEqual(r.ind.d.fresh, true, "daily series printed this week");
   assert.strictEqual(r.ind.m.fresh, false, "monthly series last printed Oct 1, before the week began");
 });
