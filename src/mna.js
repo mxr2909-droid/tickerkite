@@ -9,7 +9,9 @@
 //  - Spending: cash paid for acquisitions by every SEC filer, by year, from the XBRL "frames" API.
 // Deals between private companies file nothing with the SEC and are not here.
 const http = require("./data/http");
+const alertsMod = require("./mna-alerts");
 const SIC = require("./data/sic.json");
+const yahoo = require("./data/yahoo");
 
 const DAY = 864e5;
 const YEARS = 3;
@@ -177,6 +179,40 @@ function spendFromFrame(j, year) {
   };
 }
 
+// ---------- merger-arbitrage spread (pure) ----------
+// The gap between the offer price per share and where the target trades. The same band edges are in
+// renderer/mnastats.js (SPREAD_BANDS) so the page and this file agree; change both together.
+const SPREAD = { over: -0.5, tight: 2, wide: 8, lo: -40, hi: 80 };
+const SPREAD_TEXT = {
+  tight: ["Expected to close", "The market expects this to close at the offer."],
+  some: ["Some doubt", "Some doubt, or a long wait: the gap is the return for holding until it closes."],
+  wide: ["Wide gap", "The market doubts this closes on these terms."],
+  over: ["Above the offer", "The stock is above the offer: the market expects a higher bid."]
+};
+/** (offer − last) ÷ last in percent; null when a price is missing, or when the gap is too large to be real
+    (outside −40%…+80%: the parsed offer or the ticker is wrong, e.g. an ADS ratio or a unit ticker). */
+function spreadOf(offer, last) {
+  if (!(offer > 0) || !(last > 0)) return null;
+  const p = ((offer - last) / last) * 100;
+  return p < SPREAD.lo || p > SPREAD.hi ? null : p;
+}
+/** What a gap means in plain English: { key: tight | some | wide | over, label, text }, or null. */
+function spreadRead(pct) {
+  if (pct == null || !isFinite(pct)) return null;
+  const key = pct < SPREAD.over ? "over" : pct < SPREAD.tight ? "tight" : pct <= SPREAD.wide ? "some" : "wide";
+  return { key, label: SPREAD_TEXT[key][0], text: SPREAD_TEXT[key][1] };
+}
+/** { last, prev, at } from one Yahoo chart result (daily bars), or null. */
+function quoteFromChart(r, at = Date.now()) {
+  const close = (r?.indicators?.quote?.[0]?.close || []).filter((v) => v > 0), m = r?.meta || {};
+  const last = m.regularMarketPrice > 0 ? m.regularMarketPrice : close[close.length - 1];
+  if (!(last > 0)) return null;
+  const prev = close.length >= 2 ? close[close.length - 2] : m.chartPreviousClose > 0 ? m.chartPreviousClose : null;
+  return { last, prev, at };
+}
+/** Deals whose target's price is worth fetching: in progress, with an offer price and a ticker, not a SPAC. */
+const quotable = (d) => !!(d.active && d.price > 0 && d.target.tickers[0] && d.type !== "SPAC merger");
+
 // ---------- fetching ----------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const iso = (t) => new Date(t).toISOString().slice(0, 10);
@@ -185,6 +221,7 @@ function register(ctx) {
   const { ipcMain, send, readJSON, writeJSON } = ctx;
   const blank = { filings: {}, sizes: {}, closings: {}, spend: {}, fetchedAt: 0, through: "", closingsAt: 0, spendAt: 0 };
   let C = { ...blank, ...(readJSON("mna-cache.json", null) || {}) };
+  if (!C.quotes || typeof C.quotes !== "object") C.quotes = {}; // { TICKER: { last, prev, at } } for the spread to the offer
   let loading = null, sizing = false, error = "", sizeLeft = 0, lastSave = 0;
 
   const contact = () => ctx.prefs?.().secContact || "";
@@ -200,16 +237,21 @@ function register(ctx) {
 
   function snapshot() {
     const deals = buildDeals(Object.values(C.filings), C.sizes);
+    for (const d of deals) {
+      const q = quotable(d) ? C.quotes[d.target.tickers[0]] : null;
+      d.last = q?.last ?? null; d.spread = q ? spreadOf(d.price, q.last) : null; d.dayPct = q?.prev > 0 ? (q.last / q.prev - 1) * 100 : null;
+    }
     const months = monthKeys(YEARS * 12 + 1);
     return {
       deals, months, closings: months.map((m) => [m, C.closings[m] ?? null]),
       spend: Object.values(C.spend).sort((a, b) => a.year - b.year),
       sectors: SECTORS, years: YEARS, fetchedAt: C.fetchedAt, loading: !!loading, error,
       sizing: { active: sizing, left: sizeLeft, known: deals.filter((d) => d.value).length, total: deals.length },
-      needsContact: !contact()
+      needsContact: !contact(), quotesAt: C.quotesAt || 0
     };
   }
   const push = () => send("mna:update", snapshot());
+  const alerts = alertsMod.attach(ctx, () => buildDeals(Object.values(C.filings), C.sizes));
 
   /** Every deal filing from `from` (yyyy-mm-dd) to today, 100 a page. */
   async function fetchFilings(from) {
@@ -259,7 +301,7 @@ function register(ctx) {
       const todo = buildDeals(Object.values(C.filings), C.sizes).filter((d) => !d.value && d.sizeFrom.some((a) => !C.sizes[a]));
       sizeLeft = todo.length;
       let n = 0, next = 0, stop = false;
-      // four deals at a time: about six requests a second, under the SEC's limit of ten
+      // two deals at a time: four made the SEC answer 429 (too many requests)
       const worker = async () => {
         while (!stop && next < todo.length) {
           const d = todo[next++];
@@ -282,8 +324,9 @@ function register(ctx) {
           if (++n % 30 === 0) { save(); push(); }
         }
       };
-      await Promise.all([worker(), worker(), worker(), worker()]);
-    } finally { sizing = false; save(true); push(); }
+      await Promise.all([worker(), worker()]);
+      if (stop && /slow down/.test(error)) setTimeout(() => { error = ""; sizeDeals(); }, 10 * 60e3); // pick up again once the SEC has cooled off
+    } finally { sizing = false; save(true); push(); try { alerts.check(); } catch {} }
   }
 
   /** The two slower series behind the charts. They load on their own so a stalled one never holds up the deal list. */
@@ -295,6 +338,29 @@ function register(ctx) {
       if (force || Date.now() - C.closingsAt > 12 * 3600e3) { await fetchClosings(); save(true); push(); }
       if (force || Date.now() - C.spendAt > 7 * DAY || !Object.keys(C.spend).length) { await fetchSpend(); save(true); push(); }
     } catch {} finally { extrasBusy = false; }
+  }
+
+  /** Last prices for the targets of open offers, from Yahoo, 20 a request. Runs in the background and never holds up a
+      snapshot; a ticker Yahoo doesn't know is skipped and not asked again for 15 minutes. */
+  const QUOTE_TTL = 15 * 60e3, tried = {};
+  let quoting = false;
+  async function fetchQuotes() {
+    if (quoting) return;
+    const want = [...new Set(buildDeals(Object.values(C.filings), C.sizes).filter(quotable).map((d) => d.target.tickers[0]))];
+    for (const k of Object.keys(C.quotes)) if (!want.includes(k)) delete C.quotes[k];
+    const now = Date.now(), todo = want.filter((s) => now - (C.quotes[s]?.at || 0) > QUOTE_TTL && now - (tried[s] || 0) > QUOTE_TTL);
+    if (!todo.length) return;
+    quoting = true;
+    try {
+      for (let i = 0; i < todo.length; i += 20) {
+        const batch = todo.slice(i, i + 20);
+        let got = {};
+        try { got = await yahoo.spark(batch, { range: "5d", interval: "1d" }); } catch {}
+        for (const s of batch) { tried[s] = Date.now(); const q = quoteFromChart(got[s]); if (q) C.quotes[s] = q; }
+      }
+      C.quotesAt = Date.now();
+      save(true); push();
+    } catch {} finally { quoting = false; }
   }
 
   async function refresh(full) {
@@ -311,21 +377,23 @@ function register(ctx) {
         for (const k of Object.keys(C.sizes)) if (!live.has(k)) delete C.sizes[k];
         C.through = iso(Date.now()); C.fetchedAt = Date.now();
         save(true); push();
+        try { alerts.check(); } catch {}
         sizeDeals(); // sizes are what the filters and charts wait for most: start them while the rest downloads
         await extras(true);
       } catch (e) { error = `SEC EDGAR didn't answer (${String(e.message || e)}).`; }
-    })().finally(() => { loading = null; push(); sizeDeals(); });
+    })().finally(() => { loading = null; push(); sizeDeals(); fetchQuotes(); });
     push();
     return loading;
   }
 
   ipcMain.handle("mna:get", () => {
     if (Date.now() - C.fetchedAt > 6 * 3600e3) refresh(false); else { sizeDeals(); extras(false); }
+    fetchQuotes();
     return snapshot();
   });
-  ipcMain.handle("mna:refresh", async (_e, full) => { await refresh(!!full); return snapshot(); });
+  ipcMain.handle("mna:refresh", async (_e, full) => { fetchQuotes(); await refresh(!!full); return snapshot(); });
   // the Company page saves the contact; start sizing as soon as there is one
   ctx.bus?.on?.("prefs:secContact", () => sizeDeals());
 }
 
-module.exports = { register, sectorOf, industryOf, tidyName, parseEntity, filingFromHit, buildDeals, parseFee, feeDocFromIndex, monthKeys, spendFromFrame, SECTORS, FORMS, YEARS };
+module.exports = { register, sectorOf, industryOf, tidyName, parseEntity, filingFromHit, buildDeals, parseFee, feeDocFromIndex, monthKeys, spendFromFrame, spreadOf, spreadRead, quoteFromChart, SPREAD, SECTORS, FORMS, YEARS };

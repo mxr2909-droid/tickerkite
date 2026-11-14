@@ -86,7 +86,7 @@
   ipop.className = "fb-hpop fb-ipop"; ipop.hidden = true; ipop.setAttribute("role", "dialog"); ipop.setAttribute("aria-label", "Alerts inbox");
   document.body.append(ipop);
   const BB = bar.querySelector("#fbBell");
-  const KIND = { news: "NEWS", watchlist: "WATCHLIST", monitor: "RISK", release: "DATA", earnings: "EARNINGS", screen: "SCREEN", other: "ALERT" };
+  const KIND = { news: "NEWS", watchlist: "WATCHLIST", monitor: "RISK", release: "DATA", earnings: "EARNINGS", screen: "SCREEN", deal: "DEALS", other: "ALERT" };
   let IB = { items: [], unread: 0 }, ikind = "";
   const when = (t) => { const d = new Date(t), now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }); };
   function paintInbox() {

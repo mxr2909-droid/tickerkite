@@ -16,6 +16,10 @@
   const money = (v) => S.money(v);
   const chg = (v) => (v == null || !isFinite(v) ? "" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v) >= 10 ? Math.abs(v).toFixed(0) : Math.abs(v).toFixed(1)}%`);
   const cls = (v) => (v > 0 ? "up" : v < 0 ? "dn" : "");
+  // gap to the offer: always one decimal, so 0.4% and 3.4% read alike
+  const gapTxt = (v) => (v == null || !isFinite(v) ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(1)}%`);
+  const usd = (v) => (v == null ? "—" : `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  const gapTitle = (d) => { const r = S.spreadRead(d.spread); return r ? `Offer ${usd(d.price)} a share · last price ${usd(d.last)} · gap ${gapTxt(d.spread)}. ${r.text}` : ""; };
 
   const P = { active: false, snap: null, F: S.defaults(), sort: { key: "date", dir: -1 }, limit: PAGE, sel: null, charts: true, v: null, chartSig: "", dirty: false, cache: {}, detailHTML: null, typing: 0 };
   try { const f = JSON.parse(localStorage.getItem("wire.mna.filters") || "null"); if (f && typeof f === "object") for (const k of Object.keys(P.F)) if (k !== "q" && typeof f[k] === typeof P.F[k]) P.F[k] = f[k]; } catch {}
@@ -41,7 +45,7 @@
   const formWords = (f) => { const base = String(f).replace(/\/A$/, ""), w = FORMS[base] || base; return /\/A$/.test(f) ? `Amendment: ${w.charAt(0).toLowerCase() + w.slice(1)}` : w; };
   const SIZE_SHORT = { u100: "< $100M", "100m": "$100M–1B", "1b": "$1–10B", "10b": "$10B+", na: "Undisclosed" };
   const RANGE_WORDS = { "3M": "3 months", "6M": "6 months", "1Y": "12 months", "2Y": "2 years", "3Y": "3 years" };
-  const COLS = [["date", "Date"], ["target", "Target"], ["buyer", "Buyer"], ["sector", "Sector"], ["industry", "Sub-sector"], ["type", "Type"], ["stage", "Stage"], ["value", "Size"]];
+  const COLS = [["date", "Date"], ["target", "Target"], ["buyer", "Buyer"], ["sector", "Sector"], ["industry", "Sub-sector"], ["type", "Type"], ["stage", "Stage"], ["gap", "Gap to offer"], ["value", "Size"]];
 
   const spanWords = (sp) => {
     if (P.F.range !== "custom" && RANGE_WORDS[P.F.range]) return RANGE_WORDS[P.F.range];
@@ -60,7 +64,7 @@
   }
   const sortVal = {
     date: (d) => d.date, target: (d) => d.target.name.toLowerCase(), buyer: (d) => (d.acquirers[0]?.name || "").toLowerCase(),
-    sector: (d) => d.sector, industry: (d) => d.industry, type: (d) => d.type, stage: (d) => d.stage, value: (d) => d.value
+    sector: (d) => d.sector, industry: (d) => d.industry, type: (d) => d.type, stage: (d) => d.stage, value: (d) => d.value, gap: (d) => d.spread
   };
   function sorted(v) {
     const k = `${P.sort.key}:${P.sort.dir}`;
@@ -118,7 +122,8 @@
     return `<div class="mna-head"><div class="mna-ttl"><h2>Mergers and acquisitions</h2>
         <p class="dim">US-listed targets, from SEC filings: tender offers, merger proxies and going-private statements</p>
         <p class="mna-st dim" role="status">${status}${sizes ? `<span class="mna-sz">${z.active ? '<i class="mna-spin"></i>' : ""}${esc(sizes)}</span>` : ""}</p></div>
-      <div class="mna-hb"><button type="button" class="mna-btn" data-charts aria-pressed="${P.charts}" title="Show or hide the charts">Charts ${P.charts ? "on" : "off"}</button>
+      <div class="mna-hb"><button type="button" class="mna-btn" data-act="mna-alerts" aria-haspopup="dialog" title="Choose which new deals to be told about">${window.TkMnaAlerts?.label?.() || "ALERTS OFF"}</button>
+        <button type="button" class="mna-btn" data-charts aria-pressed="${P.charts}" title="Show or hide the charts">Charts ${P.charts ? "on" : "off"}</button>
         <button type="button" class="mna-btn" data-ref ${s.loading ? "disabled" : ""} title="Check for new filings (r) · shift-click re-downloads all three years">${s.loading ? "Loading…" : "↻ Refresh"}</button></div></div>`;
   }
 
@@ -144,6 +149,7 @@
         ${seg("range", F.range, [...Object.keys(S.RANGES).map((k) => [k, k, `The last ${RANGE_WORDS[k]}`]), ["custom", "Custom", "Pick your own dates"]], "Date frame")}
         ${custom ? `<label class="mna-date">From <input type="date" data-f="from" min="${lo}" max="${hi}" value="${esc(F.from)}"></label><label class="mna-date">to <input type="date" data-f="to" min="${lo}" max="${hi}" value="${esc(F.to || hi)}"></label>` : ""}
         ${seg("status", F.status, [["", "All"], ["active", "In progress", "A deal filing in the last 90 days"], ["past", "Past", "No deal filing for 90 days: completed or abandoned"]], "Status")}
+        <button type="button" class="mna-chip" data-gap aria-pressed="${!!F.gap}" title="Only deals in progress with an offer price per share and a market price for the target, so the gap between the two is known">Open offers only</button>
         ${isDefault() ? "" : `<button type="button" class="mna-btn mna-reset" data-reset title="Back to the last 12 months, every sector and size">Reset</button>`}</div>
       <div class="mna-row2">
         <select data-f="sector" aria-label="Sector">${opt("", "All sectors", F.sector)}${secs.map((s) => opt(s, `${s} (${secN[s] || 0})`, F.sector)).join("")}</select>
@@ -186,6 +192,7 @@
       <span class="c-ind"><button type="button" class="mna-cb" data-set="industry" data-v="${esc(d.industry)}" data-sector="${esc(d.sector)}" title="Show only ${esc(d.industry)}">${esc(d.industry)}</button></span>
       <span class="c-typ">${esc(d.type)}</span>
       <span class="c-stg">${dot}${esc(d.stage)}</span>
+      <span class="c-gap">${d.spread != null ? `<span class="g-${S.spreadKey(d.spread)}" title="${esc(gapTitle(d))}">${gapTxt(d.spread)}</span>` : '<span class="dimmer">—</span>'}</span>
       <span class="c-val">${d.value != null ? money(d.value) : '<span class="dimmer">—</span>'}</span></div>`;
   }
   function table(v) {
@@ -206,7 +213,7 @@
       ${left > 0 ? `<button type="button" class="mna-btn mna-more" data-more>Show ${Math.min(PAGE, left)} more <span class="dim">of ${left.toLocaleString("en-US")}</span></button>` : ""}`;
   }
 
-  function dataSig(s) { return `${s.deals.length}:${s.sizing?.known}:${s.fetchedAt}:${s.loading}:${s.closings?.filter((x) => x[1] != null).length}:${s.spend?.length}`; }
+  function dataSig(s) { return `${s.deals.length}:${s.sizing?.known}:${s.fetchedAt}:${s.loading}:${s.closings?.filter((x) => x[1] != null).length}:${s.spend?.length}:${s.quotesAt || 0}`; }
   function charts(v) {
     const box = $("#mna-charts");
     if (!box) return;
@@ -271,9 +278,19 @@
     const buyers = d.acquirers.length ? d.acquirers.slice(0, 4).map((a) => `<div>${esc(a.name)}${a.tickers[0] ? ` <button type="button" class="mna-tk" data-inst="${esc(a.tickers[0])}" title="Open ${esc(a.tickers[0])}">${esc(a.tickers[0])}</button>` : ""}</div>`).join("") + (d.acquirers.length > 4 ? `<div class="dim">and ${d.acquirers.length - 4} more</div>` : "")
       : `<span class="dim">Not named on the filing cover; open a filing to read it</span>`;
     const stage = `${esc(d.stage)}<div class="dim">${d.active ? `<i class="mna-dot"></i>In progress · last filing ${ago ? `${ago} day${ago === 1 ? "" : "s"} ago` : "today"}` : `No new filing for ${ago} days: completed or abandoned (the filings don't say which)`}</div>`;
+    // gap to the offer (merger-arbitrage spread): only for open offers with a price per share
+    const rd = S.spreadRead(d.spread), qAt = s.quotesAt ? new Date(s.quotesAt).toLocaleString("en-US", iso(s.quotesAt) === iso(Date.now()) ? { hour: "numeric", minute: "2-digit" } : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+    const gap = rd ? `<div class="mna-gap g-${rd.key}">
+        <div class="mna-gapn"><b>${gapTxt(d.spread)}</b><span>gap to the offer<em class="g-${rd.key}">${esc(rd.label)}</em></span></div>
+        <div class="mna-gapp"><span>Offer <b>${usd(d.price)}</b></span><span>Last price <b>${usd(d.last)}</b>${d.dayPct != null ? ` <em class="${cls(d.dayPct)}">${chg(d.dayPct) || "unchanged"} today</em>` : ""}</span></div>
+        <p class="mna-gapr">${esc(rd.text)}</p>
+        <p class="mna-note">If the deal closes at the offer, a buyer today makes this much before costs; if it breaks, the stock usually falls back toward where it traded before the deal.${qAt ? ` Price as of ${esc(qAt)}.` : ""}</p></div>`
+      : d.active && d.price != null && tk && d.type !== "SPAC merger"
+        ? `<p class="mna-note mna-gapx">${d.last != null ? `The gap to the offer isn't shown: the stock trades at ${usd(d.last)} against an offer of ${usd(d.price)} a share, too far apart to be the same share (the offer may be per ADS, or the ticker may be a different share class or unit).`
+          : !s.quotesAt ? "Loading the stock's price to compare with the offer…" : `The price of ${esc(tk)} could not be loaded, so the gap to the offer isn't known.`}</p>` : "";
     const fil = d.filings.map((f) => `<button type="button" class="mna-fil" data-url="${esc(f.url)}" title="Open on sec.gov"><b>${esc(f.form)}</b><span>${esc(formWords(f.form))}</span><em>${day(f.date)}</em></button>`).join("");
     return `<div class="dhead">${tk ? `<span class="code">${esc(tk)}</span>` : ""}<span class="nm">${esc(d.type)} · ${esc(d.sector)}</span></div>
-      <h1>${esc(d.target.name)}</h1>${size}
+      <h1>${esc(d.target.name)}</h1>${size}${gap}
       <dl class="kv mna-kv">
         <dt>Buyer${d.acquirers.length > 1 ? "s" : ""}</dt><dd>${buyers}</dd>
         <dt>Type</dt><dd>${esc(d.type)}<div class="dim">${esc(TYPE_WORDS[d.type] || "")}</div></dd>
@@ -365,11 +382,12 @@
       P.F.range = k; return changed();
     }
     const st = e.target.closest("[data-status]"); if (st) { P.F.status = st.dataset.status; return changed(); }
+    if (e.target.closest("[data-gap]")) { P.F.gap = !P.F.gap; return changed(); }
     const sz = e.target.closest("[data-size]"); if (sz) { P.F.size = sz.dataset.size; return changed(); }
     const so = e.target.closest("[data-sort]");
     if (so) {
       const k = so.dataset.sort;
-      P.sort = P.sort.key === k ? { key: k, dir: -P.sort.dir } : { key: k, dir: k === "date" || k === "value" ? -1 : 1 };
+      P.sort = P.sort.key === k ? { key: k, dir: -P.sort.dir } : { key: k, dir: k === "date" || k === "value" || k === "gap" ? -1 : 1 };
       return render();
     }
     if (e.target.closest("[data-more]")) { P.limit += PAGE; return render(); }

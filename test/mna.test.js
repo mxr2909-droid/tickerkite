@@ -90,3 +90,29 @@ test("month keys and the yearly spending summary", () => {
   const s = M.spendFromFrame({ data: [{ entityName: "BIG CO", cik: 1, val: 3e9 }, { entityName: "Small Co", cik: 2, val: 5e8 }, { entityName: "Typo", cik: 3, val: 9e12 }, { entityName: "Neg", cik: 4, val: -5 }] }, 2025);
   assert.equal(s.total, 3.5e9); assert.equal(s.n, 2); assert.equal(s.big, 1); assert.equal(s.top[0].name, "Big Co");
 });
+
+test("gap to the offer: percent, nonsense guarded, plain-English reading", () => {
+  assert.equal(M.spreadOf(25, 24).toFixed(4), "4.1667");
+  assert.equal(M.spreadOf(20, 21) < 0, true);
+  assert.equal(M.spreadOf(null, 10), null); assert.equal(M.spreadOf(10, 0), null); assert.equal(M.spreadOf(-1, 10), null); assert.equal(M.spreadOf(10, undefined), null);
+  assert.equal(M.spreadOf(16.25, 3.25), null);  // +400%: an ADS ratio or a wrong ticker
+  assert.equal(M.spreadOf(10, 20), null);       // −50%
+  assert.equal(M.spreadOf(18, 10), 80); assert.equal(M.spreadOf(6, 10), -40);
+  assert.equal(M.spreadRead(null), null);
+  assert.equal(M.spreadRead(0.3).key, "tight"); assert.equal(M.spreadRead(-0.5).key, "tight"); assert.equal(M.spreadRead(1.99).key, "tight");
+  assert.equal(M.spreadRead(2).key, "some"); assert.equal(M.spreadRead(8).key, "some"); assert.equal(M.spreadRead(8.01).key, "wide");
+  assert.equal(M.spreadRead(-0.6).key, "over");
+  assert.match(M.spreadRead(1).text, /expects this to close at the offer/);
+  assert.match(M.spreadRead(-3).text, /higher bid/);
+  // the renderer's copy of the band edges matches
+  const S = require("../renderer/mnastats");
+  for (const k of ["over", "tight", "wide"]) assert.equal(S.SPREAD_BANDS[k], M.SPREAD[k], k);
+  for (const p of [-5, -0.5, 0, 1.99, 2, 5, 8, 9, 40]) assert.deepEqual(S.spreadRead(p), M.spreadRead(p), String(p));
+});
+
+test("a quote from a Yahoo chart result: last and previous close", () => {
+  assert.deepEqual(M.quoteFromChart({ meta: { regularMarketPrice: 24.9 }, indicators: { quote: [{ close: [24.1, null, 24.5, 24.9] }] } }, 7), { last: 24.9, prev: 24.5, at: 7 });
+  assert.deepEqual(M.quoteFromChart({ meta: { chartPreviousClose: 10 }, indicators: { quote: [{ close: [11] }] } }, 1), { last: 11, prev: 10, at: 1 });
+  assert.equal(M.quoteFromChart(null), null);
+  assert.equal(M.quoteFromChart({ meta: {}, indicators: { quote: [{ close: [] }] } }), null);
+});

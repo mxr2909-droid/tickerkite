@@ -13,7 +13,7 @@
   const iso = (t) => new Date(t).toISOString().slice(0, 10);
 
   /** The filters with nothing chosen: the last year, every sector and size, SPAC mergers left out. */
-  const defaults = () => ({ range: "1Y", from: "", to: "", sector: "", industry: "", size: "", type: "", status: "", q: "", spacs: false });
+  const defaults = () => ({ range: "1Y", from: "", to: "", sector: "", industry: "", size: "", type: "", status: "", q: "", spacs: false, gap: false });
 
   /** The date window the filters ask for, and the window of the same length just before it. */
   function span(F, now = Date.now()) {
@@ -38,6 +38,7 @@
     if (F.type && d.type !== F.type) return false;
     if (F.status === "active" && !d.active) return false;
     if (F.status === "past" && d.active) return false;
+    if (F.gap && d.spread == null) return false;
     if (!inSize(d, F.size)) return false;
     if (F.q) {
       const q = F.q.trim().toLowerCase();
@@ -133,6 +134,30 @@
     return `$${Math.round(v / 1e3)}K`;
   }
 
-  const api = { RANGES, SIZES, HIST, TYPES, defaults, span, matches, filter, previous, allTime, median, summary, monthly, trailing, sizeHist, quarterOf, quarterKeys, sectorQuarters, industries, money };
+  // ---------- gap to the offer (merger-arbitrage spread) ----------
+  // d.spread = (offer − last) ÷ last in percent, set by src/mna.js snapshot(). These band edges repeat src/mna.js SPREAD
+  // (spreadRead there) so the page and the main process agree; change both together.
+  const SPREAD_BANDS = { over: -0.5, tight: 2, wide: 8 };
+  /** "over" (stock above the offer), "tight" (under 2%), "some" (2–8%), "wide" (above 8%); null without a gap. */
+  const spreadKey = (p) => (p == null || !isFinite(p) ? null : p < SPREAD_BANDS.over ? "over" : p < SPREAD_BANDS.tight ? "tight" : p <= SPREAD_BANDS.wide ? "some" : "wide");
+  // the same words as src/mna.js spreadRead (a test checks the two agree)
+  const SPREAD_WORDS = {
+    tight: ["Expected to close", "The market expects this to close at the offer."],
+    some: ["Some doubt", "Some doubt, or a long wait: the gap is the return for holding until it closes."],
+    wide: ["Wide gap", "The market doubts this closes on these terms."],
+    over: ["Above the offer", "The stock is above the offer: the market expects a higher bid."]
+  };
+  /** { key, label, text } for a gap, or null. */
+  const spreadRead = (p) => { const key = spreadKey(p); return key ? { key, label: SPREAD_WORDS[key][0], text: SPREAD_WORDS[key][1] } : null; };
+  /** In-progress deals with a known gap, widest first. */
+  const spreads = (deals) => deals.filter((d) => d.active && d.spread != null && isFinite(d.spread)).sort((a, b) => b.spread - a.spread);
+  /** { n, median, tight, some, wide, over } over the in-progress deals with a gap. */
+  function spreadSummary(deals) {
+    const ds = spreads(deals), out = { n: ds.length, median: median(ds.map((d) => d.spread)), tight: 0, some: 0, wide: 0, over: 0 };
+    for (const d of ds) out[spreadKey(d.spread)]++;
+    return out;
+  }
+
+  const api = { RANGES, SIZES, HIST, TYPES, SPREAD_BANDS, defaults, span, matches, filter, previous, allTime, median, summary, monthly, trailing, sizeHist, quarterOf, quarterKeys, sectorQuarters, industries, money, spreadKey, spreadRead, spreads, spreadSummary };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else window.TkMnaStats = api;
 })();

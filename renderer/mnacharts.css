@@ -84,3 +84,27 @@
 @keyframes mac-grow{from{transform:scaleY(0)}}
 @keyframes mac-pop{from{transform:scale(.2);opacity:0}}
 @media (prefers-reduced-motion:reduce){.mac-anim .mac-bar,.mac-anim .mac-dot:not(.blind),.mac-anim .mac-cell rect{animation:none}.pl-fill,.pl-now{transition:none}}
+
+/* gap to the offer (open offers) */
+.mac-gap .k-tight,.mac-leg i.k-tight{--g:color-mix(in srgb,var(--up) 70%,var(--dim))}
+.mac-gap .k-some,.mac-leg i.k-some{--g:var(--warn)}
+.mac-gap .k-wide,.mac-leg i.k-wide{--g:var(--down)}
+.mac-gap .k-over,.mac-leg i.k-over{--g:var(--link)}
+.mac-leg i[class^="k-"]{background:var(--g);border-radius:50%}
+.mac-gband{fill:var(--up);opacity:.08}
+.mac-gzero{stroke:var(--fg);stroke-width:1.2;opacity:.7}
+.mac-gr{cursor:pointer}
+.mac-ghit{fill:transparent}
+.mac-gr:hover .mac-ghit{fill:rgba(255,255,255,.05)}
+.mac-gr.sel .mac-ghit{fill:var(--row-sel,var(--accent-soft))}
+.mac-glb{fill:var(--fg);font-size:11px;font-family:var(--sans)}
+.mac-gr.sel .mac-glb{fill:var(--fg-strong);font-weight:600}
+.mac-gtk{fill:var(--accent);font:600 10px var(--mono,ui-monospace,Menlo,monospace)}
+.mac-gstem{stroke:var(--g);stroke-width:2;stroke-linecap:round;opacity:.75}
+.mac-gdot{fill:var(--g);stroke:var(--surface);stroke-width:1.2;transform-box:fill-box;transform-origin:center}
+.mac-gr:hover .mac-gdot,.mac-gr.sel .mac-gdot{stroke:#fff;stroke-width:1.8}
+.mac-gv{fill:var(--g);font-size:10.5px;font-weight:600;font-family:var(--mono,ui-monospace,Menlo,monospace);transform-box:fill-box;transform-origin:center}
+.mac-anim .mac-gstem{animation:mac-stem .5s cubic-bezier(.2,.8,.3,1) both;animation-delay:calc(var(--d)*18ms)}
+.mac-anim .mac-gdot,.mac-anim .mac-gv{animation:mac-pop .4s cubic-bezier(.2,.9,.3,1.3) both;animation-delay:calc(var(--d)*18ms + 200ms)}
+@keyframes mac-stem{from{transform:scaleX(0)}}
+@media (prefers-reduced-motion:reduce){.mac-anim .mac-gstem,.mac-anim .mac-gdot,.mac-anim .mac-gv{animation:none}}

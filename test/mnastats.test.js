@@ -139,3 +139,17 @@ test("money", () => {
   assert.strictEqual(S.money(1.5e11), "$150B"); assert.strictEqual(S.money(2.5e8), "$250M");
   assert.strictEqual(S.money(-2e9), "$-2.0B"); assert.strictEqual(S.money(4.56e6, 2), "$4.56M");
 });
+
+test("gap to the offer: bands, widest first, summary, and the open-offers filter", () => {
+  assert.strictEqual(S.spreadKey(null), null); assert.strictEqual(S.spreadKey(-3), "over"); assert.strictEqual(S.spreadKey(-0.5), "tight");
+  assert.strictEqual(S.spreadKey(1.99), "tight"); assert.strictEqual(S.spreadKey(2), "some"); assert.strictEqual(S.spreadKey(8), "some"); assert.strictEqual(S.spreadKey(8.1), "wide");
+  const ds = [deal({ spread: 1.2 }), deal({ spread: 12 }), deal({ spread: -2 }), deal({ spread: 3.4 }), deal({ spread: null }), deal({ spread: 5, active: false }), deal({ spread: 0.4 })];
+  assert.deepStrictEqual(S.spreads(ds).map((d) => d.spread), [12, 3.4, 1.2, 0.4, -2]);
+  assert.deepStrictEqual(S.spreadSummary(ds), { n: 5, median: 1.2, tight: 2, some: 1, wide: 1, over: 1 });
+  assert.deepStrictEqual(S.spreadSummary([]), { n: 0, median: null, tight: 0, some: 0, wide: 0, over: 0 });
+  const F = S.defaults();
+  assert.strictEqual(F.gap, false);
+  assert.strictEqual(S.matches(ds[4], F), true);
+  assert.strictEqual(S.matches(ds[4], { ...F, gap: true }), false);
+  assert.strictEqual(S.matches(ds[0], { ...F, gap: true }), true);
+});

@@ -195,19 +195,23 @@ The code is `src/sectormap.js` (data), `renderer/map.js` (drawing) and `renderer
 
 **Filters.** Date frame (3M to 3Y, or custom dates), sector, sub-sector, size, deal type (merger, tender offer, going private, SPAC merger), status (in progress or past) and a search box for target, buyer, ticker or industry. SPAC mergers are left out unless you switch them on. Filters are remembered.
 - **Sector** is Tickerkite's grouping of the target's SIC industry code into 11 sectors; **sub-sector** is the SEC's own name for that code (for example "Pharmaceutical Preparations").
-- **Size** is the *transaction valuation* in the filing's fee exhibit: the SEC charges a fee on the value of the deal, so the filing has to state it. It is the value of the shares being bought (equity value), not enterprise value, and it needs the contact email the Company page asks for, because www.sec.gov refuses apps that don't give one. Sizes are read in the background, newest deals first, about two deals a second the first time.
+- **Size** is the *transaction valuation* in the filing's fee exhibit: the SEC charges a fee on the value of the deal, so the filing has to state it. It is the value of the shares being bought (equity value), not enterprise value, and it needs the contact email the Company page asks for, because www.sec.gov refuses apps that don't give one. Sizes are read in the background, newest deals first, two deals at a time (the SEC answers "too many requests" if we go faster), so the first full read takes a while. If the SEC does refuse, reading resumes by itself 10 minutes later.
 - **Date** is the deal's first SEC filing, usually days to weeks after the announcement.
+- **Gap to offer** (deals in progress that state an offer price per share and have a ticker): how far the stock trades below the offer, as (offer minus last price) divided by last price. Under 2% means the market expects the deal to close; 2% to 8% means some doubt or a long wait; above 8% means the market doubts it; a negative gap means the stock is above the offer, so traders expect a higher bid. It shows as a "Gap to offer" column in the deal table (widest layout only), as a block in the deal's right pane, and the **Open offers only** chip filters to these deals. Prices come from Yahoo and refresh every 15 minutes. The gap is not annualised because the free data has no expected closing date. Gaps outside -40% to +80% are hidden as unreliable. The offer price is read from the SEC fee exhibit, so cash-and-stock deals and deals with price adjustments can show a misleading gap.
 - **Stage** is read from the filings (preliminary proxy, vote scheduled, tender offer filed). **In progress** means a filing in the last 90 days. The page cannot tell a completed deal from an abandoned one.
 
 **Charts** (all follow the filters except the last):
 - **Market pulse:** five measures (new deals a month, disclosed value, deals of $1B+, the typical deal size, closings reported), each placed inside its own three-year range with a marker for a year ago, and a one-line reading: busy, about normal or quiet.
 - **New deals by month:** three years of monthly bars by deal type, with a 3-month average and the number of closings reported in 8-Ks (Item 2.01, all sectors). **Value** switches the bars to disclosed dollars. Click a month to show only its deals.
 - **Every deal in your date frame:** one circle per deal by date and size (each gridline is ten times the one below), colored by sector, with deals of undisclosed size along the bottom. Click a circle to open the deal.
+- **Open offers: gap to the offer price:** a lollipop chart of deals in progress, widest gap first, up to 24 rows, colored by the readings above.
 - **How big the deals are:** the share of deals in each size step against the period before.
 - **Where the deals are:** sectors by quarter, darker for more; click a square to filter to it. It names the sector gaining the most ground.
 - **What companies spend on acquisitions:** cash paid for acquisitions by every SEC filer, by fiscal year since 2010, from the XBRL frames API, with the number of companies spending $1B+. This one is not filtered, counts cash deals when they close, and includes purchases of private companies.
 
-Click a deal for the right pane: buyer, size, offer price per share, sector, and every filing with a link. The data is cached in `mna-cache.json` and re-checked every 6 hours (only the last few days are re-read). The code is `src/mna.js` (EDGAR, deal grouping, fee exhibit), `renderer/mnastats.js` (filters and statistics, tested), `renderer/mna.js` (page) and `renderer/mnacharts.js` (charts).
+**Alerts.** The ALERTS button in the page header opens a small panel: switch alerts on, always alert for watchlist tickers, and pick sectors, deal types and a minimum size. A new deal that matches sends a macOS notification, which also lands in the Alerts inbox under DEALS; clicking it opens this page. Only deals first filed with the SEC in the last 10 days alert, each at most once. SPAC mergers never alert. A deal with no stated size waits until its size is read when a minimum is set. At most 5 notifications go out per check, and switching alerts on never floods you with old deals. Settings and the deals already seen are kept in `mna-alerts.json`.
+
+Click a deal for the right pane: buyer, size, offer price per share, sector, and every filing with a link. The data is cached in `mna-cache.json` and re-checked every 6 hours (only the last few days are re-read). The code is `src/mna.js` (EDGAR, deal grouping, fee exhibit, quotes and the gap), `src/mna-alerts.js` (alert rules and notifications, tested), `renderer/mnastats.js` (filters and statistics, tested), `renderer/mna.js` (page), `renderer/mnacharts.js` (charts) and `renderer/mnaalerts.js` with `renderer/mnaalerts.css` (alerts panel).
 
 ## Currencies (FX)
 
@@ -272,7 +276,7 @@ The last news, scorecard data, page caches and market quotes (`quotes-cache.json
 
 ## Alerts inbox
 
-The bell next to the health light keeps every notification Tickerkite sends (high-impact and watchlist headlines, risk-monitor warnings, data releases with their market reaction, screener hits), with an unread count. Filter by kind, click one to open what it's about (the story, the WARN page, the Calendar, the Screener), mark all read or clear. The last 300 are kept in `inbox.json`. Under the hood, `src/inbox.js` wraps Electron's Notification, so every module's alerts are captured.
+The bell next to the health light keeps every notification Tickerkite sends (high-impact and watchlist headlines, risk-monitor warnings, data releases with their market reaction, screener hits, new M&A deals), with an unread count. Filter by kind, click one to open what it's about (the story, the WARN page, the Calendar, the Screener, the M&A page), mark all read or clear. The last 300 are kept in `inbox.json`. Under the hood, `src/inbox.js` wraps Electron's Notification, so every module's alerts are captured.
 
 ## Data health light
 
@@ -413,7 +417,8 @@ src/watchlist.js     your tickers: symbol cleanup and which stories mention them
 src/markets.js       market heatmap: sectors, global indexes, style pairs
 src/company.js       company panel: SEC EDGAR fundamentals, valuation, next earnings date
 src/graphs.js        graph workspace: FRED/Yahoo downloads, cache, saved charts, exports
-src/mna.js           mergers and acquisitions: SEC deal filings folded into deals, deal size from fee exhibits, closings and acquisition spending
+src/mna.js           mergers and acquisitions: SEC deal filings folded into deals, deal size from fee exhibits, closings and acquisition spending, quotes for the gap to the offer
+src/mna-alerts.js    M&A deal alerts: matching rules, seen deals, notifications
 src/montecarlo.js    portfolio Monte Carlo: block-bootstrap simulation, percentile paths, outperformance histogram, saved custom portfolios
 src/macro/           scorecards: indicators, data downloads, scoring, default weights
 

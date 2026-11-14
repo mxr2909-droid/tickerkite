@@ -1,10 +1,11 @@
 /* M&A page charts (window.TkMnaCharts). renderer/mna.js owns the page and calls render(el, ctx) after each change:
    ctx = { snap, F, deals (in the chosen window), prev (the window before), all (every date, other filters applied),
            now, selected, select(id), setFilter(patch) }.
-   Six cards, all drawn as SVG at the card's real width:
+   Seven cards, all drawn as SVG at the card's real width:
      pulse     where today's pace sits inside its own three-year range
      flow      new deals (or disclosed value) per month, by type, with closings reported in 8-Ks
      bubbles   every deal in the window by date and size
+     gap       open offers: the gap between the offer price and the stock price (only when there are any)
      sizes     the size mix against the period before
      heat      sectors × quarters
      spend     cash paid for acquisitions by all SEC filers, by year (not filtered) */
@@ -155,6 +156,54 @@
       <p class="mac-note">Higher is bigger, and the scale multiplies: each line is ten times the one below. A circle's area is the deal's size.</p></div>`;
   }
 
+  // ---------- gap: open offers against their offer price (merger-arbitrage spread) ----------
+  const gapTxt = (v) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(1)}%`;
+  const usd = (v) => (v == null ? "—" : `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  function gap(ctx, W) {
+    const all = S.spreads(ctx.deals);
+    if (!all.length) return "";
+    const MAX = 24, ds = all.slice(0, MAX), sum = S.spreadSummary(ctx.deals);
+    const rh = 22, pt = 18, pb = 24, H = pt + ds.length * rh + pb, lw = Math.min(240, Math.max(130, W * 0.3)), rw = W > 560 ? 64 : 0;
+    const vs = ds.map((d) => d.spread), lo0 = Math.min(0, ...vs), hi0 = Math.max(S.SPREAD_BANDS.tight + 1, ...vs);
+    const step = niceStep(hi0 - lo0, W > 560 ? 6 : 4), lo = Math.floor(lo0 / step) * step, hi = Math.ceil(hi0 / step) * step;
+    // room for the percent beside the dot: on the right of a gap, and on the left of a negative one
+    const x0 = lw + (lo < 0 ? 46 : 8), x1 = W - rw - 48, X = (v) => x0 + ((v - lo) / (hi - lo || 1)) * (x1 - x0);
+    let g = `<svg viewBox="0 0 ${W} ${H}" class="mac-svg mac-gap" role="img" aria-label="Gap between the offer price and the stock price for each open offer">`;
+    g += `<rect class="mac-gband" x="${X(0).toFixed(1)}" y="${pt}" width="${(X(Math.min(hi, S.SPREAD_BANDS.tight)) - X(0)).toFixed(1)}" height="${ds.length * rh}"/>`;
+    for (let v = lo; v <= hi + step / 2; v += step) {
+      const x = X(v).toFixed(1), t = +v.toFixed(6);
+      g += `<line x1="${x}" x2="${x}" y1="${pt}" y2="${pt + ds.length * rh}" class="mac-grid v"/><text x="${x}" y="${H - 8}" text-anchor="middle" class="mac-ax">${t > 0 ? "+" : t < 0 ? "−" : ""}${Math.abs(t)}%</text>`;
+    }
+    g += `<line x1="${X(0).toFixed(1)}" x2="${X(0).toFixed(1)}" y1="${pt - 4}" y2="${pt + ds.length * rh}" class="mac-gzero"/><text x="${X(0).toFixed(1)}" y="${pt - 7}" text-anchor="middle" class="mac-ax strong">offer price</text>`;
+    if (rw) g += `<text x="${W - 2}" y="${pt - 7}" text-anchor="end" class="mac-ax">size</text>`;
+    const tipOf = {};
+    ds.forEach((d, i) => {
+      const y = pt + i * rh, cy = y + rh / 2, v = d.spread, k = S.spreadKey(v), xv = X(v), xz = X(0), r = S.spreadRead(v), tk = d.target.tickers[0] || "";
+      const room = Math.max(6, Math.floor((lw - 14 - tk.length * 6.6) / 6.3)), nm = d.target.name.length > room ? d.target.name.slice(0, room - 1) + "…" : d.target.name;
+      tipOf[d.id] = `<b>${esc(d.target.name)}${tk ? ` <span class="dim">${esc(tk)}</span>` : ""}</b>${d.acquirers[0] ? `<div>Buyer: ${esc(d.acquirers[0].name)}</div>` : ""}
+        <div>Offer ${usd(d.price)} · last price ${usd(d.last)}</div><div>Gap to the offer: <b class="g-${k}">${gapTxt(v)}</b>${d.value != null ? ` · ${S.money(d.value)} deal` : ""}</div><div class="dim">${esc(r.text)}</div>`;
+      g += `<g class="mac-gr k-${k}${d.id === ctx.selected ? " sel" : ""}" data-tip="gap" data-d="${esc(d.id)}" style="--d:${i}">
+        <rect class="mac-ghit" x="0" y="${y}" width="${W}" height="${rh}" rx="3"/>
+        <text x="${lw - 8}" y="${cy + 3.5}" text-anchor="end" class="mac-glb">${esc(nm)}${tk ? `<tspan class="mac-gtk" dx="5">${esc(tk)}</tspan>` : ""}</text>
+        <line class="mac-gstem" x1="${xz.toFixed(1)}" x2="${xv.toFixed(1)}" y1="${cy}" y2="${cy}" style="transform-origin:${xz.toFixed(1)}px ${cy}px"/>
+        <circle class="mac-gdot" cx="${xv.toFixed(1)}" cy="${cy}" r="4.5"/>
+        <text x="${(xv + (v < 0 ? -9 : 9)).toFixed(1)}" y="${cy + 3.5}" text-anchor="${v < 0 ? "end" : "start"}" class="mac-gv">${gapTxt(v)}</text>
+        ${rw && d.value != null ? `<text x="${W - 2}" y="${cy + 3.5}" text-anchor="end" class="mac-ax">${S.money(d.value)}</text>` : ""}</g>`;
+    });
+    g += "</svg>";
+    C.tips.gap = tipOf;
+    const med = sum.median, parts = [];
+    if (sum.tight) parts.push(`${sum.tight} trade${sum.tight === 1 ? "s" : ""} within 2% of the offer`);
+    if (sum.some) parts.push(`${sum.some} ${sum.some === 1 ? "has a gap" : "have gaps"} of 2–8%`);
+    if (sum.wide) parts.push(`${sum.wide} ${sum.wide === 1 ? "has a gap" : "have gaps"} above 8%`);
+    if (sum.over) parts.push(`${sum.over} trade${sum.over === 1 ? "s" : ""} above ${sum.over === 1 ? "its" : "their"} offer`);
+    const read = `${plural(sum.n, "open offer")}: the typical gap is ${med < 0 ? "−" : ""}${Math.abs(med).toFixed(1)}%. ${parts.length > 1 ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] : parts[0]}.`;
+    return `<div class="mac-card mac-wide"><div class="mac-h"><b>Open offers: gap to the offer price</b><span class="dim">${all.length > MAX ? `showing the ${MAX} widest of ${all.length}` : "deals in progress, widest gap first"} · click one to open it</span></div>
+      <p class="pl-read">${esc(read)}</p>${g}
+      <div class="mac-leg"><span><i class="k-tight"></i>Within 2%: expected to close</span><span><i class="k-some"></i>2–8%: some doubt or a long wait</span><span><i class="k-wide"></i>Above 8%: doubt</span><span><i class="k-over"></i>Above the offer: a higher bid expected</span></div>
+      <p class="mac-note">The gap is (offer − last price) ÷ last price: what a buyer today makes if the deal closes at the offer, before costs. Offer prices come from the SEC fee exhibit; cash-and-stock deals and deals with price adjustments can show a misleading gap.</p></div>`;
+  }
+
   // ---------- sizes: this period against the one before ----------
   function sizes(ctx, W) {
     const a = S.sizeHist(ctx.deals), b = S.sizeHist(ctx.prev), na = a.reduce((s, x) => s + x.n, 0), nb = b.reduce((s, x) => s + x.n, 0);
@@ -246,7 +295,7 @@
     const W = Math.max(320, el.clientWidth || 800), two = W >= 880, wide = W - 30, half = two ? (W - 12) / 2 - 30 : wide;
     C.lastW = W; C.tips = {};
     if (!ctx.snap.deals?.length) { el.innerHTML = ""; return; }
-    el.innerHTML = `<div class="mac${animate ? " mac-anim" : ""}${two ? " two" : ""}">${pulse(ctx)}${flow(ctx, wide)}${bubbles(ctx, wide)}${sizes(ctx, half)}${heat(ctx, half)}${two ? "" : ""}${spend(ctx, two ? wide : half)}</div><div class="mac-tip" hidden></div>`;
+    el.innerHTML = `<div class="mac${animate ? " mac-anim" : ""}${two ? " two" : ""}">${pulse(ctx)}${flow(ctx, wide)}${bubbles(ctx, wide)}${gap(ctx, wide)}${sizes(ctx, half)}${heat(ctx, half)}${two ? "" : ""}${spend(ctx, two ? wide : half)}</div><div class="mac-tip" hidden></div>`;
   }
 
   function showTip(e, html) {
@@ -263,7 +312,7 @@
     el.addEventListener("mousemove", (e) => {
       const t = e.target.closest?.("[data-tip]");
       if (!t) return showTip(e, null);
-      showTip(e, t.dataset.tip === "flow" ? C.tips.flow?.[+t.dataset.i] : C.tips.deal?.[t.dataset.d]);
+      showTip(e, t.dataset.tip === "flow" ? C.tips.flow?.[+t.dataset.i] : t.dataset.tip === "gap" ? C.tips.gap?.[t.dataset.d] : C.tips.deal?.[t.dataset.d]);
     });
     el.addEventListener("mouseleave", (e) => showTip(e, null));
     el.addEventListener("click", (e) => {
@@ -307,6 +356,8 @@
       if (C.ctx) C.ctx.selected = id;
       C.el.querySelectorAll(".mac-dot.sel").forEach((d) => d.classList.remove("sel"));
       if (id) C.el.querySelectorAll(".mac-dot").forEach((d) => { if (d.dataset.d === id) d.classList.add("sel"); });
+      C.el.querySelectorAll(".mac-gr.sel").forEach((d) => d.classList.remove("sel"));
+      if (id) C.el.querySelectorAll(".mac-gr").forEach((d) => { if (d.dataset.d === id) d.classList.add("sel"); });
     }
   };
 })();
