@@ -65,7 +65,7 @@ button.mna-tile:hover{background:var(--surface-2)}
 .mna-count b{color:var(--fg-strong);font-weight:600}
 .mna-keys{margin-left:auto;font-size:11px}
 .mna-t{display:flex;flex-direction:column}
-.mna-r{--cols:88px minmax(140px,2fr) minmax(110px,1.4fr) 116px minmax(110px,1.2fr) 96px 136px 72px;
+.mna-r{--cols:112px minmax(140px,2fr) minmax(110px,1.4fr) 116px minmax(110px,1.2fr) 96px 136px 72px;
   display:grid;grid-template-columns:var(--cols);gap:10px;align-items:center;padding:6px 10px;font-size:12.5px;border-radius:var(--r);scroll-margin:36px 0 8px}
 .mna-r > *{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mna-r[data-id]{cursor:pointer}
@@ -89,14 +89,14 @@ button.mna-tk{cursor:pointer} button.mna-tk:hover{border-color:var(--accent)}
 .mna-more{align-self:flex-start;margin:8px 0 0 10px}
 /* narrow middle column: drop Sub-sector and Stage (the detail pane has both); the in-progress dot moves next to the date */
 @container (max-width:900px){
-  .mna-r{--cols:84px minmax(130px,2fr) minmax(100px,1.3fr) 112px 92px 70px}
+  .mna-r{--cols:112px minmax(130px,2fr) minmax(100px,1.3fr) 112px 92px 70px}
   .mna-r .c-ind,.mna-r .c-stg{display:none}
   .mna-dot.n{display:inline-block}
   .mna-keys{display:none}
 }
 @container (max-width:640px){
   .mna{padding:12px 12px 24px}
-  .mna-r{--cols:76px minmax(110px,2fr) minmax(80px,1.2fr) 100px 84px 64px;gap:8px;font-size:12px}
+  .mna-r{--cols:100px minmax(110px,2fr) minmax(80px,1.2fr) 100px 84px 64px;gap:8px;font-size:12px}
   .mna-bar select{max-width:100%}
 }
 

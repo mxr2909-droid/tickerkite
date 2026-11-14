@@ -132,7 +132,6 @@
     }
     const med = S.median(sized.map((d) => d.value));
     if (med) g += `<line x1="${pl}" x2="${W - pr}" y1="${Y(med)}" y2="${Y(med)}" class="mac-med"/><text x="${pl + 4}" y="${Y(med) - 4}" class="mac-lb">typical deal ${S.money(med)}</text>`;
-    g += `<text x="${pl}" y="${pt + ph + 13}" class="mac-ax">size not disclosed ▸</text>`;
     const tipOf = {};
     const tip = (d) => { tipOf[d.id] = `<b>${esc(d.target.name)}${d.target.tickers[0] ? ` <span class="dim">${esc(d.target.tickers[0])}</span>` : ""}</b><div>${d.value != null ? S.money(d.value) : "Size not disclosed"}${d.price ? ` · $${d.price.toLocaleString()} a share` : ""}</div>
       <div>${d.acquirers[0] ? "Buyer: " + esc(d.acquirers[0].name) : esc(d.type)}</div><div class="dim">${esc(d.sector)} · ${esc(d.type)} · ${dayLabel(d.date)}</div>`; };
