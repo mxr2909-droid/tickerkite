@@ -95,3 +95,83 @@ test("no futures → no path, never invented numbers", () => {
   const p = fed.build({ at: 1, futures: {}, fred: {}, errors: { futures: "down" } }, { items: [], live: false }, {});
   assert.strictEqual(p.path, null); assert.strictEqual(p.dots.length, 5);
 });
+
+// ---------- the fan: how the expected path has moved ----------
+const MTGS = [["2026-09-15", "2026-09-16"], ["2026-10-27", "2026-10-28"], ["2026-12-08", "2026-12-09"], ["2027-01-26", "2027-01-27"], ["2027-03-16", "2027-03-17"]].map(([start, date]) => ({ start, date }));
+const weekdays = (from, to) => { const out = []; for (let t = Date.parse(from); t <= Date.parse(to); t += 864e5) { const d = new Date(t); if (d.getUTCDay() % 6) out.push(d.toISOString().slice(0, 10)); } return out; };
+// Each contract's implied rate drifts down by 1bp a trading day per month out (more cuts priced over time), from `from`.
+function synth(from, to, months, late = {}) {
+  const futures = {};
+  months.forEach((k, i) => {
+    const days = weekdays(late[k] || from, to);
+    futures[k] = { sym: k, closes: days.map((d, j) => [d, 100 - (4.0 - 0.05 * i - 0.0001 * (i + 1) * (j + (weekdays(from, to).length - days.length)))]) };
+    futures[k].price = futures[k].closes[futures[k].closes.length - 1][1];
+  });
+  return futures;
+}
+const MONTHS = ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04"];
+const DFF = [["2026-07-01", 4.0]];
+
+test("fan: today's path, the path 1W / 1M / 3M ago and nested min–max ranges from every stored day", () => {
+  const fut = synth("2026-07-20", "2026-11-13", MONTHS);
+  const f = fed.pathFan(fut, {}, MTGS, DFF, "2026-11-13");
+  assert.deepStrictEqual(f.rows.map((r) => r.date), ["2026-12-09", "2027-01-27", "2027-03-17"]);
+  assert.deepStrictEqual(f.windows.map((w) => [w.key, w.full, w.from]), [["w1", true, "2026-11-06"], ["m1", true, "2026-10-14"], ["m3", true, "2026-08-14"]]);
+  const now = fed.pathAt(fut, {}, MTGS, DFF, "2026-11-13"), m1 = fed.pathAt(fut, {}, MTGS, DFF, "2026-10-14");
+  for (const [i, r] of f.rows.entries()) {
+    near(r.now, now.rows[i].post);
+    near(r.ago.m1, m1.rows.find((x) => x.date === r.date).post);
+    for (const k of ["w1", "m1", "m3"]) { const g = r.range[k]; assert.ok(g.lo <= r.now + 1e-9 && g.hi >= r.now - 1e-9 && g.lo <= r.ago[k] + 1e-9 && g.hi >= r.ago[k] - 1e-9, k); }
+    assert.ok(r.range.m3.lo <= r.range.m1.lo && r.range.m1.lo <= r.range.w1.lo && r.range.m3.hi >= r.range.m1.hi && r.range.m1.hi >= r.range.w1.hi);
+    assert.ok(r.now < r.ago.m3, "rates drifted down"); // more cuts priced in over the three months
+  }
+  // ranges come from every day, not just the endpoints: the 3-month range counts ~65 trading days
+  const w3 = f.windows[2];
+  assert.ok(w3.obs >= 60 && w3.obs <= 70, String(w3.obs)); assert.strictEqual(f.rows[0].range.m3.n, w3.obs + 1);
+  near(f.windows[0].start.lo, 4.0); near(f.start, 4.0);
+});
+
+test("fan: history shorter than a window uses what exists and says how far it reaches", () => {
+  const fut = synth("2026-10-30", "2026-11-13", MONTHS.slice(2));
+  const f = fed.pathFan(fut, {}, MTGS, DFF, "2026-11-13");
+  const [w1, m1, m3] = f.windows;
+  assert.strictEqual(w1.full, true); assert.strictEqual(m1.full, false); assert.strictEqual(m3.full, false);
+  assert.strictEqual(m1.since, "2026-10-30"); assert.strictEqual(m1.span, 14); assert.strictEqual(m1.obs, m3.obs);
+  for (const r of f.rows) { assert.strictEqual(r.ago.m1, null); assert.strictEqual(r.ago.m3, null); assert.ok(r.ago.w1 != null); assert.ok(r.range.m3.n > 1); }
+});
+
+test("fan: a meeting with no contract yet on an old date is null then, not guessed", () => {
+  // the March and April 2027 contracts only start trading on Oct 20
+  const fut = synth("2026-07-20", "2026-11-13", MONTHS, { "2027-03": "2026-10-20", "2027-04": "2026-10-20" });
+  const f = fed.pathFan(fut, {}, MTGS, DFF, "2026-11-13");
+  const mar = f.rows.find((r) => r.date === "2027-03-17"), dec = f.rows.find((r) => r.date === "2026-12-09");
+  assert.strictEqual(mar.ago.m1, null); assert.strictEqual(mar.ago.m3, null); assert.ok(mar.ago.w1 != null);
+  assert.ok(dec.ago.m3 != null);
+  assert.ok(mar.range.m3.n < dec.range.m3.n);
+  // no stored prices at all → nothing
+  assert.strictEqual(fed.pathFan({}, {}, MTGS, DFF, "2026-11-13"), null);
+});
+
+test("fan: daily snapshots fill days the futures closes don't cover", () => {
+  const fut = synth("2026-11-02", "2026-11-13", MONTHS.slice(2));
+  const hist = { "2026-10-01": { rates: { "2026-10": 3.95, "2026-11": 3.9, "2026-12": 3.8, "2027-01": 3.7, "2027-02": 3.6, "2027-03": 3.5, "2027-04": 3.4 } } };
+  const f = fed.pathFan(fut, hist, MTGS, DFF, "2026-11-13");
+  assert.strictEqual(f.windows[1].full, true); assert.ok(f.rows[0].ago.m1 != null);
+  assert.strictEqual(f.windows[2].full, false); assert.strictEqual(f.windows[2].since, "2026-10-01");
+});
+
+test("expired contracts keep their recent closes in the cache", () => {
+  const prev = { futures: { "2026-10": { sym: "ZQV26.CBT", closes: [["2026-06-01", 96], ["2026-10-30", 96.1]] }, "2026-11": { sym: "ZQX26.CBT", closes: [["2026-11-12", 96.1]] } },
+    expired: { "2026-05": { sym: "ZQK26.CBT", closes: [["2026-05-29", 95.7]] } } };
+  const e = fed.keepExpired(prev, "2026-11-13");
+  assert.deepStrictEqual(Object.keys(e), ["2026-10"]); assert.deepStrictEqual(e["2026-10"].closes, [["2026-10-30", 96.1]]);
+});
+
+test("build adds the fan to the snapshot", () => {
+  const fut = synth("2026-07-20", "2026-11-13", MONTHS.slice(2));
+  const cache = { at: 1, futures: fut, expired: synth("2026-07-20", "2026-10-30", MONTHS.slice(0, 2)), fred: { DFF }, errors: {} };
+  const p = fed.build(cache, { items: MTGS, live: true }, {}, Date.parse("2026-11-13T15:00:00Z"));
+  assert.strictEqual(p.fan.rows.length, p.path.rows.length); assert.strictEqual(p.fan.windows[2].full, true);
+  assert.ok(p.fan.rows[0].ago.m3 != null); // the 3-month-ago path needed the expired Sep/Oct contracts
+  near(p.fan.rows[0].ago.m1, p.m1.rows.find((r) => r.date === p.fan.rows[0].date).post);
+});

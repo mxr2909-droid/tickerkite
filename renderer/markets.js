@@ -235,7 +235,7 @@
         const items = [...g.items].sort((x, y) => (ret(y[0]) ?? -1e9) - (ret(x[0]) ?? -1e9));
         body = `<div class="mgrid">${items.map((it) => tile(it[0], it[1], it[2])).join("")}</div>`;
       }
-      return `<section class="msec"><h3>${esc(g.title)}</h3>${body}</section>` + (g.id === "sectors" ? rotationSection(s.rotation) : g.id === "assets" ? corrSection(s.corr) : "");
+      return `<section class="msec"><h3>${esc(g.title)}</h3>${body}</section>` + (g.id === "sectors" ? rotationSection(s.rotation) + (window.TkBreadthChart?.html() || "") : g.id === "assets" ? corrSection(s.corr) : "");
     }).join("");
     const errs = Object.keys(s.errors || {}).filter((k) => !s.data[k]);
     $("#markets").innerHTML = bar + sections + (errs.length ? `<div class="empty">No data for ${esc(errs.join(", "))}.</div>` : "");
@@ -342,10 +342,10 @@
 
   (window.WirePages ||= {}).markets = {
     show() {
-      M.visible = true; render(); renderDetail();
+      M.visible = true; window.TkBreadthChart?.show(); render(); renderDetail();
       api.page.invoke("markets:get").then((s) => { M.snap = s; render(); renderDetail(); });
     },
-    hide() { M.visible = false; },
+    hide() { M.visible = false; window.TkBreadthChart?.hide(); },
     key(e) {
       const p = Object.keys(SCALE)[+e.key - 1];
       if (p && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); setPeriod(p); }

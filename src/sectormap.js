@@ -6,9 +6,14 @@
 //  - Prices come from Yahoo's batch chart endpoint, 20 symbols a request: the latest price and prior close on
 //    every refresh, and closes a week … a year back once per New York day (map-refs-cache.json).
 //  - Nothing is fetched until the page is first opened; the last result is kept in map-cache.json.
+//  - Daily history (for the Markets breadth ribbon and the map's replay): ~15 months of daily closes for every company
+//    on one calendar (SPY's trading days), downloaded only when one of them first asks (map:history), at most once a day
+//    after the US close, 20 symbols a request, two requests at a time with short pauses (sectormap-history.json).
+//    The arithmetic is in src/breadth.js.
 const nasdaq = require("./data/nasdaq");
 const yahoo = require("./data/yahoo");
 const { barsFromChart, closeOnOrBefore, usMarketOpen } = require("./markets");
+const B = require("./breadth");
 
 const PERIODS = ["1D", "1W", "1M", "3M", "YTD", "1Y"];
 const TOP = 40;
@@ -17,6 +22,8 @@ const UNIVERSE_TTL = 12 * 3600 * 1000;
 // Nasdaq leaves a few large companies without a sector, and "Miscellaneous" is too small to read
 const SECTOR_FIX = { "BRK/A": "Finance", "BRK/B": "Finance" };
 const SKIP = new Set(["", "Miscellaneous"]);
+// a year of trading days plus 60, so the 1Y span has a 50-day average and a 20-day high from its first day
+const HISTORY_DAYS = 312, CALENDAR = "SPY";
 
 // ---------- pure helpers (tested) ----------
 const num = (s) => { const v = parseFloat(String(s ?? "").replace(/[$,%\s]/g, "")); return Number.isFinite(v) ? v : null; };
@@ -121,6 +128,16 @@ function view(sectors, refs, live) {
   }).sort((a, b) => b.cap - a.cap);
 }
 
+/** What map:history sends: the store with the companies now on the map (cap = today's market value).
+ *  `have` is the `at` the caller already holds: then the closes are left out (it has them). */
+function historyPayload(store, sectors, live, have, status = {}) {
+  const v = view(sectors, {}, live);
+  const syms = v.flatMap((s) => s.firms.map((f) => ({ sym: f.sym, name: f.name, sector: s.id, cap: Math.round(f.cap) })));
+  const same = !!store?.at && have === store.at;
+  return { dates: same ? null : store?.dates || [], sectors: v.map((s) => ({ id: s.id, name: s.name })), syms, closes: same ? null : store?.closes || {},
+    at: store?.at || 0, asOf: store?.asOf || 0, same, loading: !!status.loading, progress: status.progress ?? null, error: status.error || null };
+}
+
 function register(ctx) {
   const { ipcMain, send, readJSON, writeJSON } = ctx;
   // universe: sectors, companies and market caps from Nasdaq (once a day); live: Yahoo prices (every refresh);
@@ -135,14 +152,16 @@ function register(ctx) {
   const interval = () => (usMarketOpen() ? 5 : 30) * 60000;
   const report = (level, detail) => ctx.reportHealth?.("map", { label: "Sector map (Nasdaq + Yahoo)", at: state.fetchedAt, level, detail });
 
-  /** Run fn(batch, bars by symbol) over `syms`, 20 per Yahoo request, 3 requests at a time; returns how many batches failed. */
-  async function batches(syms, params, fn) {
+  /** Run fn(batch, bars by symbol) over `syms`, 20 per Yahoo request, `lanes` requests at a time (with `pause` ms
+   *  between one lane's requests); returns how many batches failed. */
+  async function batches(syms, params, fn, lanes = 3, pause = 0) {
     const list = [];
     for (let i = 0; i < syms.length; i += BATCH) list.push(syms.slice(i, i + BATCH));
     let next = 0, failed = 0;
-    await Promise.all(Array.from({ length: 3 }, async () => {
+    await Promise.all(Array.from({ length: lanes }, async () => {
       while (next < list.length) {
         const batch = list[next++];
+        if (pause && next > lanes) await new Promise((r) => setTimeout(r, pause));
         let got = null;
         for (let attempt = 0; attempt < 2 && !got; attempt++) {
           try { got = await yahoo.spark(batch, params); } catch { await new Promise((r) => setTimeout(r, 800)); }
@@ -156,16 +175,23 @@ function register(ctx) {
     return failed;
   }
 
+  /** Who is on the map, from Nasdaq when the list is missing or stale (one request shared by both callers). */
+  let uniP = null;
+  function ensureUniverse() {
+    if (state.sectors.length && Date.now() - state.universeAt <= UNIVERSE_TTL) return Promise.resolve(false);
+    return (uniP ||= (async () => {
+      const sectors = buildSectors((await nasdaq.screener())?.data?.rows);
+      if (!sectors.length) throw new Error("Nasdaq returned no stocks");
+      state = { ...state, sectors, universeAt: Date.now() };
+      return true;
+    })().finally(() => { uniP = null; }));
+  }
+
   async function refresh() {
     if (inflight) return inflight;
     inflight = (async () => {
       try {
-        if (!state.sectors.length || Date.now() - state.universeAt > UNIVERSE_TTL) {
-          const sectors = buildSectors((await nasdaq.screener())?.data?.rows);
-          if (!sectors.length) throw new Error("Nasdaq returned no stocks");
-          state = { ...state, sectors, universeAt: Date.now() };
-          if (!state.fetchedAt) send("map:update", snapshot()); // first run: show Nasdaq's own figures while Yahoo loads
-        }
+        if (await ensureUniverse() && !state.fetchedAt) send("map:update", snapshot()); // first run: show Nasdaq's own figures while Yahoo loads
         const all = symbols(), live = {};
         const failed = await batches(all, { range: "5d", interval: "1d" }, (batch, bars) => { for (const s of batch) { const q = liveQuote(bars[s]); if (q) live[s] = q; } });
         if (!Object.keys(live).length) throw new Error("Yahoo returned no prices");
@@ -196,6 +222,45 @@ function register(ctx) {
     timer = setTimeout(refresh, error ? 60000 : Math.max(5000, state.fetchedAt + interval() - Date.now()));
   }
 
+  // ---------- daily history (breadth ribbon, replay) ----------
+  // store: { dates: [yyyymmdd], closes: { SYM: [close|null] }, asOf: last session included, at: when downloaded }
+  let hstore = readJSON("sectormap-history.json", null), hstatus = { loading: false, progress: null, error: null }, hflight = null;
+  const hpush = () => send("map:history:update", { at: hstore?.at || 0, loading: hstatus.loading, progress: hstatus.progress, error: hstatus.error });
+  function loadHistory() {
+    if (hflight) return hflight;
+    hstatus = { loading: true, progress: 0, error: null }; hpush();
+    hflight = (async () => {
+      try {
+        // the history needs the list of companies, but not the map's live prices
+        if (!state.sectors.length) { await ensureUniverse(); writeJSON("map-cache.json", state); }
+        const asOf = B.lastCloseYmd(), all = [CALENDAR, ...symbols()], bars = {}, total = Math.ceil(all.length / BATCH);
+        let done = 0;
+        const failed = await batches(all, { range: "2y", interval: "1d" }, (batch, got) => {
+          for (const s of batch) if (got[s]?.length) bars[s] = got[s]; // a symbol Yahoo doesn't answer is skipped
+          hstatus.progress = ++done / total; hpush();
+        }, 2, 250);
+        const cal = bars[CALENDAR]; delete bars[CALENDAR];
+        const h = B.buildHistory(bars, cal, HISTORY_DAYS, asOf), have = Object.keys(h.closes).length;
+        if (!have) throw new Error("Yahoo returned no price history");
+        // keep the last good copy if this download came back mostly empty
+        if (hstore?.closes && have < Object.keys(hstore.closes).length * 0.8 && failed) throw new Error(`only ${have} companies answered`);
+        hstore = { ...h, asOf, at: Date.now() };
+        writeJSON("sectormap-history.json", hstore);
+        hstatus = { loading: false, progress: null, error: null };
+      } catch (e) {
+        hstatus = { loading: false, progress: null, error: String(e.message || e) };
+      }
+    })().finally(() => { hflight = null; hstatus.loading = false; hpush(); });
+    return hflight;
+  }
+  // lazy: nothing is downloaded until the breadth ribbon or the replay asks; then at most once a day, after the close
+  // (a failed download is retried on the next ask, no sooner than a minute later)
+  let hfailAt = 0;
+  ipcMain.handle("map:history", (_e, have) => {
+    if (!hflight && B.historyDue(hstore) && (!hstatus.error || Date.now() - hfailAt > 60000)) { hfailAt = Date.now(); loadHistory(); }
+    return historyPayload(hstore, state.sectors, state.live, have, hstatus);
+  });
+
   // lazy: nothing is fetched until the page is first opened
   ipcMain.handle("map:get", () => {
     if (Date.now() - state.fetchedAt > interval() || !refsReady()) refresh(); else if (!timer) schedule();
@@ -204,4 +269,4 @@ function register(ctx) {
   ipcMain.handle("map:refresh", async () => { await refresh(); return snapshot(); });
 }
 
-module.exports = { register, PERIODS, TOP, isCommon, baseName, yahooSymbol, buildSectors, nyYmd, periodRefs, liveQuote, firmNow, groupReturn, view };
+module.exports = { register, PERIODS, TOP, HISTORY_DAYS, historyPayload, isCommon, baseName, yahooSymbol, buildSectors, nyYmd, periodRefs, liveQuote, firmNow, groupReturn, view };

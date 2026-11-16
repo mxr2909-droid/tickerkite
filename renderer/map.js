@@ -1,9 +1,11 @@
 /* Tickerkite Sector map page: a treemap of US sectors (size = market cap, color = return) that zooms into a sector's
    largest companies, flat or as 3D blocks whose height is the size of the move. One canvas draws both views:
    the "camera" is an orthographic projection that is straight overhead in 2D and tilts and turns in 3D.
-   Registers with app.js through window.WirePages; geometry (squarify, depthOrder) is in treemap.js. */
+   Registers with app.js through window.WirePages; geometry (squarify, depthOrder) is in treemap.js.
+   REPLAY plays the last weeks or months back on the same layout (sizes stay today's): per-day colors come from the
+   shared daily history (TkMapHistory, src/breadth.js replayFrames), computed once per span; frames only recolor. */
 (() => {
-  const api = window.wire, T = window.TkTreemap;
+  const api = window.wire, T = window.TkTreemap, BR = window.TkBreadth, HS = window.TkMapHistory;
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   // a company moving ±SCALE % over the period is fully saturated and full height; sectors move less, so they use half
@@ -23,14 +25,34 @@
   try { M.period = localStorage.getItem("wire.map.period") || "1D"; M.three = localStorage.getItem("wire.map.3d") === "1"; } catch {}
   if (!SCALE[M.period]) M.period = "1D";
   M.k = M.three ? 1 : 0;
+  // replay: i = position in trading days (fractional while playing), len days from s+1 to the last; fr = replayFrames()
+  const RSCALE = { "1M": 12, "3M": 20, "6M": 30, "1Y": 50 }, RATE = 4; // "since the start" color scale; days per second at 1×
+  const R = { on: false, playing: false, i: 0, len: 0, speed: 1, span: "3M", mode: "day", fr: null, P: null, index: null, dates: [], base: 0, ew: null, pending: null };
+  try { const v = localStorage.getItem("wire.map.rpspan"); if (RSCALE[v]) R.span = v; if (localStorage.getItem("wire.map.rpmode") === "cum") R.mode = "cum"; } catch {}
 
   // ---------- DOM (built once; the canvas persists) ----------
   const root = $("#map");
   root.innerHTML = `<div class="mbar sm-bar"></div>
+    <div class="sm-rp" hidden>
+      <button type="button" class="sm-rp-play" data-rp="play" aria-label="Play" title="Play or pause (Space)">▶</button>
+      <div class="sm-rp-date"><b></b><span></span></div>
+      <input type="range" class="sm-rp-scrub" min="0" max="0" step="1" value="0" aria-label="Trading day">
+      <div class="sm-rp-ctl">
+        <span class="mrange" title="Playback speed">${[1, 2, 4].map((v) => `<button type="button" data-rpspeed="${v}">${v}×</button>`).join("")}</span>
+        <span class="mrange" title="How far back the replay starts">${Object.keys(RSCALE).map((v) => `<button type="button" data-rpspan="${v}">${v}</button>`).join("")}</span>
+        <span class="mrange" title="What the colors show"><button type="button" data-rpmode="day">Each day</button><button type="button" data-rpmode="cum">Since the start</button></span>
+        <button type="button" class="mref" data-rp="close" title="Back to live prices (Esc)" aria-label="Leave replay">✕</button>
+      </div>
+      <div class="sm-rp-ew" title="The average daily move of the companies in view, compounded from the start of the replay"><span>Equal-weight</span><b></b></div>
+      <div class="sm-rp-line" title="Click to jump to a day"><svg viewBox="0 0 1000 30" preserveAspectRatio="none" aria-hidden="true"><line class="z" x1="0" x2="1000"/><polyline/></svg><i class="sm-rp-mk"></i></div>
+      <div class="sm-rp-note dim">Sizes are today's market values. Space plays or pauses · ← → a day · Home / End · Esc leaves</div>
+    </div>
     <div class="sm-stage"><canvas aria-label="Sector map"></canvas><div class="sm-wait"></div><div class="sm-tip" hidden></div><div class="sm-legend"></div></div>`;
   const barEl = root.querySelector(".sm-bar"), stage = root.querySelector(".sm-stage"), cv = root.querySelector("canvas");
   const waitEl = root.querySelector(".sm-wait"), tip = root.querySelector(".sm-tip"), legEl = root.querySelector(".sm-legend");
   const c = cv.getContext("2d");
+  const rp = root.querySelector(".sm-rp"), rpScrub = rp.querySelector(".sm-rp-scrub"), rpDate = rp.querySelector(".sm-rp-date b"), rpDay = rp.querySelector(".sm-rp-date span");
+  const rpEw = rp.querySelector(".sm-rp-ew b"), rpLineEl = rp.querySelector(".sm-rp-line"), rpMk = rp.querySelector(".sm-rp-mk"), rpPlay = rp.querySelector(".sm-rp-play");
 
   // ---------- numbers and colors ----------
   const pct = (v, d = 2) => (v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(d) + "%");
@@ -65,6 +87,20 @@
     return a == null ? b : lerp(a, b, ease(M.pk));
   }
 
+  // ---------- replay values ----------
+  const rScale = () => (R.mode === "cum" ? RSCALE[R.span] : SCALE["1D"]);
+  /** A replay series at the current position: interpolated between days while playing (so colors glide), stepped with reduced motion. */
+  function rVal(a) {
+    const k = Math.floor(R.i), t = calm ? 0 : R.i - k, x = a[k], y = a[Math.min(R.len - 1, k + 1)];
+    if (x !== x) return t > 0.5 && y === y ? y : null;
+    return t === 0 || y !== y ? x : x + (y - x) * t;
+  }
+  /** The labelled value: the day the date shows. */
+  const rDay = (a) => { const v = a[Math.round(R.i)]; return v === v ? v : null; };
+  const rN = (a, f) => { const v = rVal(a); return v == null ? null : clamp(v / (rScale() * f), -1, 1); };
+  const secSeries = (si) => R.fr.sec[si][R.mode], firmSeries = (si, fi) => R.fr.firm[si][fi][R.mode];
+  const fmtDay = (d, dow) => { const x = new Date(Date.UTC(Math.floor(d / 10000), Math.floor(d / 100) % 100 - 1, d % 100)); return x.toLocaleDateString("en-US", { timeZone: "UTC", weekday: dow ? "short" : undefined, month: "short", day: "numeric", year: "numeric" }); };
+
   const sectorOf = (id) => M.snap?.sectors?.find((s) => s.id === id) || null;
   const firmOf = (sym) => { for (const s of M.snap?.sectors || []) { const f = s.firms.find((x) => x.sym === sym); if (f) return f; } return null; };
 
@@ -74,11 +110,11 @@
     if (!s?.sectors?.length || M.W < 40 || M.H < 40) { M.lay = null; return; }
     const PW = M.W - 2 * PAD, PH = M.H - 2 * PAD - LEGEND, plane = { x: 0, y: 0, w: PW, h: PH };
     const top = T.squarify(s.sectors.map((x) => x.cap), plane);
-    M.lay = { PW, PH, plane, sectors: s.sectors.map((sec, i) => {
+    M.lay = { PW, PH, plane, sectors: s.sectors.map((sec, si) => {
       // companies are laid out once, for the whole plane, and squeezed into the sector's rectangle: opening a sector
       // is then one smooth stretch, with every company keeping its place
-      const full = T.squarify(sec.firms.map((f) => f.cap), plane), r = top[i], kx = r.w / PW, ky = r.h / PH;
-      return { sec, rect: r, full, nested: full.map((n) => ({ x: r.x + n.x * kx, y: r.y + n.y * ky, w: n.w * kx, h: n.h * ky })) };
+      const full = T.squarify(sec.firms.map((f) => f.cap), plane), r = top[si], kx = r.w / PW, ky = r.h / PH;
+      return { sec, i: si, rect: r, full, nested: full.map((n) => ({ x: r.x + n.x * kx, y: r.y + n.y * ky, w: n.w * kx, h: n.h * ky })) };
     }) };
   }
 
@@ -131,14 +167,14 @@
     const layers = [[], []];
     for (const s of L.sectors) {
       if (s === F || (F && ez >= 1)) continue;
-      const n = inten(s.sec.ret, SECTOR_F);
-      layers[0].push({ kind: "sector", s, key: s.sec.id, rect: cam(s.rect), col: colorN(n), h: hgt(n), alpha: F ? 1 - ez : 1, gap: 1 });
+      const n = R.on ? rN(secSeries(s.i), SECTOR_F) : inten(s.sec.ret, SECTOR_F), v = R.on ? rDay(secSeries(s.i)) : s.sec.ret[M.period];
+      layers[0].push({ kind: "sector", s, key: s.sec.id, rect: cam(s.rect), col: colorN(n), h: hgt(n), alpha: F ? 1 - ez : 1, gap: 1, v });
     }
     if (F) {
-      const ns = inten(F.sec.ret, SECTOR_F), cs0 = colorN(ns), hs = hgt(ns);
+      const ns = R.on ? rN(secSeries(F.i), SECTOR_F) : inten(F.sec.ret, SECTOR_F), cs0 = colorN(ns), hs = hgt(ns);
       F.sec.firms.forEach((f, i) => {
-        const nf = inten(f.ret, 1);
-        layers[1].push({ kind: "firm", s: F, f, key: f.sym, rect: mixRect(F.nested[i], F.full[i], ez), col: mixCol(cs0, colorN(nf), ez), h: lerp(hs, hgt(nf), ez), alpha: 1, gap: 0.6 * ez });
+        const nf = R.on ? rN(firmSeries(F.i, i), 1) : inten(f.ret, 1), v = R.on ? rDay(firmSeries(F.i, i)) : f.ret[M.period];
+        layers[1].push({ kind: "firm", s: F, f, key: f.sym, rect: mixRect(F.nested[i], F.full[i], ez), col: mixCol(cs0, colorN(nf), ez), h: lerp(hs, hgt(nf), ez), alpha: 1, gap: 0.6 * ez, v });
       });
     }
 
@@ -165,10 +201,10 @@
         const kx = w / t.s.rect.w, ky = d / t.s.rect.h;
         for (const n of t.s.nested) c.rect((n.x - t.s.rect.x) * kx, (n.y - t.s.rect.y) * ky, n.w * kx, n.h * ky);
         c.stroke(); c.globalAlpha = t.alpha;
-        sectorLabel(t.s.sec, w, d, ink);
+        sectorLabel(t.s.sec, w, d, ink, t.v);
       } else {
         const a = clamp((ez - 0.35) / 0.45, 0, 1);
-        if (a > 0) { c.globalAlpha = a; firmLabel(t.f, w, d, ink); }
+        if (a > 0) { c.globalAlpha = a; firmLabel(t.f, w, d, ink, t.v); }
       }
       flat(); c.globalAlpha = 1;
       const on = t.key === M.sel && t.kind === "firm", hov = t.key === M.hover;
@@ -176,8 +212,8 @@
       M.hits.push({ t, polys });
     }
 
-    function sectorLabel(sec, w, d, ink) {
-      const p = Math.min(9, w * 0.07, d * 0.1), W = w - 2 * p, name = sec.name.toUpperCase(), val = pct(sec.ret[M.period]);
+    function sectorLabel(sec, w, d, ink, v) {
+      const p = Math.min(9, w * 0.07, d * 0.1), W = w - 2 * p, name = sec.name.toUpperCase(), val = pct(v);
       const small = (v) => v * S * Math.min(1, sp + 0.25) < 6.5; // too small to read on screen
       let fn = fit(name, 700, W, Math.min(15, d * 0.2));
       const fp = fit(val, 800, W, Math.min(38, d * 0.3, w * 0.2));
@@ -189,10 +225,10 @@
       if (fn && !small(fsub) && y + fsub <= d - p && fit(sub, 400, W, fsub) >= fsub) { setFont(400, fsub); c.globalAlpha *= 0.75; c.fillText(sub, p, y); }
     }
 
-    function firmLabel(f, w, d, ink) {
+    function firmLabel(f, w, d, ink, v) {
       const fs = fit(f.sym, 700, w * 0.84, Math.min(42, d * 0.4));
       if (fs * S * Math.min(1, sp + 0.25) < 6.5) return;
-      const val = pct(f.ret[M.period]), f2 = Math.min(fs * 0.6, fit(val, 500, w * 0.9, 99)), two = f2 * S >= 6.5 && fs + f2 * 1.3 <= d * 0.92;
+      const val = pct(v), f2 = Math.min(fs * 0.6, fit(val, 500, w * 0.9, 99)), two = f2 * S >= 6.5 && fs + f2 * 1.3 <= d * 0.92;
       const y = d / 2 - (two ? (fs + f2 * 1.25) / 2 : fs / 2);
       c.fillStyle = ink; c.textBaseline = "top"; c.textAlign = "center";
       setFont(700, fs); c.fillText(f.sym, w / 2, y);
@@ -202,9 +238,9 @@
     for (const tiles of layers) for (const i of T.depthOrder(tiles.map((t) => t.rect), sn, cs)) box(tiles[i]);
 
     if (F && ez < 0.4) { // the sector's own label hands over to its companies
-      const u = mixRect(F.rect, L.plane, ez), n = inten(F.sec.ret, SECTOR_F);
+      const u = mixRect(F.rect, L.plane, ez), n = R.on ? rN(secSeries(F.i), SECTOR_F) : inten(F.sec.ret, SECTOR_F);
       onTop(u.x, u.y, hgt(n) * k); c.globalAlpha = 1 - ez / 0.4;
-      sectorLabel(F.sec, u.w, u.h, inkOn(colorN(n)));
+      sectorLabel(F.sec, u.w, u.h, inkOn(colorN(n)), R.on ? rDay(secSeries(F.i)) : F.sec.ret[M.period]);
       flat(); c.globalAlpha = 1;
     }
   }
@@ -215,8 +251,13 @@
   function frame() {
     raf = 0;
     // real elapsed time (not the frame's own timestamp, which stalls in a hidden window), so a throttled window still finishes on schedule
-    const now = performance.now(), dt = calm ? 1e6 : Math.max(0, now - last); last = now;
+    const now = performance.now(), real = Math.max(0, now - last), dt = calm ? 1e6 : real; last = now;
     let busy = false;
+    if (R.playing) { // a steady number of trading days per second (a long stall doesn't jump ahead)
+      R.i = Math.min(R.len - 1, R.i + (Math.min(real, 250) / 1000) * RATE * R.speed);
+      if (R.i >= R.len - 1) { R.playing = false; rpControls(); } else busy = true;
+      rpTick();
+    }
     const go = (cur, target, ms) => { if (cur === target) return cur; busy = true; return cur < target ? Math.min(target, cur + dt / ms) : Math.max(target, cur - dt / ms); };
     M.z = go(M.z, M.zT, 560); M.k = go(M.k, M.three ? 1 : 0, 700); M.pk = go(M.pk, 1, 420);
     if (M.z === 0 && M.zT === 0) M.focus = null;
@@ -228,13 +269,15 @@
   function bar() {
     const s = M.snap, sec = sectorOf(M.level);
     barEl.innerHTML = `<span class="sm-crumb">${sec ? `<button type="button" data-up title="Back to all sectors (Esc)">‹ ALL SECTORS</button><b>${esc(sec.name)}</b>` : `<b>ALL SECTORS</b>`}</span>
-      <span class="mperiods">${Object.keys(SCALE).map((p, i) => `<button type="button" data-per="${p}" data-k="${i + 1}" aria-pressed="${p === M.period}" title="Key ${i + 1}">${p}</button>`).join("")}</span>
+      <span class="mperiods">${Object.keys(SCALE).map((p, i) => `<button type="button" data-per="${p}" data-k="${i + 1}" aria-pressed="${p === M.period}" title="${R.on ? "Leave the replay to pick a period" : "Key " + (i + 1)}"${R.on ? " disabled" : ""}>${p}</button>`).join("")}</span>
       <span class="dim">${!s?.fetchedAt ? "Loading…" : "Updated " + new Date(s.fetchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + (s.open ? " · market open" : " · market closed") + (s.refsReady ? "" : " · loading price history…")}</span>
+      ${replayButton()}
       <span class="mrange sm-mode" title="Flat map or 3D blocks (key D)"><button type="button" data-mode="2d" aria-pressed="${!M.three}">2D</button><button type="button" data-mode="3d" aria-pressed="${M.three}">3D</button></span>
       <button type="button" class="mref" data-ref title="Refresh now (R)">↻</button>`;
-    const sc = SCALE[M.period] * (sec ? 1 : SECTOR_F), stops = [-1, -0.6, -0.3, -0.1, 0, 0.1, 0.3, 0.6, 1];
-    legEl.innerHTML = `<span class="num">−${sc}%</span><i style="background:linear-gradient(90deg,${stops.map((n) => rgb(colorN(n))).join(",")})"></i><span class="num">+${sc}%</span>
-      <span class="sm-key">SIZE = MARKET CAP · COLOR = ${M.period} RETURN${M.three ? " · HEIGHT = SIZE OF THE MOVE · DRAG TO TURN" : ""}${sec ? "" : " · CLICK A SECTOR TO OPEN IT"}</span>`;
+    const sc = (R.on ? rScale() : SCALE[M.period]) * (sec ? 1 : SECTOR_F), stops = [-1, -0.6, -0.3, -0.1, 0, 0.1, 0.3, 0.6, 1];
+    const what = !R.on ? `${M.period} RETURN` : R.mode === "cum" ? `RETURN SINCE THE CLOSE OF ${fmtDay(R.base).toUpperCase()}` : "THAT DAY'S RETURN";
+    legEl.innerHTML = `<span class="num">−${+sc.toFixed(1)}%</span><i style="background:linear-gradient(90deg,${stops.map((n) => rgb(colorN(n))).join(",")})"></i><span class="num">+${+sc.toFixed(1)}%</span>
+      <span class="sm-key">${R.on ? "REPLAY · SIZE = TODAY'S MARKET CAP" : "SIZE = MARKET CAP"} · COLOR = ${what}${M.three ? " · HEIGHT = SIZE OF THE MOVE · DRAG TO TURN" : ""}${sec ? "" : " · CLICK A SECTOR TO OPEN IT"}</span>`;
     if (s) {
       window.WireChrome?.pulled("map", s.fetchedAt || null);
       window.WireChrome?.status("map", `US MARKET ${s.open ? "OPEN" : "CLOSED"}${s.refsReady ? "" : " · LOADING PRICE HISTORY"}`);
@@ -242,6 +285,84 @@
     const have = !!s?.sectors?.length;
     waitEl.hidden = have;
     if (!have) waitEl.innerHTML = s?.error && !s.busy ? window.WireUI.error(s.error, "data-ref") : window.WireUI.skeleton("tiles", { n: 24, label: "Loading sectors and companies…" });
+  }
+
+  // ---------- replay ----------
+  function replayButton() {
+    if (R.on) return `<button type="button" class="mref sm-rpbtn" data-replay aria-pressed="true" title="Back to live prices (Esc)">REPLAY ✕</button>`;
+    const H = HS.get(), st = H.status;
+    if (HS.ready()) return `<button type="button" class="mref sm-rpbtn" data-replay title="Play the last weeks or months back on the map">▶ REPLAY</button>`;
+    if (st.error && !st.loading) return `<button type="button" class="mref sm-rpbtn" data-replay title="${esc("The price history didn't download: " + st.error)}">REPLAY · RETRY</button>`;
+    return `<button type="button" class="mref sm-rpbtn" disabled aria-busy="true" title="Downloading a year of daily prices for the replay">REPLAY · LOADING${st.progress ? " " + Math.round(st.progress * 100) + "%" : "…"}</button>`;
+  }
+  /** Per-day colors for the span, once per span (and per entry): the layout stays as it is. */
+  function buildFrames() {
+    const H = HS.get(), n = H.data.dates.length, e = n - 1, s = Math.max(0, e - Math.min(BR.SPANS[R.span], n - 1));
+    const groups = M.snap.sectors.map((sec) => sec.firms.map((f) => ({ row: H.index.get(f.sym) ?? -1, cap: f.cap })));
+    R.fr = BR.replayFrames(H.P, groups, s, e); R.P = H.P; R.index = H.index;
+    R.s = s; R.e = e; R.len = R.fr.len; R.dates = H.data.dates.slice(s + 1, e + 1); R.base = H.data.dates[s];
+    R.i = 0;
+    rpScrub.max = String(Math.max(0, R.len - 1));
+  }
+  /** The equal-weight line of the companies in view (all, or the open sector's), with its own scale. */
+  function rpLine() {
+    const secs = M.level ? [sectorOf(M.level)].filter(Boolean) : M.snap.sectors;
+    const idx = secs.flatMap((x) => x.firms.map((f) => R.index.get(f.sym))).filter((i) => i != null);
+    R.ew = BR.ewPath(R.P, idx, R.s, R.e);
+    R.ewN = idx.length;
+    const lo = Math.min(0, ...R.ew), hi = Math.max(0, ...R.ew), pad = (hi - lo) * 0.12 || 1, Y = (v) => 28 - ((v - lo + pad) / (hi - lo + 2 * pad)) * 26;
+    const X = (k) => (R.len > 1 ? (k / (R.len - 1)) * 1000 : 500);
+    rpLineEl.querySelector("polyline").setAttribute("points", Array.from(R.ew, (v, k) => `${X(k).toFixed(1)},${Y(v).toFixed(1)}`).join(" "));
+    const z = rpLineEl.querySelector("line.z"); z.setAttribute("y1", Y(0).toFixed(1)); z.setAttribute("y2", Y(0).toFixed(1));
+    rp.querySelector(".sm-rp-ew span").textContent = `Equal-weight · ${R.ewN} cos`;
+  }
+  /** Per-frame updates of the transport (no DOM rebuilt). */
+  function rpTick() {
+    if (!R.on || !R.len) return;
+    const k = Math.round(R.i), d = R.dates[k];
+    if (+rpScrub.value !== k) rpScrub.value = String(k);
+    if (rpDate.dataset.d !== String(d)) {
+      rpDate.dataset.d = String(d); rpDate.textContent = fmtDay(d, true);
+      rpDay.textContent = `Day ${k + 1} of ${R.len} · ${R.mode === "cum" ? "since the close of " + fmtDay(R.base) : "each day's own move"}`;
+    }
+    const v = R.ew?.[k];
+    rpEw.textContent = v == null ? "—" : pct(v, 1); rpEw.className = cls(v);
+    rpMk.style.left = (R.len > 1 ? (R.i / (R.len - 1)) * 100 : 0) + "%";
+  }
+  function rpControls() {
+    rpPlay.textContent = R.playing ? "❚❚" : "▶"; rpPlay.setAttribute("aria-label", R.playing ? "Pause" : "Play");
+    rp.querySelectorAll("[data-rpspeed]").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.rpspeed === R.speed)));
+    rp.querySelectorAll("[data-rpspan]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.rpspan === R.span)));
+    rp.querySelectorAll("[data-rpmode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.rpmode === R.mode)));
+  }
+  function play() { if (!R.on) return; if (R.i >= R.len - 1) R.i = 0; R.playing = R.len > 1; rpControls(); kick(); }
+  function pause() { if (!R.playing) return; R.playing = false; rpControls(); }
+  function seek(i) { if (!R.on) return; R.i = clamp(i, 0, Math.max(0, R.len - 1)); rpTick(); draw(); }
+  function enterReplay() {
+    if (R.on) return exitReplay();
+    if (!HS.ready()) { HS.want(); return; } // the button reads RETRY after a failed download
+    if (!M.snap?.sectors?.length) return;
+    if (window.WireInstrument?.isOpen()) window.WireInstrument.close();
+    R.on = true; R.pending = null; hideTip();
+    buildFrames(); rpLine();
+    rp.hidden = false; rpDate.dataset.d = "";
+    bar(); rpControls(); rpTick(); draw();
+    play();
+  }
+  /** Back to live prices: the snapshot that arrived meanwhile (if any) is applied, exactly as take() would have. */
+  function exitReplay() {
+    if (!R.on) return;
+    R.on = false; R.playing = false; R.fr = null; R.ew = null; rp.hidden = true; hideTip();
+    const p = R.pending; R.pending = null;
+    if (p) take(p); else refreshAll();
+  }
+  function setReplay(patch) {
+    if (patch.speed) R.speed = patch.speed;
+    if (patch.mode) R.mode = patch.mode;
+    if (patch.span && patch.span !== R.span) { R.span = patch.span; buildFrames(); rpLine(); }
+    try { localStorage.setItem("wire.map.rpspan", R.span); localStorage.setItem("wire.map.rpmode", R.mode); } catch {}
+    rpDate.dataset.d = ""; rpControls(); rpTick(); bar(); draw();
+    if (R.playing) kick();
   }
 
   // ---------- right-hand pane ----------
@@ -293,7 +414,7 @@
   // ---------- actions ----------
   function refreshAll() { bar(); detail(); draw(); }
   function setPeriod(p) {
-    if (!SCALE[p] || p === M.period) return;
+    if (!SCALE[p] || p === M.period || R.on) return;
     M.prev = M.period; M.period = p; M.pk = 0;
     try { localStorage.setItem("wire.map.period", p); } catch {}
     bar(); detail(); kick();
@@ -302,12 +423,14 @@
     if (!sectorOf(id)) return;
     if (window.WireInstrument?.isOpen()) window.WireInstrument.close();
     M.level = M.focus = id; M.zT = 1; M.sel = null; M.hover = null; hideTip();
+    if (R.on) { rpLine(); rpTick(); }
     bar(); detail(); kick();
   }
   function zoomOut() {
     if (!M.level) return;
     if (window.WireInstrument?.isOpen()) window.WireInstrument.close();
     M.level = null; M.zT = 0; M.sel = null; M.hover = null; hideTip();
+    if (R.on) { rpLine(); rpTick(); }
     bar(); detail(); kick();
   }
   function select(sym) {
@@ -325,6 +448,7 @@
     if (M.snap) { M.snap = { ...M.snap, busy: true }; bar(); }
   }
   function take(s) {
+    if (R.on) { R.pending = s; return; } // the replay keeps today's layout; the newest snapshot is applied when it ends
     M.snap = s;
     if (M.level && !sectorOf(M.level)) { M.level = M.focus = null; M.z = M.zT = 0; }
     if (M.sel && !sectorOf(M.level)?.firms.some((f) => f.sym === M.sel)) M.sel = null;
@@ -350,10 +474,11 @@
     const h = M.z === M.zT ? hitAt(e) : null, key = h?.t.key ?? null;
     cv.style.cursor = h ? "pointer" : M.three ? "grab" : "default";
     if (h) {
-      const t = h.t, v = (t.f || t.s.sec).ret[M.period];
+      const t = h.t, v = t.v;
+      const when = !R.on ? M.period : R.mode === "cum" ? `${fmtDay(R.base)} → ${fmtDay(R.dates[Math.round(R.i)])}` : `on ${fmtDay(R.dates[Math.round(R.i)], true)}`;
       tip.innerHTML = t.kind === "firm"
-        ? `<b>${esc(t.f.sym)}</b> ${esc(t.f.name)}<br><span class="${cls(v)}">${pct(v)}</span> ${M.period} · ${cap(t.f.cap)}${t.f.industry ? `<br><span class="dim">${esc(t.f.industry)}</span>` : ""}`
-        : `<b>${esc(t.s.sec.name)}</b><br><span class="${cls(v)}">${pct(v)}</span> ${M.period} · ${cap(t.s.sec.cap)}<br><span class="dim">Click to open its ${t.s.sec.firms.length} largest companies</span>`;
+        ? `<b>${esc(t.f.sym)}</b> ${esc(t.f.name)}<br><span class="${cls(v)}">${pct(v)}</span> ${when} · ${cap(t.f.cap)}${t.f.industry ? `<br><span class="dim">${esc(t.f.industry)}</span>` : ""}`
+        : `<b>${esc(t.s.sec.name)}</b><br><span class="${cls(v)}">${pct(v)}</span> ${when} · ${cap(t.s.sec.cap)}<br><span class="dim">Click to open its ${t.s.sec.firms.length} largest companies</span>`;
       tip.hidden = false;
       const tw = tip.offsetWidth, thh = tip.offsetHeight;
       tip.style.left = clamp(h.pt[0] + 14, 4, M.W - tw - 4) + "px";
@@ -391,11 +516,24 @@
   }, { passive: true });
 
   root.addEventListener("click", (e) => {
+    if (e.target.closest("[data-replay]")) return enterReplay();
+    const rb = e.target.closest("[data-rp]");
+    if (rb) return rb.dataset.rp === "close" ? exitReplay() : R.playing ? pause() : play();
+    const sp = e.target.closest("[data-rpspeed]"); if (sp) return setReplay({ speed: +sp.dataset.rpspeed });
+    const sn = e.target.closest("[data-rpspan]"); if (sn) return setReplay({ span: sn.dataset.rpspan });
+    const md = e.target.closest("[data-rpmode]"); if (md) return setReplay({ mode: md.dataset.rpmode });
+    const ln = e.target.closest(".sm-rp-line");
+    if (ln && R.len > 1) { const r = ln.getBoundingClientRect(); return seek(Math.round(clamp((e.clientX - r.left) / r.width, 0, 1) * (R.len - 1))); }
     const per = e.target.closest("[data-per]"); if (per) return setPeriod(per.dataset.per);
     const mode = e.target.closest("[data-mode]"); if (mode) return setThree(mode.dataset.mode === "3d");
     if (e.target.closest("[data-up]")) return zoomOut();
     if (e.target.closest("[data-ref]")) return reload();
   });
+  // dragging the scrubber takes over from the player
+  rpScrub.addEventListener("input", () => { pause(); seek(+rpScrub.value); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
+  // the replay button follows the download
+  HS.on(() => { if (M.visible) bar(); });
   $("#mapdetail").addEventListener("click", (e) => {
     const sec = e.target.closest("[data-sec]"); if (sec) return zoomIn(sec.dataset.sec);
     const firm = e.target.closest("[data-firm]"); if (firm) return select(firm.dataset.firm);
@@ -409,10 +547,25 @@
       M.visible = true; bar(); detail();
       requestAnimationFrame(resize); // the stage has no size until the page is displayed
       api.page.invoke("map:get").then(take).catch(() => {});
+      HS.want();
     },
-    hide() { M.visible = false; hideTip(); },
+    hide() { M.visible = false; hideTip(); pause(); },
     key(e) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (R.on) {
+        const k = e.key, onScrub = e.target === rpScrub;
+        if (k === "Escape") { e.preventDefault(); return exitReplay(); }
+        if (k === " ") {
+          e.preventDefault(); if (e.target.closest?.("button")) e.target.blur(); // so the focused button isn't also pressed on key-up
+          return R.playing ? pause() : play();
+        }
+        if (k === "ArrowLeft" || k === "ArrowRight" || k === "Home" || k === "End") {
+          if (onScrub) return; // the range input moves itself and reports it through "input"
+          e.preventDefault(); pause();
+          return seek(k === "Home" ? 0 : k === "End" ? R.len - 1 : Math.round(R.i) + (k === "ArrowRight" ? 1 : -1));
+        }
+        if (/^[1-6]$/.test(k)) return; // periods are off while replaying
+      }
       const p = Object.keys(SCALE)[+e.key - 1];
       if (p) { e.preventDefault(); return setPeriod(p); }
       const k = e.key.toLowerCase(), sec = sectorOf(M.level);
