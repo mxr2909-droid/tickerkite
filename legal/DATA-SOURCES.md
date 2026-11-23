@@ -4,7 +4,7 @@ Tickerkite downloads all of its data directly to your Mac from the sources below
 
 ## Prices and charts
 
-- **Yahoo Finance** (finance.yahoo.com): delayed quotes, charts and symbol search. This is Yahoo's public website data, not a licensed feed.
+- **Yahoo Finance** (finance.yahoo.com): delayed quotes, charts and symbol search (also the daily prices behind the Fintech page). This is Yahoo's public website data, not a licensed feed.
 - **Finnhub** (finnhub.io): prices for US stocks and ETFs, only if you add your own API key in Settings.
 
 ## News
@@ -25,5 +25,5 @@ Tickerkite downloads all of its data directly to your Mac from the sources below
 - **US Treasury** (home.treasury.gov): daily yield curves.
 - **Federal Reserve Board** (federalreserve.gov): FOMC calendar and projections.
 - **BLS, BEA and the Census Bureau**: release schedules.
-- **Nasdaq** (nasdaq.com): economic calendar forecasts and actuals, earnings dates, institutional holders, and the stock screener list (sector, industry and market value) behind the Sector map.
-- **SEC EDGAR** (sec.gov): company filings, financial statements and insider trades. Public domain.
+- **Nasdaq** (nasdaq.com): economic calendar forecasts and actuals, earnings dates, institutional holders, and the stock screener list (sector, industry and market value) behind the Sector map and the Fintech page.
+- **SEC EDGAR** (sec.gov): company filings, financial statements and insider trades. Public domain. The M&A page and the Fintech page's deals section use its deal filings.

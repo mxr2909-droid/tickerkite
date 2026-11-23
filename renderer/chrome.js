@@ -25,19 +25,21 @@
     ["portfolio", "PORT", "PORTFOLIO", 7, "↑↓ MOVE · ↵ CHART · ESC DESELECT"],
     ["company", "DES", "COMPANY", 9, "1–7 / ←→ TAB · ↵ CHART · / OR ⌘K LOOK UP"],
     ["mc", "MC", "PORTFOLIO MONTE CARLO", "O", "1–5 TIME FRAME · R RERUN · P PATHS · V VALUE / RETURN · 10,000 RUNS, YAHOO DAILY CLOSES"],
-    ["mna", "MA", "MERGERS AND ACQUISITIONS", "Q", "/ SEARCH · ↑↓ MOVE · ↵ OPEN FILING · R REFRESH · SEC EDGAR FILINGS"]
+    ["mna", "MA", "MERGERS AND ACQUISITIONS", "Q", "/ SEARCH · ↑↓ MOVE · ↵ OPEN FILING · R REFRESH · SEC EDGAR FILINGS"],
+    ["fintech", "FIN", "FINTECH: PAYMENTS, LENDING, CRYPTO AND MARKET INFRASTRUCTURE", "N", "1–7 PERIOD · ↑↓ MOVE · ↵ CHART · ESC BACK · R REFRESH"]
   ];
   // Top-level tabs and their sub-tabs (page ids). A group with one page shows no sub-row.
   const GROUPS = [
     ["NEWS", ["news", "brief"]],
     ["MACRO", ["score", "calendar", "fed", "curve", "warn", "factor"]],
     ["MARKETS", ["markets", "map", "fx", "mna"]],
+    ["FINTECH", ["fintech"]],
     ["GRAPHS", ["graphs"]],
     ["EQUITY", ["screen", "company", "mc"]],
     ["PORTFOLIO", ["portfolio"]]
   ];
-  // one-letter shortcut per page, pressed with ⌥ (Option); mnemonic: Top, Brief, Economic scorecard, Calendar, Fed, Yield curve, Warnings, fActor, Markets, sector map (Heat), fX, Graphs, Screener, Company (Des), Portfolio, mOnte carlo, M&A (Q)
-  const KEYS = { news: "T", brief: "B", score: "E", calendar: "C", fed: "F", curve: "Y", warn: "W", factor: "A", markets: "M", map: "H", fx: "X", graphs: "G", screen: "S", company: "D", portfolio: "P", mc: "O", mna: "Q" };
+  // one-letter shortcut per page, pressed with ⌥ (Option); mnemonic: Top, Brief, Economic scorecard, Calendar, Fed, Yield curve, Warnings, fActor, Markets, sector map (Heat), fX, Graphs, Screener, Company (Des), Portfolio, mOnte carlo, M&A (Q), fiNtech
+  const KEYS = { news: "T", brief: "B", score: "E", calendar: "C", fed: "F", curve: "Y", warn: "W", factor: "A", markets: "M", map: "H", fx: "X", graphs: "G", screen: "S", company: "D", portfolio: "P", mc: "O", mna: "Q", fintech: "N" };
   const groupOf = (p) => GROUPS.findIndex((g) => g[1].includes(p));
   const lastIn = {};   // group index -> last page opened in it
   const META = Object.fromEntries(PAGES.map((p) => [p[0], { code: p[1], title: p[2], digit: p[3], hint: p[4] }]));

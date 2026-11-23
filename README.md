@@ -50,6 +50,7 @@ Tickerkite opens in the **Terminal** theme: near-black background, cyan accents,
 | MAP | Sector map (sectors that open into their companies, 2D or 3D) | ⌥H |
 | FX | Currencies (megatrends and a two-currency compare) | ⌘⌥X |
 | MA | Mergers and acquisitions (deals for US-listed targets, filters and market charts) | ⌥Q |
+| FIN | Fintech (68 US-listed fintechs: index vs the market, sub-sectors, leaders, deals and news) | ⌥N |
 | FED | Fed path | ⌘⌥5 |
 | GC | Yield curve | ⌘⌥8 |
 | GP | Graphs | ⌘⌥6 |
@@ -59,7 +60,7 @@ Tickerkite opens in the **Terminal** theme: near-black background, cyan accents,
 
 Each page has a header strip (code, title and status on the left, **PULLED N MINUTES AGO** on the right) and a footer with its keys. The same codes work in the ⌘K bar. The older slate/indigo look is still there as **Classic**: switch with **View › Switch Theme** (⌘⌥T) or **Settings › Appearance**. The choice is remembered on this Mac. In Classic, the top bar works as described next.
 
-The top bar has six entries: **Brief · News · Portfolio · Markets ▾ · Macro ▾ · Company**. **Markets ▾** opens Markets, Yield curve, Fed path and Graphs; **Macro ▾** opens Scorecards and Calendar. A group shows the page you're on. The ⌘⌥0–9 shortcuts, the ⌘K command bar and reopening on your last page work as before. While a page loads it shows placeholder rows, and a failed download says so with a **Try again** button.
+The top bar has seven entries: **Brief · News · Portfolio · Markets ▾ · Fintech · Macro ▾ · Company**. **Markets ▾** opens Markets, Yield curve, Fed path and Graphs; **Fintech** opens the Fintech page (FIN, ⌥N); **Macro ▾** opens Scorecards and Calendar. A group shows the page you're on. The ⌘⌥0–9 shortcuts, the ⌘K command bar and reopening on your last page work as before. While a page loads it shows placeholder rows, and a failed download says so with a **Try again** button.
 
 | Key | Action |
 |---|---|
@@ -218,6 +219,29 @@ The code is `src/sectormap.js` (data), `renderer/map.js` and `renderer/map.css` 
 **Alerts.** The ALERTS button in the page header opens a small panel: switch alerts on, always alert for watchlist tickers, and pick sectors, deal types and a minimum size. A new deal that matches sends a macOS notification, which also lands in the Alerts inbox under DEALS; clicking it opens this page. Only deals first filed with the SEC in the last 10 days alert, each at most once. SPAC mergers never alert. A deal with no stated size waits until its size is read when a minimum is set. At most 5 notifications go out per check, and switching alerts on never floods you with old deals. Settings and the deals already seen are kept in `mna-alerts.json`.
 
 Click a deal for the right pane: buyer, size, offer price per share, sector, and every filing with a link. The data is cached in `mna-cache.json` and re-checked every 6 hours (only the last few days are re-read). The code is `src/mna.js` (EDGAR, deal grouping, fee exhibit, quotes and the gap), `src/mna-alerts.js` (alert rules and notifications, tested), `renderer/mnastats.js` (filters and statistics, tested), `renderer/mna.js` (page), `renderer/mnacharts.js` (charts) and `renderer/mnaalerts.js` with `renderer/mnaalerts.css` (alerts panel).
+
+## Fintech (FIN)
+
+**FINTECH** (⌥N) is its own tab in the top bar, next to Markets. It follows 68 US-listed financial-technology companies as a group and asks how fintech is doing against the market: tiles, a trends chart, a breakdown by sub-sector, leaders and laggards, deals and news. Periods are 1D, 1W, 1M, 3M, YTD, 1Y and 3Y (keys 1 to 7).
+
+**Who is on it.** A fixed, hand-picked list, not a screen. Nasdaq's industry labels are too loose for this (they would pull in banks, data processors and software firms that are not fintech), so each company is chosen and given one of eight sub-sectors: Payments & networks, Lending & BNPL, Digital banks, Brokerage & wealth, Crypto & digital assets, Market infrastructure & data, Financial software and Insurtech. Five benchmarks are drawn for comparison: SPY (S&P 500), XLF (financials), FINX, ARKF and IPAY. **To change the list, edit `src/fintech-universe.js`**: add or remove a row (symbol, sub-sector, a fallback name and a regex for the names headlines use), or change a sub-sector's name. Nothing else needs touching.
+
+**Sections.**
+- **Tiles:** the fintech index, how it did against the S&P 500 and against XLF, the total market value, the best and worst sub-sector, and the share of companies up.
+- **Trends:** the fintech index rebased to 100 against the S&P 500, XLF and one ETF of your choice, with a small chart for each sub-sector.
+- **Breakdown:** a treemap of the companies by market value, colored by return (click a sub-sector to open into it), and a table of every sub-sector with its return, median company and size.
+- **Leaders and laggards:** the best and worst companies over the period.
+- **M&A:** deals per quarter by sub-sector, totals, and the latest 25 fintech deals.
+- **News and themes:** headlines that name a fintech company or topic, for the last 24 hours or 7 days, with the recurring themes (stablecoins, BNPL, and so on).
+- **Right pane:** click a company, sub-sector, deal or story for detail.
+
+**How the index is built.** Two indexes, both started at 100: **value-weighted** (bigger companies count more, by market value; the headline one) and **equal-weighted** (every company counts the same). Each day's index move is the weighted average of that day's company moves, chained from day to day, so a company that lists later joins on its second trading day and never changes the past. A missing close is carried forward for up to 5 trading days. 
+
+**Where the data comes from.** Names and market values from Nasdaq's stock screener (re-read every 12 hours); about three years of daily closes from Yahoo, downloaded once a day after the US close, plus the last 5 days at most every 10 minutes while the page is open. Nothing is downloaded until you first open the page. The last result is kept in `fintech-cache.json`, and the page has a row in the data health light. Deals come from the M&A page's SEC data (no extra downloads).
+
+**How deals are picked.** A deal counts as fintech when the target or the buyer is on the list, or when the target's SEC industry code (SIC) is a clearly financial one: 6099, 6141, 6153, 6159, 6162, 6163, 6211, 6282, 6200 or 6231. Some codes (7371 to 7374 software and data processing, 6331 and 6411 insurance, 6021 6022 6035 6036 banks) are too broad, because data-processing, gaming and outsourcing firms file under them, so they count only when the company's name has a fintech word in it. Crypto names count under any code. SPAC mergers are left out unless the SPAC is fintech-named. **The limit:** only deals where the target files with the SEC are here (the same limit as the M&A page), and the classification is a rule on codes and names, so a few deals are missed or wrongly included.
+
+The code is `src/fintech-universe.js` (the list), `src/fintech.js` (downloads, cache, IPC), `renderer/fintechstats.js` (returns, indexes, sub-sector statistics, deal classification, news filter; tested), `renderer/fintech.js` with `renderer/fintech.css` (page), and `test/fintech.test.js` with `test/fintechstats.test.js`.
 
 ## Currencies (FX)
 
@@ -426,6 +450,8 @@ src/company.js       company panel: SEC EDGAR fundamentals, valuation, next earn
 src/graphs.js        graph workspace: FRED/Yahoo downloads, cache, saved charts, exports
 src/mna.js           mergers and acquisitions: SEC deal filings folded into deals, deal size from fee exhibits, closings and acquisition spending, quotes for the gap to the offer
 src/mna-alerts.js    M&A deal alerts: matching rules, seen deals, notifications
+src/fintech-universe.js  the fintech list: companies, sub-sectors, benchmarks (edit this to change the page)
+src/fintech.js       fintech page: Nasdaq market values, Yahoo closes, cache, data-health row
 src/breadth.js       market breadth: share rising, above 50-day average, new highs and lows, equal-weight vs cap-weight
 src/montecarlo.js    portfolio Monte Carlo: block-bootstrap simulation, percentile paths, outperformance histogram, saved custom portfolios
 src/macro/           scorecards: indicators, data downloads, scoring, default weights
@@ -436,6 +462,8 @@ src/news/feeds.js    default sources
 src/news/fetcher.js  parallel feed download with timeouts
 src/news/parse.js    RSS/Atom parser (no dependencies)
 src/news/rank.js     clustering, tagging and impact scoring
+renderer/fintechstats.js  fintech math: returns, indexes, sub-sector stats, deal classifier, news filter
+renderer/fintech.js + fintech.css  the Fintech page
 renderer/            the terminal UI (HTML/CSS/JS); theme.js + terminal.css + chrome.js are the Terminal theme
 test/                parser and ranking tests (npm test)
 ```

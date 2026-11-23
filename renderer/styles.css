@@ -235,7 +235,7 @@ button.mk:hover{background:var(--fg-strong)}
 
 /* ---------- pages: News / Scorecards ---------- */
 /* each page hides its own elements on other pages; new pages add the same rule in their own CSS file */
-.app:not([data-page="news"]) .news-only,.app:not([data-page="score"]) .score-only{display:none!important}
+.app:not([data-page="news"]) .news-only,.app:not([data-page="score"]) .score-only,.app:not([data-page="fintech"]) .fintech-only{display:none!important}
 .pages::-webkit-scrollbar{display:none}
 .pages{display:flex;gap:2px;-webkit-app-region:no-drag;width:fit-content;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
 .pages button{font-weight:500;font-size:13px;color:var(--dim);padding:5px 12px;border-radius:6px;white-space:nowrap;flex:none}
